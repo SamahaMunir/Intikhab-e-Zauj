@@ -1,0 +1,20 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "5049g-1QMdXQOotasUved"
+uri = "file://artifacts/nikah-network/src/assets/images/hero.png"
+type = "image"
+title = "Hero silhouette hands holding Quran"
+
+[[generated]]
+id = "Kf306HjL13ebfeJD0fTA4"
+uri = "file://artifacts/nikah-network/src/assets/images/avatar-w1.png"
+type = "image"
+title = "Avatar Pakistani Woman 1"
+
+[[generated]]
+id = "--jthD-rOMCQGQ6UcsFU7"
+uri = "file://artifacts/nikah-network/src/assets/images/avatar-m1.png"
+type = "image"
+title = "Avatar Pakistani Man 1"
