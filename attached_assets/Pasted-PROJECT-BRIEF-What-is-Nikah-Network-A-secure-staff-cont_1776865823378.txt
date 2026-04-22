@@ -1,0 +1,2395 @@
+PROJECT BRIEF
+What is Nikah Network?
+A secure, staff-controlled matrimonial web platform for Falah Khandan Center (Women Commission, Lahore). It digitalizes the manual matchmaking process (paper/WhatsApp) while maintaining Islamic values, privacy, and family involvement.
+
+Core Principle
+Staff approves everything. No user can contact another user without staff approval. No profile goes live without staff review.
+
+User Roles
+Applicants (Public Users) - Register, view profiles, send proposals, communicate only via approved Q&A
+Staff (Admin) - Approve profiles, review matches, approve proposals, moderate Q&A, manage counselling
+Management (Optional) - View dashboards, reports, KPIs
+6 Core Features (MVP)
+Registration & Profile Management - Self-registration + staff profile creation + approval workflow
+Duplicate Detection - Email/phone exact match + fuzzy name/DOB matching
+AI-Assisted Matching - Hard filters + weighted scoring (transparent breakdown)
+Proposal System - Send proposal → staff approval → Q&A communication (moderated, time-bound)
+Admin/Staff Dashboard - Profile approvals, match reviews, proposal tracking, audit logs
+Counselling Requests - Pre/post-marriage counselling request system
+Comparison to Muzz
+Feature	Nikah Network	Muzz
+Moderation	100% staff-controlled	User-controlled with community moderation
+Communication	Q&A only (staff-reviewed)	Open chat (flagged content removed)
+Approvals	Every profile, proposal, message	Verified on signup only
+Islamic Focus	Counselling built-in, family involvement	Dating-app style
+Target	Institutional (centers, families)	Individual users
+STACK ANALYSIS
+Why This Stack?
+Layer	Technology	Why This	Alternatives Rejected
+Frontend	React 18 + TypeScript + Vite	Fast dev, type-safe, HMR	Vue (unfamiliar), Angular (overkill)
+Styling	Tailwind CSS	Utility-first, responsive, no CSS files	Bootstrap (bloated), Styled Components (slower)
+State Mgmt	React Query + Context	Caching, sync, minimal boilerplate	Redux (too complex), Zustand (missing cache)
+Backend	Node.js + Express + TypeScript	Non-blocking I/O, large ecosystem, type-safe	Django (Python, slower), Go (overkill)
+Database	MongoDB + Mongoose	Document-based (profiles are JSON), free tier (512MB)	PostgreSQL (relational, needs normalization), Firebase (vendor lock-in)
+Auth	JWT + bcrypt + speakeasy (TOTP)	Stateless, scalable, 2FA built-in	Sessions (need Redis), OAuth (external dependency)
+Image Storage	Cloudinary	Free tier, CDN, image processing	AWS S3 (complex), Firebase Storage (limited)
+Email	SendGrid	Free 100/day, templates, webhooks	Nodemailer (unreliable), Mailgun (overkill)
+Job Queue	Bull (Redis-backed)	Background jobs, retry logic, persistence	node-cron (unreliable), bull-board UI
+File Upload	multer + Cloudinary SDK	Easy, validated, secure	express-fileupload (no CDN)
+Validation	Zod	Runtime validation, type inference	Joi (verbose), Yup (slower)
+Testing	Jest + Supertest	Fast, built for Node, snapshot testing	Mocha (verbose), Jasmine (outdated)
+Logging	Winston + Morgan	Structured logs, multiple transports	console.log (no persistence)
+Hosting	Render (backend) + Vercel (frontend)	Free tier, auto-deploy from Git	Heroku (deprecated free), Railway (paid)
+Tech Stack Summary
+Code
+FRONTEND:
+  - React 18 (TSX components)
+  - TypeScript (strict mode)
+  - Vite (build tool)
+  - Tailwind CSS (styling)
+  - React Query (data fetching/caching)
+  - Axios (HTTP client)
+  - React Router (navigation)
+  - React Hot Toast (notifications)
+
+BACKEND:
+  - Node.js 18+ (runtime)
+  - Express.js (API framework)
+  - TypeScript (strict mode)
+  - Mongoose (MongoDB ODM)
+  - Zod (validation)
+  - bcryptjs (password hashing)
+  - jsonwebtoken (JWT)
+  - speakeasy (TOTP 2FA)
+  - multer (file upload)
+  - cloudinary (image CDN)
+  - sendgrid/mail (email)
+  - bull (job queue)
+  - redis (Bull backend)
+  - winston (logging)
+  - morgan (HTTP logging)
+  - cors (CORS handling)
+  - helmet (security headers)
+  - rate-limiter-flexible (rate limiting)
+
+DATABASE:
+  - MongoDB Atlas (cloud MongoDB)
+  - Mongoose (ODM with validation)
+
+DEVOPS:
+  - Docker (containerization, optional)
+  - GitHub (version control)
+  - Render (backend hosting)
+  - Vercel (frontend hosting)
+  - Sentry (error tracking)
+Free Tier Costs (Monthly)
+Code
+MongoDB Atlas:     ₨0 (512MB)
+SendGrid:          ₨0 (100 emails/day)
+Cloudinary:        ₨0 (25GB bandwidth/mo)
+Render:            ₨0 (0.5 CPU, 512MB RAM)
+Vercel:            ₨0 (unlimited builds)
+Redis (Bull):      ₨0 (local dev) → ~₨1,500 (upstash.com free tier on Render)
+Total:             ₨0 for MVP
+DATABASE SCHEMAS
+1. User Model (Authentication + Profile)
+TypeScript
+{
+  _id: ObjectId (auto)
+  email: string (unique, lowercase, indexed)
+  phone: string (unique, E.164 format like +923015555555, indexed)
+  passwordHash: string (bcrypt)
+  role: "admin" | "staff" | "applicant"
+  
+  // PROFILE (only for applicants)
+  profile: {
+    firstName: string
+    lastName: string
+    dob: Date (ISO 8601)
+    gender: "M" | "F"
+    caste: string (e.g., "Arain", "Malik", "Rajput")
+    education: string (e.g., "Matric", "Intermediate", "Bachelor", "Master")
+    occupation: string
+    monthlyIncome: number (PKR)
+    city: string
+    district: string
+    photoUrl: string (Cloudinary URL)
+    bioData: string (max 500 chars)
+    familyBackground: string (max 300 chars)
+    maritalStatus: "single" | "divorced" | "widowed"
+    children: number
+    preferences: {
+      ageRange: [number, number] (e.g., [25, 35])
+      locationRadius: number (km, e.g., 50)
+      castePreferences: [string] (e.g., ["Arain", "Malik"])
+      educationMin: string
+      incomeMin: number
+      maritalStatusAccepts: ["single", "divorced", "widowed"]
+      childrenAccepts: number (0 = no kids, 999 = any)
+    }
+  }
+  
+  // ACCOUNT STATUS
+  status: "active" | "inactive" | "suspended"
+  profileStatus: "pending" | "approved" | "rejected"
+  profileRejectionReason: string (optional)
+  profileApprovedBy: ObjectId (ref: User, staff who approved)
+  profileApprovedAt: Date
+  
+  // 2FA (Staff only)
+  totpSecret: string (encrypted)
+  totpEnabled: boolean
+  
+  // PRIVACY & COMPLIANCE
+  consentGiven: boolean
+  consentGivenAt: Date
+  dataRetentionUntil: Date (GDPR: auto-delete after 2 years)
+  
+  // VERIFICATION
+  emailVerified: boolean
+  emailVerifiedAt: Date
+  
+  // TIMESTAMPS
+  createdAt: Date
+  updatedAt: Date
+  lastLogin: Date
+  lastActiveAt: Date
+}
+
+Indexes:
+- email (unique)
+- phone (unique)
+- status + profileStatus (for queries)
+- createdAt (for sorting)
+2. Match Model (Suggested Matches)
+TypeScript
+{
+  _id: ObjectId (auto)
+  profileId_A: ObjectId (ref: User, suggester)
+  profileId_B: ObjectId (ref: User, suggested)
+  
+  // SCORING (0-100)
+  score: number
+  scoreBreakdown: {
+    ageMatch: number (0-100)
+    locationMatch: number (0-100)
+    casteMatch: number (0-100)
+    educationMatch: number (0-100)
+    incomeMatch: number (0-100)
+    childrenMatch: number (0-100)
+  }
+  
+  // WORKFLOW
+  status: "suggested" | "approved_by_staff" | "hidden" | "proposed"
+  approvedBy: ObjectId (ref: User, staff)
+  approvedAt: Date
+  hiddenBy: ObjectId (staff or user)
+  hiddenReason: string
+  hiddenAt: Date
+  
+  // TIMESTAMPS
+  generatedAt: Date
+  expiresAt: Date (30 days from generation)
+}
+
+Indexes:
+- profileId_A + status (staff dashboard query)
+- score DESC (top matches)
+- generatedAt DESC
+3. Proposal Model (Match Request)
+TypeScript
+{
+  _id: ObjectId (auto)
+  initiatorId: ObjectId (ref: User, who sent)
+  recipientId: ObjectId (ref: User, who received)
+  
+  // PROPOSAL STATUS
+  status: "pending_staff_approval" | "approved" | "rejected" | "accepted" | "declined" | "expired"
+  initiatorMessage: string (max 200 chars, optional)
+  
+  // STAFF APPROVAL
+  reviewedBy: ObjectId (ref: User, staff reviewer)
+  reviewedAt: Date
+  rejectionReason: string
+  
+  // COMMUNICATION WINDOW
+  communicationOpenedAt: Date
+  communicationClosesAt: Date (7-14 days from opened)
+  isClosed: boolean
+  closureReason: "expired" | "accepted" | "declined" | "reported"
+  
+  // METADATA
+  messageCount: number
+  questionCount: number
+  reportedCount: number
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+Indexes:
+- initiatorId + status (user view: my proposals sent)
+- recipientId + status (user view: proposals received)
+- status + createdAt (staff approval queue)
+4. ProposalMessage Model (Q&A Thread)
+TypeScript
+{
+  _id: ObjectId (auto)
+  proposalId: ObjectId (ref: Proposal)
+  
+  // QUESTION
+  senderId: ObjectId (ref: User, who asked)
+  questionText: string (max 300 chars)
+  askedAt: Date
+  
+  // ANSWER(S)
+  replies: [
+    {
+      _id: ObjectId (auto)
+      senderId: ObjectId (ref: User, who answered)
+      replyText: string (max 500 chars)
+      repliedAt: Date
+      approvedAt: Date (when staff approved, null if pending)
+      approvedBy: ObjectId (ref: User, staff who approved)
+      status: "pending_staff_review" | "approved" | "rejected"
+      rejectionReason: string
+      flaggedForReview: boolean
+      flagReason: string
+    }
+  ]
+  
+  // MODERATION
+  status: "pending_staff_review" | "approved" | "rejected" | "flagged"
+  reportedBy: ObjectId[] (users who reported)
+  reportReasons: [string] (e.g., "inappropriate language", "too personal")
+  
+  createdAt: Date
+}
+
+Indexes:
+- proposalId + status (conversation view)
+- status (staff moderation queue)
+- createdAt DESC
+5. CounsellingRequest Model (Pre/Post Marriage Services)
+TypeScript
+{
+  _id: ObjectId (auto)
+  userId: ObjectId (ref: User)
+  type: "pre_marriage" | "post_marriage"
+  
+  // REQUEST DETAILS
+  topic: string (e.g., "communication", "in-laws", "financial planning")
+  description: string (max 1000 chars)
+  preferredDate: Date (optional)
+  preferredTime: string (optional, e.g., "10:00-12:00")
+  
+  // STATUS & ASSIGNMENT
+  status: "pending" | "assigned" | "completed" | "cancelled"
+  assignedStaffId: ObjectId (ref: User, staff counsellor)
+  assignedAt: Date
+  completedAt: Date
+  
+  // NOTES
+  staffNotes: string (internal notes)
+  counsellingFormat: "phone" | "in_person" | "email"
+  
+  createdAt: Date
+  updatedAt: Date
+}
+
+Indexes:
+- status + createdAt (staff inbox)
+- userId (user view)
+6. AuditLog Model (Compliance & Security)
+TypeScript
+{
+  _id: ObjectId (auto)
+  staffId: ObjectId (ref: User, who did the action)
+  action: "profile_approved" | "profile_rejected" | "match_hidden" | 
+          "proposal_approved" | "proposal_rejected" | "message_approved" | 
+          "message_rejected" | "user_suspended" | "password_reset" | "2fa_enabled"
+  
+  resourceType: "profile" | "match" | "proposal" | "message" | "user"
+  resourceId: ObjectId (the thing that was acted on)
+  
+  changes: {
+    before: object (e.g., {status: "pending"})
+    after: object (e.g., {status: "approved"})
+  }
+  
+  reason: string (why staff did this)
+  ipAddress: string
+  userAgent: string
+  
+  timestamp: Date
+}
+
+Indexes:
+- staffId + timestamp (audit trail per staff)
+- resourceId + action (all changes to a resource)
+- action + timestamp (security audit)
+7. Config Model (Admin Settings)
+TypeScript
+{
+  _id: ObjectId (auto)
+  key: string (unique, e.g., "MATCH_WEIGHTS", "QA_SETTINGS")
+  value: object or string or number
+  
+  Examples:
+  {
+    key: "MATCH_WEIGHTS",
+    value: {
+      ageMatch: 0.20,
+      locationMatch: 0.20,
+      casteMatch: 0.25,
+      educationMatch: 0.15,
+      incomeMatch: 0.20
+    }
+  }
+  
+  {
+    key: "QA_SETTINGS",
+    value: {
+      maxQuestionsPerConversation: 10,
+      maxReplyLength: 500,
+      minScoreThreshold: 65,
+      communicationDurationDays: 14
+    }
+  }
+  
+  {
+    key: "NOTIFICATION_SETTINGS",
+    value: {
+      emailOnProposal: true,
+      emailOnMatch: true,
+      emailOnMessageApproved: true
+    }
+  }
+  
+  updatedAt: Date
+  updatedBy: ObjectId (ref: User, admin)
+}
+
+Indexes:
+- key (unique)
+WEBSITE FLOW & WORKFLOWS
+Flow 1: Applicant Registration & Approval
+Code
+1. User visits nikah-network.com
+2. Clicks "Register as Applicant" or "Staff Creates Profile"
+   
+   SELF-REGISTRATION:
+   - Email, Password, Name, DOB, Gender, City
+   - System sends verification email
+   - User clicks email link to verify
+   - User fills detailed profile:
+     * Photo (Cloudinary upload)
+     * Caste, Education, Occupation, Income
+     * Bio, Family Background
+     * Preferences (age range, location, caste, education, income)
+   - System checks duplicates (exact email/phone + fuzzy name/DOB)
+   - Profile saved as "pending" (hidden from search)
+   
+   STAFF-CREATED PROFILE:
+   - Staff logs in to dashboard
+   - Clicks "Create Profile for Applicant"
+   - Enters: Email, Phone, Name, DOB, Gender, City, Photo
+   - System generates temp password, sends to applicant
+   - Profile saved as "pending_staff_entry" (awaiting applicant to fill details)
+   - Applicant logs in, fills remaining details
+   - System checks duplicates
+   
+3. Staff Reviews Profile in Approval Queue
+   - Staff dashboard shows "Pending Profiles" tab
+   - Staff clicks profile to review:
+     * Name, DOB, photo verified
+     * Details reasonable and complete
+     * Check duplicate detection results
+   - Staff clicks "Approve" or "Reject"
+   - If rejected: add reason (e.g., "photo unclear", "duplicate detected")
+   - Audit log: "Staff [name] approved profile [user] on [date]"
+   
+4. Approved Profile Goes Live
+   - Profile status → "approved"
+   - Profile becomes visible in search + matching
+   - User receives email: "Your profile is live!"
+   - Automatic matching runs (cron job, daily at 2 AM)
+
+5. User Updates Profile
+   - User can update bio, preferences anytime
+   - Photo change requires staff re-approval
+   - Bio/pref changes auto-approved (within reason, flagged if suspicious)
+User Journey Diagram:
+
+Code
+[Register/Staff Creates] 
+       ↓
+[Email Verify (if self-reg)]
+       ↓
+[Fill Profile Details]
+       ↓
+[Duplicate Check]
+       ↓
+[Status: Pending]
+       ↓
+[Staff Reviews in Queue]
+       ↓
+[Staff Approves/Rejects]
+       ↓
+[If Approved: Status → Active]
+       ↓
+[Appears in Matches]
+Flow 2: Matching (Automatic + Staff Review)
+Code
+1. Automatic Match Generation (Daily Cron, 2 AM)
+   - System iterates all "approved" profiles
+   - For each profile A:
+     * Find all profiles B where:
+       - Gender opposite A
+       - Age within A's preference range
+       - Education ≥ A's minimum
+       - Income ≥ A's minimum
+       - Location within radius
+       - Caste in A's accepted list
+       - Marital status accepted
+       - Children count acceptable
+     * Calculate match score for A→B and B→A using formula:
+       score = (ageMatch × 0.20) + (locationMatch × 0.20) + 
+               (casteMatch × 0.25) + (educationMatch × 0.15) + 
+               (incomeMatch × 0.20)
+     * If score ≥ 65: save Match record (suggested)
+   
+2. Staff Reviews Matches in Dashboard
+   - Staff logs in → "Pending Matches" tab
+   - Shows: Profile A → Suggested Profile B (score: 78/100)
+   - Score breakdown visible:
+     * Age: 90/100, Location: 100/100, Caste: 80/100, Education: 65/100, Income: 60/100
+   - Staff can:
+     * "Approve" (match becomes active)
+     * "Hide" (staff decides match is unsuitable)
+     * "Reject" (ask system to recalculate this pair)
+   - Audit log: "Staff [name] approved match [A] ↔ [B]"
+   
+3. User Views Matches
+   - User logs in → "My Matches" tab
+   - Shows top 5 approved matches (staff-approved only)
+   - Each match shows:
+     * Photo (if approved by staff)
+     * Name, Age, City, Education, Occupation
+     * Match Score: 78/100 with breakdown (transparent)
+     * "Send Proposal" button
+   - User can click profile to see full details
+   - User can also mark match as "Not Interested" (hidden for user, not for staff)
+   
+4. System Recalculates Weekly
+   - New profiles added → generate matches for them
+   - Preferences updated → regenerate matches for that user
+   - Manual trigger: Admin can force recalculation
+Matching Algorithm Pseudocode:
+
+TypeScript
+function calculateScore(profileA: Profile, profileB: Profile): Match {
+  const weights = {
+    age: 0.20,
+    location: 0.20,
+    caste: 0.25,
+    education: 0.15,
+    income: 0.20
+  };
+  
+  // Hard filters (disqualify if not met)
+  if (!isAgeInRange(profileB, profileA.preferences.ageRange)) return null;
+  if (!isLocationInRadius(profileA, profileB, profileA.preferences.locationRadius)) return null;
+  if (!isCasteAccepted(profileB, profileA.preferences.castePreferences)) return null;
+  if (profileB.education < profileA.preferences.educationMin) return null;
+  if (profileB.monthlyIncome < profileA.preferences.incomeMin) return null;
+  if (!isMaritalStatusAccepted(profileB, profileA.preferences.maritalStatusAccepts)) return null;
+  if (!areChildrenAccepted(profileB, profileA.preferences.childrenAccepts)) return null;
+  
+  // Soft scoring (0-100 per category)
+  const ageScore = 100 - (Math.abs(profileA.age - profileB.age) / 20 * 100);
+  const locationScore = (maxDistance / distance(profileA.city, profileB.city)) * 100;
+  const casteScore = profileA.preferences.castePreferences.includes(profileB.caste) ? 100 : 30;
+  const educationScore = educationHierarchy[profileB.education] >= educationHierarchy[profileA.preferences.educationMin] ? 100 : 70;
+  const incomeScore = (profileB.monthlyIncome / profileA.preferences.incomeMin) * 100;
+  
+  const totalScore = Math.min(100, Math.round(
+    ageScore * weights.age +
+    locationScore * weights.location +
+    casteScore * weights.caste +
+    educationScore * weights.education +
+    incomeScore * weights.income
+  ));
+  
+  return {
+    score: totalScore,
+    breakdown: { ageScore, locationScore, casteScore, educationScore, incomeScore }
+  };
+}
+Flow 3: Proposal & Moderated Q&A
+Code
+1. User Sends Proposal
+   - User clicks "Send Proposal" on a match
+   - Optional: User writes intro message (max 200 chars)
+   - Click "Send"
+   - Status: Proposal created, "pending_staff_approval"
+   - Both users notified: "New proposal request (awaiting staff review)"
+   
+2. Staff Reviews & Approves Proposal
+   - Staff dashboard → "Pending Proposals" tab
+   - Shows: [User A] wants to contact [User B]
+   - Staff verifies both profiles are active + no red flags
+   - Staff clicks "Approve" or "Reject"
+   - If rejected: add reason (e.g., "user A has negative history")
+   - Audit log: "Staff [name] approved proposal [A] → [B]"
+   
+3. Q&A Communication Opens
+   - Both users notified: "Proposal approved! You can now ask questions."
+   - Communication window: 14 days (configurable)
+   - Counter-proposal not needed; both can ask/answer simultaneously
+   
+4. User Asks Question
+   - User A clicks "Ask Question"
+   - Types question (max 300 chars), e.g., "What do you expect from a spouse?"
+   - Clicks "Send"
+   - Status: Question "pending_staff_review" (not visible to User B yet)
+   - Staff inbox updated
+   
+5. Staff Reviews Question
+   - Staff dashboard → "Message Moderation Queue"
+   - Shows question from User A
+   - Staff checks for:
+     * Respectful language
+     * Not overly personal (e.g., "what's your salary?" → allowed; "are you a virgin?" → flagged)
+     * No contact info (phone numbers, social media)
+   - Staff clicks "Approve" or "Reject"
+   - If rejected: question never shown to User B, User A notified (reason given)
+   - Audit log: "Staff [name] approved message in proposal [A] → [B]"
+   
+6. User B Sees Question & Replies
+   - User B sees approved question from User A
+   - User B types reply (max 500 chars)
+   - Clicks "Send"
+   - Status: Reply "pending_staff_review"
+   - Notification sent to User A: "New reply to your question (awaiting staff review)"
+   
+7. Staff Reviews Reply
+   - Same moderation process as questions
+   - If approved: appears in User A's Q&A thread
+   - If rejected: User B notified with reason
+   
+8. Q&A Conversation Continues
+   - Max 10 questions per user (configurable)
+   - Each question can have 1 reply per user
+   - Counter-questions allowed
+   - Timeline: 14 days from approval (auto-closes)
+   - Either user can click "Decline" to close early (irreversible)
+   
+9. Proposal Outcome
+   - After conversation: User A or User B clicks:
+     * "Accept" (we want to take this to next level → transfer to family/counselling)
+     * "Decline" (not interested)
+   - Other user notified
+   - Proposal status updated
+   - Audit log: "Proposal [A] → [B] closed with outcome: [accepted/declined]"
+   
+10. Post-Proposal
+    - Both users can request counselling (pre-marriage)
+    - Staff can remove proposal from system after 30 days (privacy)
+Q&A Workflow Diagram:
+
+Code
+[Proposal Approved]
+       ↓
+[Communication Window Opens (14 days)]
+       ↓
+[User A Asks Question]
+       ↓
+[Question: pending_staff_review]
+       ↓
+[Staff Reviews & Approves/Rejects]
+       ↓
+[If Approved: User B Sees Question]
+       ↓
+[User B Replies]
+       ↓
+[Reply: pending_staff_review]
+       ↓
+[Staff Reviews & Approves/Rejects]
+       ↓
+[If Approved: User A Sees Reply]
+       ↓
+[Conversation Continues (max 10 questions)]
+       ↓
+[14-day Timer Expires OR User Clicks "Accept/Decline"]
+       ↓
+[Proposal Closed]
+Moderation Queue Example:
+
+Code
+Staff Dashboard → "Message Moderation" Tab
+
+PENDING (3):
+1. User: Fatima Khan
+   Proposal: Fatima ↔ Ahmed (Day 2/14)
+   Message: "Hi Ahmed! What are your career goals?"
+   [Approve] [Reject]
+   
+2. User: Ahmed Ali
+   Proposal: Fatima ↔ Ahmed
+   Message: "I want to become an engineer. My salary is 150K. What's yours?"
+   ⚠️ FLAG: Asks about salary
+   [Approve] [Reject] [Request Revision]
+   
+3. User: Ali Hassan
+   Proposal: Ali ↔ Zainab
+   Message: "Call me 03015555555"
+   ❌ REJECTED (auto): Contains phone number
+   [View Details]
+
+APPROVED TODAY (12)
+REJECTED TODAY (2)
+Flow 4: Counselling Request
+Code
+1. User Requests Counselling
+   - User clicks "Request Counselling" from homepage or after proposal
+   - Selects: "Pre-Marriage" or "Post-Marriage"
+   - Topic: dropdown (e.g., "Communication", "In-laws", "Financial Planning", "Kids Planning")
+   - Description: text area (max 1000 chars)
+   - Preferred date/time (optional)
+   - Clicks "Submit"
+   - Status: "pending"
+   - User notified: "Counselling request submitted. You'll be contacted within 3 days."
+   
+2. Staff Assigns Counselling
+   - Staff dashboard → "Counselling Requests" inbox
+   - Shows: [Type] [Topic] [User Name] [Requested Date]
+   - Staff clicks request to view details
+   - Staff clicks "Assign to Me" or selects another counsellor
+   - Status: "assigned"
+   - User notified: "Your counselling has been assigned to [Staff Name]"
+   - Audit log: "Staff [name] assigned counselling request to [counsellor]"
+   
+3. Counselling Conducted
+   - Counsellor contacts user via phone/in-person/email
+   - Counsellor logs notes in the system (private, only staff visible)
+   - Counsellor marks as "completed"
+   - Status: "completed"
+   - User notified: "Counselling completed. Thank you for using our service."
+   - Audit log: "Staff [name] completed counselling for [user]"
+Flow 5: Staff Dashboard Overview
+Code
+STAFF LOGIN → Dashboard
+
+DASHBOARD HOME:
+├─ Quick Stats
+│  ├─ Pending Profiles (3)
+│  ├─ Pending Proposals (5)
+│  ├─ Pending Messages (12)
+│  ├─ Pending Counselling (2)
+│  ├─ Active Users (156)
+│  └─ Matches Generated Today (42)
+│
+├─ PROFILES SECTION
+│  ├─ Approval Queue (3 pending)
+│  │  ├─ [User: Ayesha Khan | Applied: 2 days ago] [Approve] [Reject]
+│  │  ├─ [User: Zainab Ali | Applied: 1 day ago] [Approve] [Reject]
+│  │  └─ [User: Hira Hassan | Applied: 6 hours ago] [Approve] [Reject]
+│  ├─ Recent Approvals (showing last 10)
+│  └─ Bulk Upload CSV
+│
+��─ MATCHING SECTION
+│  ├─ Pending Match Reviews (8)
+│  │  ├─ [Ayesha Khan (28) ↔ Ahmed Khan (30) | Score: 78/100] [Approve] [Hide]
+│  │  └─ [Zainab Ali (26) ↔ Ali Hassan (28) | Score: 72/100] [Approve] [Hide]
+│  ├─ Regenerate Matches (force recalculation)
+│  └─ Matching Algorithm Settings (adjust weights)
+│
+├─ PROPOSALS SECTION
+│  ├─ Pending Staff Approval (5)
+│  │  ├─ [Fatima → Ahmed | Sent: 2 hours ago] [Approve] [Reject]
+│  │  └─ [Hira → Hassan | Sent: 1 hour ago] [Approve] [Reject]
+│  ├─ Approved Proposals (recent)
+│  ├─ View Proposal History
+│  └─ SLA Dashboard (avg approval time, pending time)
+│
+├─ MESSAGE MODERATION SECTION
+│  ├─ Pending Messages (12)
+│  │  ├─ Fatima → Ahmed: "What are your goals?" [Approve] [Reject]
+│  │  └─ Ahmed → Fatima: "I want..." [Approve] [Reject]
+│  ├─ Flagged Messages (3)
+│  ├─ Mass Actions (approve all, reject all)
+│  └─ Moderation Analytics
+│
+├─ COUNSELLING SECTION
+│  ├─ Pending Assignments (2)
+│  │  ├─ [Pre-Marriage | Communication | Ayesha Khan] [Assign to Me]
+│  │  └─ [Post-Marriage | In-laws | Zainab Ali] [Assign to Me]
+│  ├─ My Assignments (5)
+│  ├─ Completed (last 30 days: 12)
+│  └─ Counselling Reports
+│
+├─ AUDIT & SECURITY
+│  ├─ Audit Log (all staff actions)
+│  ├─ User Activity (logins, updates, flags)
+│  ├─ Suspicious Activities (flagged accounts)
+│  └─ Staff Permissions & Roles
+│
+├─ REPORTS & ANALYTICS
+│  ├─ KPI Dashboard
+│  │  ├─ Profiles Approved: 156
+│  │  ├─ Proposals Sent: 42
+│  │  ├─ Proposals Accepted: 8
+│  │  ├─ Counselling Sessions: 12
+│  │  └─ Average Days to Approval: 1.2
+│  ├─ Monthly Reports
+│  ├─ Export Data (CSV/PDF)
+│  └─ Trends
+│
+└─ SETTINGS
+   ├─ Notification Preferences
+   ├─ 2FA Management
+   ├─ Change Password
+   └─ Logout
+Flow 6: User Dashboard (Applicant View)
+Code
+USER LOGIN → Dashboard
+
+DASHBOARD HOME:
+├─ Profile Card
+│  ├─ Photo
+│  ├─ Name, Age, City
+│  ├─ Status: "Approved ✓" (or "Pending Review")
+│  └─ [Edit Profile] [Upload Photo]
+│
+├─ MY MATCHES (5 approved matches shown)
+│  ├─ [Photo] Ayesha Khan, 28, Lahore
+│  │  Score: 78/100
+│  │  Details: Education (Bachelors), Occupation (Doctor), Income
+│  │  Score Breakdown: Age (90), Location (100), Caste (80), Education (65), Income (60)
+│  │  [View Full Profile] [Send Proposal] [Not Interested]
+│  │
+│  └─ [Photo] Hira Hassan, 26, Islamabad
+│     Score: 72/100
+│     [View Full Profile] [Send Proposal] [Not Interested]
+│
+├─ MY PROPOSALS
+│  ├─ SENT (3 proposals)
+│  │  ├─ [To: Fatima Khan | Sent: 2 days ago | Status: Approved ✓]
+│  │  │  Communication Window: 12 days remaining
+│  │  │  [View Conversation] [Decline]
+│  │  │
+│  │  ├─ [To: Zainab Ali | Sent: 5 days ago | Status: Rejected ✗]
+│  │  │  Reason: "Not at this time"
+│  │  │
+│  │  └─ [To: Hira Hassan | Sent: 1 day ago | Status: Pending Staff Review]
+│  │     [Cancel Request]
+│  │
+│  └─ RECEIVED (2 proposals)
+│     ├─ [From: Ahmed Khan | Sent: 3 days ago | Status: Approved ✓]
+│     │  [View Conversation] [Accept] [Decline]
+│     │
+│     └─ [From: Hassan Ali | Sent: 6 hours ago | Status: Pending Staff Review]
+│        [Cancel]
+│
+├─ Q&A CONVERSATIONS
+│  ├─ [With: Fatima Khan | Day 3 of 14]
+│  │  Your Questions (2):
+│  │  1. "What are your career goals?" [Approved ✓]
+│  │     Reply: "I want to become a doctor..." [Approved ✓]
+│  │  
+│  │  2. "How do you see family involvement?" [Pending Staff Review]
+│  │
+│  │  Their Questions (1):
+│  │  1. "Where do you see yourself in 5 years?" [Approved ✓]
+│  │     Your Reply: "I want to..." [Pending Staff Review]
+│  │
+│  │  [Add Question] [Accept] [Decline]
+│  │
+│  └─ [With: Ahmed Khan | Day 1 of 14]
+│     [View Details]
+│
+├─ COUNSELLING
+│  ├─ [Request Pre-Marriage Counselling]
+│  │  Topic: Communication Issues
+│  │  Status: Assigned to Staff (Mariam Akhtar)
+│  │  Date: Friday 3 PM
+│  │  [Cancel]
+│  │
+│  └─ [Request Post-Marriage Counselling]
+│     [Form] [Previous Sessions]
+│
+└─ ACCOUNT
+   ├─ Profile Status: Approved ✓
+   ├─ Joined: 30 days ago
+   ├─ [Edit Profile] [Change Password] [2FA Settings] [Logout]
+   └─ Privacy & Data
+      ├─ [Download My Data] (GDPR)
+      ├─ [Delete My Account] (GDPR)
+      └─ [View Consent Form]
+API ROUTES & ENDPOINTS
+Authentication Endpoints
+Code
+POST /api/auth/register
+  Body: { email, password, firstName, lastName, gender, dob, city }
+  Returns: { message, userId, verificationSent: true }
+  Notes: Email verification sent, user status: "pending_email_verification"
+
+POST /api/auth/verify-email
+  Body: { email, token }
+  Returns: { message, verified: true }
+  Notes: User status → "pending_profile"
+
+POST /api/auth/login
+  Body: { email, password }
+  Returns: { accessToken, refreshToken, user: { _id, email, role, profileStatus } }
+  Error: 401 if 2FA required for staff
+  Notes: JWT valid for 24 hours
+
+POST /api/auth/login-2fa
+  Body: { email, totpCode }
+  Returns: { accessToken, refreshToken }
+  Requires: Staff role, 2FA enabled
+  Notes: Called after initial login if 2FA required
+
+POST /api/auth/refresh-token
+  Body: { refreshToken }
+  Returns: { accessToken }
+  Notes: Refresh token valid for 7 days
+
+POST /api/auth/2fa-setup
+  Returns: { qrCode, secret }
+  Requires: Staff authentication
+  Notes: Use Google Authenticator or Authy
+
+POST /api/auth/2fa-verify
+  Body: { totpCode }
+  Returns: { confirmed: true }
+  Requires: Staff authentication
+
+POST /api/auth/logout
+  Returns: { message }
+  Notes: Token blacklisted (optional, can be client-side)
+
+POST /api/auth/forgot-password
+  Body: { email }
+  Returns: { message, resetLinkSent: true }
+  Notes: Email with reset link sent
+
+POST /api/auth/reset-password
+  Body: { token, newPassword }
+  Returns: { message, success: true }
+User Profile Endpoints
+Code
+GET /api/users/me
+  Returns: { _id, email, phone, role, profile: {...}, profileStatus, createdAt }
+  Requires: Authentication
+
+PATCH /api/users/profile
+  Body: { firstName, lastName, bio, occupation, preferences: {...} }
+  Returns: { message, profile: {...} }
+  Requires: Authentication, Applicant role
+  Notes: Photo changes require staff re-approval
+
+POST /api/users/profile/upload-photo
+  Body: FormData with file
+  Returns: { photoUrl }
+  Requires: Authentication, Applicant role
+  Notes: Photo saved to Cloudinary, status: "pending_review"
+
+GET /api/users/profile/status
+  Returns: { profileStatus, approvalDate, rejectionReason }
+  Requires: Authentication
+
+PATCH /api/users/preferences
+  Body: { ageRange: [min, max], locationRadius, castePreferences: [...], educationMin, incomeMin }
+  Returns: { preferences: {...} }
+  Requires: Authentication, Applicant role
+  Notes: Triggers match regeneration
+
+DELETE /api/users/profile
+  Returns: { message, deleteScheduledFor: "30 days" }
+  Requires: Authentication, Applicant role
+  Notes: GDPR right to be forgotten, soft delete with 30-day grace period
+Match Endpoints
+Code
+GET /api/users/matches
+  Query: { page, limit, sort }
+  Returns: { matches: [...], total, page, hasMore }
+  Requires: Authentication, Applicant role, profileStatus: "approved"
+  Notes: Only staff-approved matches, sorted by score DESC
+
+GET /api/users/matches/:matchId
+  Returns: { _id, profileId_B: {profile details}, score, scoreBreakdown }
+  Requires: Authentication
+  Notes: Full profile of matched user
+
+POST /api/users/matches/:matchId/not-interested
+  Returns: { message }
+  Requires: Authentication
+  Notes: Match hidden for user (staff can still see)
+
+GET /api/staff/matches/:profileId
+  Query: { status, page, limit }
+  Returns: { matches: [...], total }
+  Requires: Authentication, Staff role
+  Notes: All matches for a profile (suggested, approved, hidden)
+
+PATCH /api/staff/matches/:matchId/approve
+  Body: { approvedBy: staffId }
+  Returns: { message, match: {...} }
+  Requires: Authentication, Staff role
+  Notes: Match status → "approved_by_staff"
+
+PATCH /api/staff/matches/:matchId/hide
+  Body: { reason }
+  Returns: { message }
+  Requires: Authentication, Staff role
+  Notes: Match status → "hidden"
+
+POST /api/staff/matches/regenerate
+  Body: { profileId } (optional, if null: regenerate all)
+  Returns: { message, matchesGenerated: 42 }
+  Requires: Authentication, Admin role
+  Notes: Recalculate matches using current algorithm
+Proposal Endpoints
+Code
+POST /api/users/proposals
+  Body: { recipientId, initiatorMessage: "" }
+  Returns: { proposalId, status: "pending_staff_approval" }
+  Requires: Authentication, Applicant role, profileStatus: "approved"
+  Notes: User can only send 1 proposal every 24 hours (rate limit)
+
+GET /api/users/proposals
+  Query: { filter: "sent" | "received", page, limit }
+  Returns: { proposals: [...], total }
+  Requires: Authentication
+  Notes: Shows only user's own proposals
+
+GET /api/users/proposals/:proposalId
+  Returns: { _id, initiatorId: {...}, recipientId: {...}, status, createdAt }
+  Requires: Authentication
+  Notes: User must be initiator or recipient
+
+PATCH /api/users/proposals/:proposalId/accept
+  Returns: { message, proposal: {...} }
+  Requires: Authentication, Applicant role, status: "approved"
+  Notes: Only available after communication window opens
+
+PATCH /api/users/proposals/:proposalId/decline
+  Returns: { message }
+  Requires: Authentication
+  Notes: Closes proposal, irreversible
+
+GET /api/staff/proposals
+  Query: { status, page, limit, sort }
+  Returns: { proposals: [...], total }
+  Requires: Authentication, Staff role
+  Notes: All proposals (pending, approved, rejected)
+
+PATCH /api/staff/proposals/:proposalId/approve
+  Body: { approvedBy: staffId }
+  Returns: { message, proposal: {...}, communicationOpenedAt, communicationClosesAt }
+  Requires: Authentication, Staff role
+  Notes: Status → "approved", opens communication window (14 days)
+
+PATCH /api/staff/proposals/:proposalId/reject
+  Body: { approvedBy: staffId, rejectionReason }
+  Returns: { message }
+  Requires: Authentication, Staff role
+  Notes: Status → "rejected", both users notified
+Q&A / Message Endpoints
+Code
+GET /api/users/proposals/:proposalId/messages
+  Query: { page, limit }
+  Returns: { messages: [...], total, communicationClosesAt }
+  Requires: Authentication
+  Notes: Only approved messages shown
+
+POST /api/users/proposals/:proposalId/messages
+  Body: { questionText }
+  Returns: { messageId, status: "pending_staff_review" }
+  Requires: Authentication, Applicant role, proposal.status: "approved"
+  Notes: Max 10 questions per user per proposal
+
+POST /api/users/proposals/:proposalId/messages/:messageId/reply
+  Body: { replyText }
+  Returns: { replyId, status: "pending_staff_review" }
+  Requires: Authentication
+  Notes: Can only reply to own question or answer to others' questions
+
+POST /api/users/proposals/:proposalId/messages/:messageId/report
+  Body: { reason }
+  Returns: { message, reported: true }
+  Requires: Authentication
+  Notes: Flags message for staff review
+
+GET /api/staff/messages
+  Query: { status: "pending_staff_review" | "flagged", page, limit }
+  Returns: { messages: [...], total }
+  Requires: Authentication, Staff role
+  Notes: Moderation queue
+
+PATCH /api/staff/messages/:messageId/approve
+  Body: { approvedBy: staffId }
+  Returns: { message }
+  Requires: Authentication, Staff role
+  Notes: Status → "approved", visible to recipient
+
+PATCH /api/staff/messages/:messageId/reject
+  Body: { approvedBy: staffId, rejectionReason }
+  Returns: { message }
+  Requires: Authentication, Staff role
+  Notes: Status → "rejected", sender notified with reason
+Counselling Endpoints
+Code
+POST /api/users/counselling
+  Body: { type: "pre_marriage" | "post_marriage", topic, description, preferredDate }
+  Returns: { requestId, status: "pending" }
+  Requires: Authentication, Applicant role
+
+GET /api/users/counselling
+  Query: { page, limit }
+  Returns: { requests: [...], total }
+  Requires: Authentication
+  Notes: User's own requests only
+
+GET /api/staff/counselling
+  Query: { status, type, page, limit }
+  Returns: { requests: [...], total }
+  Requires: Authentication, Staff role
+  Notes: All requests (pending, assigned, completed)
+
+PATCH /api/staff/counselling/:requestId/assign
+  Body: { assignedTo: staffId }
+  Returns: { message, request: {...} }
+  Requires: Authentication, Staff role
+  Notes: Status → "assigned"
+
+PATCH /api/staff/counselling/:requestId/complete
+  Body: { staffNotes }
+  Returns: { message }
+  Requires: Authentication, Staff role
+  Notes: Status → "completed"
+
+DELETE /api/staff/counselling/:requestId
+  Returns: { message }
+  Requires: Authentication, Staff role
+  Notes: Only if status: "pending"
+Staff Profile Management Endpoints
+Code
+POST /api/staff/profiles
+  Body: { email, phone, firstName, lastName, gender, dob, city, photoUrl (optional) }
+  Returns: { profileId, tempPassword, createdAt }
+  Requires: Authentication, Staff role
+  Notes: Creates profile + sends temp password to user
+
+GET /api/staff/profiles
+  Query: { status: "pending" | "approved" | "rejected", page, limit, sort }
+  Returns: { profiles: [...], total }
+  Requires: Authentication, Staff role
+
+GET /api/staff/profiles/:profileId
+  Returns: { _id, profile: {...}, status, duplicateDetectionResults: [...] }
+  Requires: Authentication, Staff role
+
+PATCH /api/staff/profiles/:profileId/approve
+  Body: { approvedBy: staffId }
+  Returns: { message, profile: {...} }
+  Requires: Authentication, Staff role
+  Notes: Status → "approved", generates matches
+
+PATCH /api/staff/profiles/:profileId/reject
+  Body: { approvedBy: staffId, rejectionReason }
+  Returns: { message }
+  Requires: Authentication, Staff role
+  Notes: Status → "rejected", user can reapply
+
+POST /api/staff/profiles/bulk-upload
+  Body: FormData with CSV file
+  Returns: { message, uploaded: 10, failed: 2, errors: [...] }
+  Requires: Authentication, Staff role
+  Notes: CSV headers: email, phone, firstName, lastName, gender, dob, city
+
+DELETE /api/staff/profiles/:profileId
+  Returns: { message }
+  Requires: Authentication, Admin role
+  Notes: Soft delete, data retained for 30 days
+Admin Config Endpoints
+Code
+GET /api/admin/config
+  Returns: { matchWeights: {...}, qaSettings: {...}, notificationSettings: {...} }
+  Requires: Authentication, Admin role
+
+PATCH /api/admin/config/match-weights
+  Body: { ageWeight: 0.2, locationWeight: 0.2, casteWeight: 0.25, ... }
+  Returns: { message, weights: {...} }
+  Requires: Authentication, Admin role
+  Notes: Changes apply to next match generation
+
+PATCH /api/admin/config/qa-settings
+  Body: { maxQuestions: 10, maxReplyLength: 500, communicationDays: 14 }
+  Returns: { message }
+  Requires: Authentication, Admin role
+
+PATCH /api/admin/config/notification-settings
+  Body: { emailOnProposal: true, emailOnMatch: true, ... }
+  Returns: { message }
+  Requires: Authentication, Admin role
+Audit Log Endpoints
+Code
+GET /api/staff/audit-logs
+  Query: { action, resourceType, staffId, page, limit, startDate, endDate }
+  Returns: { logs: [...], total }
+  Requires: Authentication, Staff role
+
+GET /api/staff/audit-logs/:resourceId
+  Returns: { logs: [...] }
+  Requires: Authentication, Staff role
+  Notes: All actions on a specific resource
+
+GET /api/admin/reports
+  Query: { type: "users" | "proposals" | "counselling", startDate, endDate }
+  Returns: { data: {...} }
+  Requires: Authentication, Admin role
+  Notes: Export CSV available
+FRONTEND STRUCTURE
+Project Layout
+Code
+nikah-network-client/
+├── src/
+│   ├── components/
+│   │   ├── auth/
+│   │   │   ├── RegisterForm.tsx
+│   │   │   ├── LoginForm.tsx
+│   │   │   ├── TwoFASetup.tsx
+│   │   │   └── ForgotPassword.tsx
+│   │   │
+│   │   ├── common/
+│   │   │   ├── Header.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   ├── Loading.tsx
+│   │   │   └── ErrorBoundary.tsx
+│   │   │
+│   │   ├── user/
+│   │   │   ├── ProfileForm.tsx
+│   │   │   ├── ProfileView.tsx
+│   │   │   ├── PhotoUpload.tsx
+│   │   │   ├── PreferencesForm.tsx
+│   │   │   ├── MatchCard.tsx
+│   │   │   ├── MatchList.tsx
+│   │   │   ├── ProposalForm.tsx
+│   │   │   ├── ProposalList.tsx
+│   │   │   ├── QAThread.tsx
+│   │   │   ├── QAForm.tsx
+│   │   │   ├── CounsellingForm.tsx
+│   │   │   └── UserDashboard.tsx
+│   │   │
+│   │   ├── staff/
+│   │   │   ├── ProfileApprovalQueue.tsx
+│   │   │   ├── MatchReviewDashboard.tsx
+│   │   │   ├── ProposalApprovalQueue.tsx
+│   │   │   ├── MessageModerationQueue.tsx
+│   │   │   ├── CounsellingManagement.tsx
+│   │   │   ├── BulkProfileUpload.tsx
+│   │   │   ├── AuditLogViewer.tsx
+│   │   │   ├── ConfigPanel.tsx
+│   │   │   ├── ReportsPage.tsx
+│   │   │   └── StaffDashboard.tsx
+│   │   │
+│   │   └── public/
+│   │       ├── HomePage.tsx
+│   │       ├── CounsellingInfo.tsx
+│   │       └── FAQPage.tsx
+│   │
+│   ├── pages/
+│   │   ├── HomePage.tsx
+│   │   ├── RegisterPage.tsx
+│   │   ├── LoginPage.tsx
+│   │   ├── UserDashboardPage.tsx
+│   │   ├── StaffDashboardPage.tsx
+│   │   ├── AdminPage.tsx
+│   │   ├── MatchesPage.tsx
+│   │   ├── ProposalsPage.tsx
+│   │   ├── CounsellingPage.tsx
+│   │   ├── ProfilePage.tsx
+│   │   └── NotFoundPage.tsx
+│   │
+│   ├── hooks/
+│   │   ├── useAuth.ts
+│   │   ├── useProfile.ts
+│   │   ├── useMatches.ts
+│   │   ├── useProposals.ts
+│   │   ├── useCounselling.ts
+│   │   ├── useMessages.ts
+│   │   └── useAuditLogs.ts
+│   │
+│   ├── services/
+│   │   ├── api.ts (Axios instance)
+│   │   ├── authService.ts
+│   │   ├── profileService.ts
+│   │   ├── matchService.ts
+│   │   ├── proposalService.ts
+│   │   ├── messageService.ts
+│   │   ├── counsellingService.ts
+│   │   └── staffService.ts
+│   │
+│   ├── store/
+│   │   ├── authContext.tsx
+│   │   ├── userContext.tsx
+│   │   └── notificationContext.tsx
+│   │
+│   ├── types/
+│   │   ├── user.ts
+│   │   ├── match.ts
+│   │   ├── proposal.ts
+│   │   ├── message.ts
+│   │   ├── counselling.ts
+│   │   └── common.ts
+│   │
+│   ├── utils/
+│   │   ├── constants.ts
+│   │   ├── formatters.ts
+│   │   ├── validators.ts
+│   │   └── helpers.ts
+│   │
+│   ├── styles/
+│   │   ├── globals.css
+│   │   ├── tailwind.config.js
+│   │   └── index.css
+│   │
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── vite-env.d.ts
+│
+├── public/
+│   ├── logo.png
+│   ├── favicon.ico
+│   └── counselling-icon.svg
+│
+├── .env.example
+├── .gitignore
+├── vite.config.ts
+├── tsconfig.json
+├── package.json
+└── README.md
+SECURITY ARCHITECTURE
+Authentication & Authorization
+Code
+1. JWT-Based Authentication
+   - Token payload: { userId, role, email, iat, exp }
+   - Access token: 24 hours
+   - Refresh token: 7 days (HTTP-only cookie)
+   - Middleware: verifyToken() checks JWT, extracts userId/role
+
+2. Password Security
+   - Hashed with bcrypt (rounds: 12)
+   - Min 8 chars, 1 uppercase, 1 number, 1 special char
+   - Never stored in logs
+
+3. 2FA (Staff Only)
+   - TOTP via speakeasy (Google Authenticator, Authy)
+   - Backup codes generated on setup
+   - Required on every staff login
+
+4. Role-Based Access Control (RBAC)
+   - Middleware: requireRole("admin" | "staff" | "applicant")
+   - Routes protected at controller level
+   - Example: PATCH /api/staff/profiles/:id only if role: "staff"
+Data Protection
+Code
+1. Encryption at Rest
+   - Sensitive fields encrypted: phone (in communications), totpSecret
+   - Database: TLS connection required (MongoDB Atlas)
+   - Storage: Cloudinary HTTPS + encryption
+
+2. Encryption in Transit
+   - All APIs: HTTPS only
+   - HSTS headers enabled
+   - Cookies: secure, httpOnly, sameSite=strict
+
+3. Data Masking
+   - Applicant email/phone hidden until proposal approved
+   - Staff can see unmasked data (audit logged)
+   - Messages moderated before display
+
+4. Audit Logging
+   - Every staff action logged: { staffId, action, resourceId, timestamp, ipAddress }
+   - Immutable log (cannot be edited/deleted)
+   - Retention: 2 years (MongoDB TTL index)
+
+5. GDPR Compliance
+   - Right to export: /api/users/export (JSON dump of user data)
+   - Right to delete: /api/users/delete (soft delete, 30-day grace)
+   - Consent tracking: consentGiven, consentGivenAt
+   - Data retention policy: auto-delete after 2 years of inactivity
+API Security
+Code
+1. Rate Limiting
+   - Auth endpoints: 5 req/min per IP (slow down brute force)
+   - General API: 100 req/min per user
+   - File upload: 1 file/user/day
+
+2. Input Validation
+   - Zod schemas on all endpoints
+   - Max string lengths enforced (e.g., bio: 500 chars)
+   - Email/phone validated with regex + unique checks
+
+3. SQL/NoSQL Injection Prevention
+   - Mongoose (parameterized queries)
+   - No dynamic query building
+   - Zod whitelist allowed fields on PATCH
+
+4. CORS
+   - Frontend domain whitelist: REACT_APP_API_URL
+   - Credentials: "include" for cookies
+   - Methods: GET, POST, PATCH, DELETE only
+
+5. CSRF Protection
+   - SameSite=Strict cookies
+   - CSRF tokens optional (stateless JWT sufficient)
+
+6. XSS Prevention
+   - React sanitizes by default
+   - User-generated text (bio, Q&A) sanitized with DOMPurify
+   - No dangerouslySetInnerHTML used
+
+7. Security Headers
+   - helmet.js middleware
+   - X-Frame-Options: DENY
+   - X-Content-Type-Options: nosniff
+   - Strict-Transport-Security: max-age=31536000
+Sensitive Fields
+Code
+NEVER expose in API responses:
+- passwordHash
+- totpSecret
+- refreshToken
+- emailVerificationToken
+- resetPasswordToken
+
+MASKED in communications:
+- phone (show last 4 digits only: ****5555)
+- email (show part: a***@gmail.com)
+
+INTERNAL ONLY (staff):
+- auditLogs
+- duplicateDetectionDetails
+- rejectionReasons (visible to user if rejected)
+STEP-BY-STEP REPLIT SETUP
+Part 1: Initial Replit Project Setup
+Step 1: Create Replit Project
+
+Code
+1. Go to replit.com
+2. Click "Create" → "New Replit"
+3. Choose language: "Node.js"
+4. Name: "nikah-network"
+5. Click "Create Replit"
+Step 2: Initialize Project Structure
+
+bash
+# In Replit terminal, run:
+git init
+npm init -y
+
+# Create project structure
+mkdir -p server client docs
+mkdir -p server/src/{controllers,models,routes,middleware,services,utils}
+mkdir -p server/src/config
+mkdir -p client/src/{components,pages,hooks,services,types,utils,styles}
+
+# Create main files
+touch server/src/app.ts
+touch server/src/server.ts
+touch client/package.json
+touch .env.example
+Step 3: Install Backend Dependencies
+
+bash
+cd server
+npm install express typescript ts-node @types/node @types/express
+npm install mongoose @types/mongoose zod axios
+npm install bcryptjs jsonwebtoken @types/jsonwebtoken speakeasy
+npm install multer cloudinary cors helmet morgan winston
+npm install dotenv dotenv-cli
+npm install bull redis @types/bull
+npm install nodemailer @sendgrid/mail
+npm install rate-limiter-flexible
+npm install --save-dev ts-node-dev nodemon
+Step 4: Install Frontend Dependencies
+
+bash
+cd ../client
+npm install react react-dom axios react-query react-router-dom
+npm install -D vite @vitejs/plugin-react typescript
+npm install tailwindcss autoprefixer
+npm install react-hot-toast date-fns
+npm install zustand zustand-persist
+Step 5: Create .env File
+
+bash
+# In root directory, create .env
+cat > .env << 'EOF'
+# Backend
+PORT=3000
+NODE_ENV=development
+
+# Database
+MONGODB_URI=mongodb+srv://username:password@cluster0.mongodb.net/nikah-network?retryWrites=true&w=majority
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key-change-this
+JWT_EXPIRE=24h
+REFRESH_TOKEN_SECRET=your-refresh-secret-key
+REFRESH_TOKEN_EXPIRE=7d
+
+# Email (SendGrid)
+SENDGRID_API_KEY=SG.xxxxxxxxxxxx
+SENDER_EMAIL=noreply@nikahnetwork.com
+
+# Image Upload (Cloudinary)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+
+# Frontend
+REACT_APP_API_URL=http://localhost:3000/api
+REACT_APP_ENV=development
+
+# Redis (for Bull queue)
+REDIS_URL=redis://localhost:6379
+
+# Admin Email
+ADMIN_EMAIL=admin@nikahnetwork.com
+ADMIN_PASSWORD=TempPassword123!
+
+# Matching Config
+MIN_MATCH_SCORE=65
+COMMUNICATION_WINDOW_DAYS=14
+MAX_QUESTIONS_PER_CONVERSATION=10
+
+# Security
+BCRYPT_ROUNDS=12
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX_REQUESTS=100
+EOF
+Part 2: Backend Setup
+Step 6: Create TypeScript Configuration
+
+bash
+# In server directory
+npx tsc --init
+
+# Update tsconfig.json with:
+cat > tsconfig.json << 'EOF'
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+EOF
+Step 7: Create Express App
+
+TypeScript
+// server/src/app.ts
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+
+const app = express();
+
+// Middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.REACT_APP_API_URL || 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(morgan('combined'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date() });
+});
+
+// Placeholder routes (to be added)
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/staff', require('./routes/staff'));
+
+// Error handling
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error(err);
+  res.status(err.status || 500).json({ error: err.message });
+});
+
+export default app;
+Step 8: Create Database Connection
+
+TypeScript
+// server/src/config/database.ts
+import mongoose from 'mongoose';
+
+export const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || '');
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`Error: ${error}`);
+    process.exit(1);
+  }
+};
+Step 9: Create User Model
+
+TypeScript
+// server/src/models/User.ts
+import mongoose, { Schema, Document } from 'mongoose';
+import bcryptjs from 'bcryptjs';
+
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  dob: Date;
+  gender: 'M' | 'F';
+  caste: string;
+  education: string;
+  occupation: string;
+  monthlyIncome: number;
+  city: string;
+  photoUrl?: string;
+  bioData?: string;
+  preferences?: {
+    ageRange: [number, number];
+    locationRadius: number;
+    castePreferences: string[];
+  };
+}
+
+interface IUser extends Document {
+  email: string;
+  phone: string;
+  passwordHash: string;
+  role: 'admin' | 'staff' | 'applicant';
+  profile?: UserProfile;
+  status: 'active' | 'inactive' | 'suspended';
+  profileStatus: 'pending' | 'approved' | 'rejected';
+  totpSecret?: string;
+  totpEnabled: boolean;
+  emailVerified: boolean;
+  consentGiven: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  comparePassword(password: string): Promise<boolean>;
+}
+
+const userSchema = new Schema<IUser>(
+  {
+    email: { type: String, unique: true, lowercase: true, required: true, index: true },
+    phone: { type: String, unique: true, required: true, index: true },
+    passwordHash: { type: String, required: true },
+    role: { type: String, enum: ['admin', 'staff', 'applicant'], default: 'applicant' },
+    profile: {
+      firstName: String,
+      lastName: String,
+      dob: Date,
+      gender: { type: String, enum: ['M', 'F'] },
+      caste: String,
+      education: String,
+      occupation: String,
+      monthlyIncome: Number,
+      city: String,
+      photoUrl: String,
+      bioData: String,
+      preferences: {
+        ageRange: [Number],
+        locationRadius: Number,
+        castePreferences: [String],
+      },
+    },
+    status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active' },
+    profileStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    totpSecret: String,
+    totpEnabled: { type: Boolean, default: false },
+    emailVerified: { type: Boolean, default: false },
+    consentGiven: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
+userSchema.methods.comparePassword = async function (password: string) {
+  return bcryptjs.compare(password, this.passwordHash);
+};
+
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('passwordHash')) return next();
+  try {
+    const salt = await bcryptjs.genSalt(12);
+    this.passwordHash = await bcryptjs.hash(this.passwordHash, salt);
+    next();
+  } catch (error) {
+    next(error as any);
+  }
+});
+
+export default mongoose.model<IUser>('User', userSchema);
+Step 10: Create Authentication Controller
+
+TypeScript
+// server/src/controllers/authController.ts
+import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+import User from '../models/User';
+import { z } from 'zod';
+
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  firstName: z.string().min(2),
+  lastName: z.string().min(2),
+  gender: z.enum(['M', 'F']),
+  dob: z.string().refine(val => new Date(val) < new Date()),
+  city: z.string().min(2),
+});
+
+export const register = async (req: Request, res: Response) => {
+  try {
+    const validated = registerSchema.parse(req.body);
+
+    // Check if user exists
+    const existingUser = await User.findOne({ 
+      $or: [{ email: validated.email }, { phone: req.body.phone }] 
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    // Create user
+    const user = new User({
+      email: validated.email,
+      phone: req.body.phone,
+      passwordHash: validated.password,
+      profile: {
+        firstName: validated.firstName,
+        lastName: validated.lastName,
+        dob: new Date(validated.dob),
+        gender: validated.gender,
+        city: validated.city,
+      },
+      role: 'applicant',
+      emailVerified: false,
+      profileStatus: 'pending',
+    });
+
+    await user.save();
+
+    // Generate verification email (implement SendGrid here)
+    // await sendVerificationEmail(user.email, token);
+
+    res.status(201).json({
+      message: 'Registration successful. Check your email to verify.',
+      userId: user._id,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Registration failed' });
+  }
+};
+
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (user.status === 'suspended') {
+      return res.status(403).json({ error: 'Account suspended' });
+    }
+
+    // Check 2FA for staff
+    if (user.role === 'staff' && user.totpEnabled) {
+      return res.status(200).json({ requiresTwoFA: true, userId: user._id });
+    }
+
+    // Generate tokens
+    const accessToken = jwt.sign(
+      { userId: user._id, role: user.role, email: user.email },
+      process.env.JWT_SECRET!,
+      { expiresIn: process.env.JWT_EXPIRE || '24h' }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.REFRESH_TOKEN_SECRET!,
+      { expiresIn: process.env.REFRESH_TOKEN_EXPIRE || '7d' }
+    );
+
+    res.json({
+      accessToken,
+      refreshToken,
+      user: { _id: user._id, email: user.email, role: user.role, profileStatus: user.profileStatus },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Login failed' });
+  }
+};
+Step 11: Create Auth Routes
+
+TypeScript
+// server/src/routes/auth.ts
+import express from 'express';
+import { register, login } from '../controllers/authController';
+
+const router = express.Router();
+
+router.post('/register', register);
+router.post('/login', login);
+
+export default router;
+Step 12: Create Server Entry Point
+
+TypeScript
+// server/src/server.ts
+import app from './app';
+import { connectDB } from './config/database';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const PORT = process.env.PORT || 3000;
+
+(async () => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`✅ Server running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+})();
+Step 13: Update package.json (Backend)
+
+JSON
+{
+  "name": "nikah-network-server",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "mongoose": "^7.0.0",
+    "typescript": "^5.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0",
+    "zod": "^3.21.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0",
+    "@types/express": "^4.17.0",
+    "@types/node": "^18.0.0"
+  }
+}
+Part 3: Frontend Setup
+Step 14: Create React + Vite Project
+
+bash
+cd client
+npm install
+npm create vite@latest . -- --template react-ts
+
+# Remove default files
+rm -f src/App.css src/index.css
+
+# Create component structure
+mkdir -p src/{components,pages,hooks,services,types,utils,styles}
+Step 15: Create Frontend Entry Point
+
+TypeScript
+// client/src/main.tsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './styles/globals.css'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+Step 16: Create API Service
+
+TypeScript
+// client/src/services/api.ts
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export default api;
+Step 17: Create Auth Context
+
+TypeScript
+// client/src/store/authContext.tsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+interface User {
+  _id: string;
+  email: string;
+  role: 'admin' | 'staff' | 'applicant';
+  profileStatus: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  accessToken: string | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  register: (data: any) => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Check stored token on mount
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    const storedUser = localStorage.getItem('user');
+    if (token && storedUser) {
+      setAccessToken(token);
+      setUser(JSON.parse(storedUser));
+    }
+    setLoading(false);
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    // Call API
+    // setAccessToken, setUser, localStorage
+  };
+
+  const logout = () => {
+    setUser(null);
+    setAccessToken(null);
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+  };
+
+  const register = async (data: any) => {
+    // Call API
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, accessToken, loading, login, logout, register }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
+};
+Step 18: Create App Component
+
+TypeScript
+// client/src/App.tsx
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './store/authContext';
+import HomePage from './pages/HomePage';
+import RegisterPage from './pages/RegisterPage';
+import LoginPage from './pages/LoginPage';
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          {/* More routes */}
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
+Step 19: Create Tailwind Configuration
+
+JavaScript
+// client/tailwind.config.js
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: '#1F2937',
+        secondary: '#10B981',
+        accent: '#F59E0B',
+      },
+    },
+  },
+  plugins: [],
+}
+Part 4: Running the Application
+Step 20: Start Development Servers
+
+In Terminal 1 (Backend):
+
+bash
+cd server
+npm run dev
+# Output: ✅ Server running on http://localhost:3000
+In Terminal 2 (Frontend):
+
+bash
+cd client
+npm run dev
+# Output: ✅ Local: http://localhost:5173
+Step 21: Verify Setup
+
+bash
+# Check backend health
+curl http://localhost:3000/api/health
+# Expected: {"status":"ok","timestamp":"..."}
+
+# Check frontend loads
+# Visit http://localhost:5173 in browser
+FILE STRUCTURE & INSTALLATION
+Complete Directory Tree
+Code
+nikah-network/
+│
+├── server/
+│   ├── src/
+│   │   ├── config/
+│   │   │   ├── database.ts
+│   │   │   └── cloudinary.ts
+│   │   ├── controllers/
+│   │   │   ├── authController.ts
+│   │   │   ├── profileController.ts
+│   │   │   ├── matchController.ts
+│   │   │   ├── proposalController.ts
+│   │   │   ├── messageController.ts
+│   │   │   ├── counsellingController.ts
+│   │   │   ├── staffController.ts
+│   │   │   └── adminController.ts
+│   │   ├── models/
+│   │   │   ├── User.ts
+│   │   │   ├── Match.ts
+│   │   │   ├── Proposal.ts
+│   │   │   ├── ProposalMessage.ts
+│   │   │   ├── Counselling.ts
+│   │   │   ├── AuditLog.ts
+│   │   │   └── Config.ts
+│   │   ├── routes/
+│   │   │   ├── auth.ts
+│   │   │   ├── users.ts
+│   │   │   ├── matches.ts
+│   │   │   ├── proposals.ts
+│   │   │   ├── messages.ts
+│   │   │   ├── counselling.ts
+│   │   │   ├── staff.ts
+│   │   │   └── admin.ts
+│   │   ├── middleware/
+│   │   │   ├── auth.ts (verifyToken, requireRole)
+│   │   │   ├── validation.ts
+│   │   │   └── errorHandler.ts
+│   │   ├── services/
+│   │   │   ├── matchingService.ts (algorithm)
+│   │   │   ├── emailService.ts (SendGrid)
+│   │   │   ├── uploadService.ts (Cloudinary)
+│   │   │   ├── notificationService.ts
+│   │   │   └── jobService.ts (Bull queues)
+│   │   ├── utils/
+│   │   │   ├── validators.ts
+│   │   │   ├── formatters.ts
+│   │   │   ├── constants.ts
+│   │   │   └── helpers.ts
+│   │   ├── app.ts
+│   │   └── server.ts
+│   ├── .env.example
+│   ├── .gitignore
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── README.md
+│
+├── client/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── auth/
+│   │   │   ├── user/
+│   │   │   ├── staff/
+│   │   │   ├── common/
+│   │   │   └── public/
+│   │   ├── pages/
+│   │   │   ├── HomePage.tsx
+│   │   │   ├── LoginPage.tsx
+│   │   │   ├── RegisterPage.tsx
+│   │   │   ├── UserDashboardPage.tsx
+│   │   │   ├── StaffDashboardPage.tsx
+│   │   │   └── NotFoundPage.tsx
+│   │   ├── hooks/
+│   │   ├── services/
+│   │   │   ├── api.ts
+│   │   │   ├── authService.ts
+│   │   │   └── ...
+│   │   ├── store/
+│   │   │   ├── authContext.tsx
+│   │   │   ├── userContext.tsx
+│   │   │   └── notificationContext.tsx
+│   │   ├── types/
+│   │   ├── utils/
+│   │   ├── styles/
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── public/
+│   ├── .env.example
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   └── README.md
+│
+├── docs/
+│   ├── API.md (full API documentation)
+│   ├── DEPLOYMENT.md (production checklist)
+│   ├── SECURITY.md (security practices)
+│   ├── SETUP.md (developer setup)
+│   └── STAFF_GUIDE.md (training for staff)
+│
+├── .gitignore
+├── docker-compose.yml (optional)
+└── README.md (project overview)
+IMPLEMENTATION CHECKLIST
+Phase 0: Foundation (Week 1)
+ Project Setup
+
+ Replit project created
+ Git repository initialized
+ Node.js, MongoDB, TypeScript configured
+ Environment variables (.env) set up
+ Backend & frontend dependencies installed
+ Database
+
+ MongoDB Atlas cluster created (free tier)
+ Connection string in .env
+ All 7 models created (User, Match, Proposal, ProposalMessage, Counselling, AuditLog, Config)
+ Indexes created on frequently queried fields
+ Authentication Layer
+
+ POST /api/auth/register (self-registration)
+ POST /api/auth/login (JWT generation)
+ POST /api/auth/refresh-token (token refresh)
+ JWT middleware (verifyToken, requireRole)
+ Password hashing (bcryptjs)
+ Email verification (basic, skip for MVP)
+ Frontend Setup
+
+ React + Vite project initialized
+ Tailwind CSS configured
+ React Router setup
+ Auth context created
+ API client (axios) setup
+ Basic pages: Home, Login, Register
+ Testing
+
+ POST /api/health returns 200
+ User registration works
+ User login returns JWT
+ Frontend loads at http://localhost:5173
+Phase 1: Registration & Profile Management (Weeks 2–3)
+ Self-Registration
+
+ RegisterPage component (email, password, name, DOB, gender, city)
+ Form validation (Zod schemas)
+ POST /api/users/register
+ Email verification token (generated, not sent yet)
+ User status: "pending_email_verification"
+ Staff Profile Entry
+
+ POST /api/staff/profiles (create profile for user)
+ Temp password generation & email notification
+ Profile status: "pending_staff_entry"
+ Profile Completion
+
+ ProfileForm component (bio, preferences, family background)
+ PATCH /api/users/profile (update profile)
+ Photo upload component (Cloudinary integration)
+ POST /api/users/profile/upload-photo
+ Duplicate Detection
+
+ Exact match: email + phone
+ Fuzzy match: name (Jaro-Winkler) + DOB (±1 year)
+ Flag duplicates in staff dashboard
+ Profile Approval Workflow
+
+ StaffDashboard → ProfileApprovalQueue
+ GET /api/staff/profiles (pending profiles)
+ PATCH /api/staff/profiles/:id/approve
+ PATCH /api/staff/profiles/:id/reject
+ Audit logging
+ Testing
+
+ Register as applicant, receive verification prompt
+ Staff creates profile for user
+ User completes profile
+ Duplicate detection flags similar profiles
+ Staff approves profile
+ Profile status: "approved"
+Phase 2: Matching Algorithm & Dashboard (Weeks 4–6)
+ Matching Algorithm
+
+ Hard filters implementation (age, location, education, caste, income, marital status, children)
+ Soft scoring (15 weighted criteria)
+ matchingService.ts: calculateMatchScore()
+ Match threshold: score ≥ 65
+ Automatic Match Generation
+
+ Cron job (daily at 2 AM)
+ Iterate all approved profiles
+ Generate bidirectional matches
+ Save Match records with score breakdown
+ Staff Dashboard: Match Review
+
+ MatchReviewDashboard component
+ GET /api/staff/matches/:profileId
+ Show pending matches (status: "suggested")
+ PATCH /api/staff/matches/:id/approve
+ PATCH /api/staff/matches/:id/hide
+ Display score breakdown
+ User Dashboard: My Matches
+
+ MatchList component (top 5 approved matches)
+ MatchCard component (photo, name, age, city, score)
+ GET /api/users/matches
+ Click to view full profile
+ "Send Proposal" button
+ "Not Interested" button (hides for user)
+ Match Transparency
+
+ Show score breakdown to user
+ Example: "Age Match: 90/100, Location: 100/100, ..."
+ Allow user to adjust preferences (triggers regeneration)
+ Testing
+
+ Run matching algorithm manually
+ Verify hard filters work (e.g., age outside range = no match)
+ Staff approves 3 matches
+ User sees matches in dashboard
+ Score breakdown displays correctly
+Phase 3: Proposal & Q&A System (Weeks 7–8)
+ Proposal Workflow
+
+ ProposalForm component (optional message)
+ POST /api/users/proposals (status: "pending_staff_approval")
+ Email notifications to both users (staff notified)
+ Staff dashboard: pending proposals queue
+ Staff Proposal Approval
+
+ ProposalApprovalQueue component
+ GET /api/staff/proposals (pending)
+ PATCH /api/staff/proposals/:id/approve (opens Q&A window)
+ PATCH /api/staff/proposals/:id/reject (with reason)
+ Audit log
+ Q&A Communication System
+
+ QAThread component (conversation view)
+ QAForm component (ask question, reply)
+ Max 300 char question, 500 char reply
+ POST /api/users/proposals/:id/messages (question)
+ POST /api/users/proposals/:id/messages/:id/reply (answer)
+ Message status: "pending_staff_review"
+ Message Moderation Queue
+
+ MessageModerationQueue component
+ GET /api/staff/messages (pending)
+ Check for inappropriate content, contact info, etc.
+ PATCH /api/staff/messages/:id/approve
+ PATCH /api/staff/messages/:id/reject (with reason)
+ User notified of rejection
+ Communication Window Management
+
+ 14-day timer (configurable)
+ Auto-close after timer expires
+ Allow early close ("Accept" or "Decline")
+ Prevent Q&A after close
+ Testing
+
+ User A sends proposal to User B
+ Staff approves proposal
+ Q&A window opens (14 days)
+ User A asks question (pending review)
+ Staff approves question
+ User B sees question
+ User B replies (pending review)
+ Staff approves reply
+ User A sees reply
+ User A clicks "Accept" → proposal status: "accepted"
+Phase 4: Notifications & Counselling (Weeks 9–10)
+ Email Notifications (SendGrid)
+
+ Setup SendGrid API key
+ Email templates (registration, verification, proposal, message approval, etc.)
+ notificationService.ts: sendEmail()
+ Queue emails (Bull job queue)
+ Notification Triggers
+
+ User registered
+ Profile approved/rejected
+ Match found
+ Proposal received
+ Question approved
+ Message flagged
+ Counselling Request System
+
+ CounsellingForm component (pre/post, topic, description)
+ POST /api/users/counselling
+ Staff dashboard: CounsellingInbox
+ GET /api/staff/counselling
+ PATCH /api/staff/counselling/:id/assign (assign to staff)
+ PATCH /api/staff/counselling/:id/complete (mark complete)
+ In-App Notifications
+
+ Toast notifications (react-hot-toast)
+ Notification bell in header (unread count)
+ Notification center page
+ Testing
+
+ User registers → receives welcome email
+ Profile approved → receives approval notification
+ Proposal sent → both users receive email
+ Message approved → user receives email
+ Counselling request → staff receives email
+Phase 5: Testing & Launch (Weeks 11–12)
+ Unit Tests
+
+ Authentication (register, login, JWT)
+ Matching algorithm (hard filters, scoring)
+ Duplicate detection
+ Input validation
+ Integration Tests
+
+ Full registration → approval → matching → proposal flow
+ Staff approval workflow
+ Q&A moderation workflow
+ Counselling assignment workflow
+ Load Testing
+
+ Test with 100 concurrent users
+ Test with 500 concurrent users
+ Measure response times, identify bottlenecks
+ Security Audit
+
+ OWASP Top 10 check
+ Rate limiting working
+ Passwords hashed
+ Tokens validated
+ Audit logs capturing all actions
+ GDPR compliance (export, delete)
+ Performance Optimization
+
+ Database indexes created
+ Frontend lazy loading
+ API response caching
+ Image optimization
+ Documentation
+
+ API documentation (Swagger/Postman)
+ Deployment guide
+ Staff training manual
+ Troubleshooting guide
+ Deployment
+
+ Backend deployed to Render
+ Frontend deployed to Vercel
+ Database backup configured
+ Monitoring (Sentry) setup
+SUCCESS METRICS & KPIs
+Track these metrics during rollout:
+
+Code
+REGISTRATION & PROFILES:
+  - Daily active users (DAU)
+  - Profiles approved per day
+  - Average time to approval (target: <24 hours)
+  - Duplicate detection accuracy
+  
+MATCHING:
+  - Matches generated per profile
+  - Average match score
+  - User clicks on match (engagement)
+  
+PROPOSALS:
+  - Proposals sent per day
+  - Staff approval rate
+  - Average time to staff approval (target: <2 hours)
+  - Proposal acceptance rate
+  
+Q&A COMMUNICATION:
+  - Messages sent per proposal
+  - Message moderation queue length
+  - Moderation time per message (target: <30 min)
+  - Messages flagged as inappropriate (%)
+  
+COUNSELLING:
+  - Requests submitted per month
+  - Average time to assignment (target: <1 day)
+  - Counselling completion rate
+  
+SYSTEM:
+  - Uptime (target: 99.5%)
+  - API response time (target: <200ms)
+  - Page load time (target: <2s)
+  - Error rate (target: <0.1%)
