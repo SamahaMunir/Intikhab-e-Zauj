@@ -13,6 +13,8 @@ import Counselling from "@/pages/marketing/counselling";
 import Pricing from "@/pages/marketing/pricing";
 import Login from "@/pages/marketing/login";
 import Register from "@/pages/marketing/register";
+import StaffLogin from "@/pages/marketing/staff-login";
+import StaffRegister from "@/pages/marketing/staff-register";
 import SuccessStories from "@/pages/marketing/success-stories";
 import Contact from "@/pages/marketing/contact";
 
@@ -56,6 +58,8 @@ function MarketingRouter() {
         <Route path="/contact" component={Contact} />
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
+        <Route path="/staff-login" component={StaffLogin} />
+        <Route path="/staff-register" component={StaffRegister} />
         <Route component={NotFound} />
       </Switch>
     </MarketingLayout>

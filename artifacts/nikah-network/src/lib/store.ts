@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { subDays, addDays } from "date-fns";
+import { computeMatchScore } from "./matching";
 
 export type Role = "applicant" | "staff" | "admin";
 export type ProfileStatus = "pending" | "approved" | "rejected";
@@ -39,7 +40,7 @@ export interface Match {
   userBId: string;
   score: number;
   breakdown: { age: number; location: number; caste: number; education: number; income: number; children: number };
-  status: "suggested" | "approved" | "hidden";
+  status: "suggested" | "approved" | "rejected";
   generatedAt: string;
 }
 
@@ -110,7 +111,9 @@ interface AppState {
   approveMessage: (id: string, staffId: string) => void;
   rejectMessage: (id: string, staffId: string, reason: string) => void;
   hideMatch: (id: string, staffId: string) => void;
+  rejectMatch: (id: string, staffId: string, reason?: string) => void;
   approveMatch: (id: string, staffId: string) => void;
+  generateMatchesFor: (userId: string) => void;
   approveProfile: (id: string, staffId: string) => void;
   rejectProfile: (id: string, staffId: string, reason: string) => void;
   register: (user: User) => void;
@@ -145,12 +148,63 @@ const seedUsers: User[] = [
     gender: "F", dob: "1998-02-15", city: "Islamabad", caste: "Pathan", education: "Masters", occupation: "Doctor", income: 120000,
     bio: "Doctor at a local hospital. Seeking a supportive partner.", maritalStatus: "single", children: 0,
     preferences: { ageMin: 26, ageMax: 32, locationRadius: 200, castePrefs: ["Pathan", "Any"], educationMin: "Masters", incomeMin: 100000 }, completion: 80
+  },
+  {
+    id: "u4", email: "fatima@example.com", role: "applicant", name: "Fatima Sheikh", profileStatus: "approved",
+    gender: "F", dob: "1996-11-03", city: "Lahore", caste: "Sheikh", education: "Masters", occupation: "Banker", income: 90000,
+    bio: "Looking for a like-minded, family-oriented partner.", maritalStatus: "single", children: 0,
+    preferences: { ageMin: 28, ageMax: 36, locationRadius: 100, castePrefs: ["Sheikh", "Any"], educationMin: "Bachelors", incomeMin: 100000 }, completion: 100
+  },
+  {
+    id: "u5", email: "bilal@example.com", role: "applicant", name: "Bilal Hussain", profileStatus: "approved",
+    gender: "M", dob: "1990-04-12", city: "Lahore", caste: "Sheikh", education: "Masters", occupation: "Marketing Manager", income: 180000,
+    bio: "Practising Muslim, marketing professional.", maritalStatus: "single", children: 0,
+    preferences: { ageMin: 25, ageMax: 32, locationRadius: 100, castePrefs: ["Any"], educationMin: "Bachelors", incomeMin: 0 }, completion: 100
+  },
+  {
+    id: "u6", email: "hina@example.com", role: "applicant", name: "Hina Malik", profileStatus: "approved",
+    gender: "F", dob: "1994-07-22", city: "Karachi", caste: "Malik", education: "Bachelors", occupation: "Designer", income: 70000,
+    bio: "Creative designer, family-first.", maritalStatus: "single", children: 0,
+    preferences: { ageMin: 28, ageMax: 36, locationRadius: 200, castePrefs: ["Any"], educationMin: "Bachelors", incomeMin: 80000 }, completion: 100
+  },
+  {
+    id: "u7", email: "umar@example.com", role: "applicant", name: "Umar Farooq", profileStatus: "approved",
+    gender: "M", dob: "1989-09-30", city: "Karachi", caste: "Pathan", education: "MPhil", occupation: "University Lecturer", income: 130000,
+    bio: "Academic, value deen and family.", maritalStatus: "single", children: 0,
+    preferences: { ageMin: 26, ageMax: 33, locationRadius: 200, castePrefs: ["Any"], educationMin: "Bachelors", incomeMin: 0 }, completion: 100
   }
 ];
 
-const seedMatches: Match[] = [
-  { id: "m1", userAId: "u1", userBId: "u2", score: 85, breakdown: { age: 90, location: 100, caste: 80, education: 80, income: 75, children: 100 }, status: "approved", generatedAt: new Date().toISOString() }
-];
+const defaultWeights = { age: 0.2, location: 0.2, caste: 0.2, education: 0.2, income: 0.2 };
+
+function buildSeedMatches(): Match[] {
+  const approved = seedUsers.filter(u => u.role === "applicant" && u.profileStatus === "approved");
+  const out: Match[] = [];
+  const seen = new Set<string>();
+  for (const a of approved) {
+    for (const b of approved) {
+      if (a.id >= b.id) continue;
+      if (a.gender === b.gender) continue;
+      const key = [a.id, b.id].sort().join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const { total, breakdown } = computeMatchScore(a, b, defaultWeights);
+      if (total < 40) continue;
+      out.push({
+        id: `seed-${a.id}-${b.id}`,
+        userAId: a.id,
+        userBId: b.id,
+        score: total,
+        breakdown,
+        status: "suggested",
+        generatedAt: new Date().toISOString(),
+      });
+    }
+  }
+  return out;
+}
+
+const seedMatches: Match[] = buildSeedMatches();
 
 export const useStore = create<AppState>()(
   persist(
@@ -242,9 +296,43 @@ export const useStore = create<AppState>()(
       hideMatch: (id, staffId) => set(state => {
         const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "hide_match", resourceType: "match", resourceId: id, reason: "Staff hidden", timestamp: new Date().toISOString() };
         return {
-          matches: state.matches.map(m => m.id === id ? { ...m, status: "hidden" } : m),
+          matches: state.matches.map(m => m.id === id ? { ...m, status: "rejected" } : m),
           auditLogs: [...state.auditLogs, log]
         };
+      }),
+
+      rejectMatch: (id, staffId, reason) => set(state => {
+        const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "reject_match", resourceType: "match", resourceId: id, reason: reason || "Not a fit", timestamp: new Date().toISOString() };
+        return {
+          matches: state.matches.map(m => m.id === id ? { ...m, status: "rejected" } : m),
+          auditLogs: [...state.auditLogs, log]
+        };
+      }),
+
+      generateMatchesFor: (userId) => set(state => {
+        const target = state.users.find(u => u.id === userId);
+        if (!target || target.role !== "applicant" || target.profileStatus !== "approved") return state;
+        const candidates = state.users.filter(u =>
+          u.id !== userId && u.role === "applicant" && u.profileStatus === "approved" && u.gender !== target.gender
+        );
+        const existingPairs = new Set(state.matches.map(m => [m.userAId, m.userBId].sort().join("|")));
+        const newMatches: Match[] = [];
+        candidates.forEach(c => {
+          const key = [userId, c.id].sort().join("|");
+          if (existingPairs.has(key)) return;
+          const { total, breakdown } = computeMatchScore(target, c, state.config.weights);
+          if (total < 40) return;
+          newMatches.push({
+            id: `m${Date.now()}-${c.id}`,
+            userAId: target.id,
+            userBId: c.id,
+            score: total,
+            breakdown,
+            status: "suggested",
+            generatedAt: new Date().toISOString(),
+          });
+        });
+        return { matches: [...state.matches, ...newMatches] };
       }),
 
       approveMatch: (id, staffId) => set(state => {
@@ -255,13 +343,16 @@ export const useStore = create<AppState>()(
         };
       }),
 
-      approveProfile: (id, staffId) => set(state => {
-        const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "approve_profile", resourceType: "profile", resourceId: id, reason: "Profile meets guidelines", timestamp: new Date().toISOString() };
-        return {
-          users: state.users.map(u => u.id === id ? { ...u, profileStatus: "approved" } : u),
-          auditLogs: [...state.auditLogs, log]
-        };
-      }),
+      approveProfile: (id, staffId) => {
+        set(state => {
+          const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "approve_profile", resourceType: "profile", resourceId: id, reason: "Profile meets guidelines", timestamp: new Date().toISOString() };
+          return {
+            users: state.users.map(u => u.id === id ? { ...u, profileStatus: "approved" } : u),
+            auditLogs: [...state.auditLogs, log]
+          };
+        });
+        get().generateMatchesFor(id);
+      },
 
       rejectProfile: (id, staffId, reason) => set(state => {
         const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "reject_profile", resourceType: "profile", resourceId: id, reason, timestamp: new Date().toISOString() };
@@ -316,7 +407,7 @@ export const useStore = create<AppState>()(
       })),
     }),
     {
-      name: 'nikah-network-storage',
+      name: 'nikah-network-storage-v2',
     }
   )
 );
