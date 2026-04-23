@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function StaffMatches() {
-  const { matches, users, approveMatch, hideMatch, currentUser } = useStore();
+  const { matches, users, approveMatch, rejectMatch, currentUser } = useStore();
   if (!currentUser) return null;
 
   return (
@@ -42,7 +42,7 @@ export default function StaffMatches() {
                     <TableCell className="text-right space-x-2">
                       {m.status === 'suggested' && (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => hideMatch(m.id, currentUser.id)}>Hide</Button>
+                          <Button size="sm" variant="outline" onClick={() => rejectMatch(m.id, currentUser.id)}>Reject</Button>
                           <Button size="sm" onClick={() => approveMatch(m.id, currentUser.id)}>Approve</Button>
                         </>
                       )}

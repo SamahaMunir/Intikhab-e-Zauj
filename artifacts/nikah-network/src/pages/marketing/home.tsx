@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { Heart, ShieldCheck, Users, MessageCircle } from "lucide-react";
+import { Heart, ShieldCheck, Users, MessageCircle, UserPlus, LogIn, Shield, KeyRound } from "lucide-react";
 import heroImg from "@/assets/images/hero.png";
 
 export default function Home() {
@@ -39,6 +39,61 @@ export default function Home() {
         {/* Decorative background elements */}
         <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-96 h-96 bg-secondary/20 rounded-full blur-3xl"></div>
+      </section>
+
+      {/* Portal Entry */}
+      <section className="py-16 bg-card border-y border-border">
+        <div className="container mx-auto px-4">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <h2 className="text-2xl md:text-3xl font-serif font-bold mb-3">Enter the Portal</h2>
+            <p className="text-muted-foreground">Two doors, one purpose. Choose your role to continue.</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <Card className="border-2 border-primary/20 hover-elevate">
+              <CardContent className="p-8 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                    <Heart className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-serif font-semibold">For Applicants</h3>
+                    <p className="text-sm text-muted-foreground">Find your match with dignity.</p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link href="/login" className="flex-1">
+                    <Button variant="outline" className="w-full"><LogIn className="w-4 h-4 mr-2" />User Login</Button>
+                  </Link>
+                  <Link href="/register" className="flex-1">
+                    <Button className="w-full"><UserPlus className="w-4 h-4 mr-2" />User Sign Up</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 border-primary/20 hover-elevate">
+              <CardContent className="p-8 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                    <Shield className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-serif font-semibold">For Staff</h3>
+                    <p className="text-sm text-muted-foreground">Moderate, match, and manage.</p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link href="/staff-login" className="flex-1">
+                    <Button variant="outline" className="w-full"><KeyRound className="w-4 h-4 mr-2" />Staff Login</Button>
+                  </Link>
+                  <Link href="/staff-register" className="flex-1">
+                    <Button className="w-full"><UserPlus className="w-4 h-4 mr-2" />Staff Sign Up</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </section>
 
       {/* Trust Pillars */}
