@@ -40,7 +40,7 @@ export default function StaffLogin() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Staff Email</Label>
-              <Input id="email" type="email" placeholder="staff@nikahnetwork.pk" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input id="email" type="email" placeholder="staff@intikhab-e-zauj.pk" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
