@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Nikah Network"
+title = "Intikhab-e-Zauj"
 version = "1.0.0"
 id = "artifacts/nikah-network"
 router = "path"
@@ -29,3 +29,4 @@ to = "/index.html"
 [services.env]
 PORT = "23670"
 BASE_PATH = "/"
+
