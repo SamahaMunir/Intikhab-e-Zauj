@@ -80,11 +80,13 @@ async function main() {
   const frontendRequire = createRequire(
     path.join(rootDir, "artifacts", "nikah-network", "package.json"),
   );
-  const vitePackageJsonPath = frontendRequire.resolve("vite/package.json");
-  const vitePackage = frontendRequire(vitePackageJsonPath);
+  const viteEntryPoint = frontendRequire.resolve("vite");
   const viteCli = path.resolve(
-    path.dirname(vitePackageJsonPath),
-    vitePackage.bin.vite,
+    path.dirname(viteEntryPoint),
+    "..",
+    "..",
+    "bin",
+    "vite.js",
   );
 
   await runOnce(
