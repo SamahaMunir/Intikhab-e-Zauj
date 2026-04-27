@@ -13,7 +13,7 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-primary font-serif font-bold text-xl">
             <Heart className="h-6 w-6 fill-primary" />
-            Nikah Network
+            Intikhab-e-Zauj
           </Link>
           
           <nav className="hidden md:flex gap-6 items-center">
@@ -52,7 +52,7 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="flex items-center gap-2 text-primary font-serif font-bold text-xl mb-4">
               <Heart className="h-6 w-6 fill-primary" />
-              Nikah Network
+              Intikhab-e-Zauj
             </Link>
             <p className="text-muted-foreground text-sm max-w-sm">
               A secure, staff-controlled matrimonial platform by Falah Khandan Center (Women Commission, Lahore). Where families find barakah in a safe, dignified environment.
@@ -78,7 +78,7 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="container mt-12 pt-8 border-t text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} Nikah Network. All rights reserved.
+          &copy; {new Date().getFullYear()} Intikhab-e-Zauj. All rights reserved.
         </div>
       </footer>
     </div>
