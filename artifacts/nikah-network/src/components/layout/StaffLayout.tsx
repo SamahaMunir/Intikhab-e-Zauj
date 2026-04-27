@@ -45,7 +45,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         <div className="p-6 border-b border-sidebar-border bg-primary/10">
           <Link href="/" className="flex items-center gap-2 text-primary font-serif font-bold text-xl">
             <HeartIcon className="h-6 w-6 fill-primary" />
-            Nikah Network
+            Intikhab-e-Zauj
           </Link>
           <div className="mt-1 text-xs text-primary font-medium uppercase tracking-wider">Staff Portal</div>
         </div>
@@ -96,7 +96,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         <header className="md:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background px-4">
           <Link href="/" className="flex items-center gap-2 text-primary font-serif font-bold text-lg">
             <HeartIcon className="h-5 w-5 fill-primary" />
-            Nikah Network
+            Intikhab-e-Zauj
           </Link>
           <div className="flex items-center gap-2">
              <Avatar className="h-8 w-8 border border-primary/20">
