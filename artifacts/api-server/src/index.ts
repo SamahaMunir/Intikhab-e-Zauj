@@ -1,25 +1,34 @@
-import app from "./app";
-import { logger } from "./lib/logger";
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import express from 'express';
+import { getMongoClient, getDatabase } from './db/connection';
 
-const rawPort = process.env["PORT"];
+// Load .env from project root
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.resolve(__dirname, '../../.env');
+dotenv.config({ path: envPath });
 
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
+const app = express();
 
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
+app.get('/health', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const ping = await db.admin().ping();
+    res.json({
+      status: 'healthy',
+      database: 'connected',
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'unhealthy',
+      error: String(error),
+    });
   }
+});
 
-  logger.info({ port }, "Server listening");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
