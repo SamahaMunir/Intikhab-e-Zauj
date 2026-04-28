@@ -5,8 +5,36 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
+
+// Load .env file manually
+function loadEnv() {
+  const envPath = path.join(rootDir, ".env");
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, "utf-8");
+    const lines = envContent.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIndex = trimmed.indexOf("=");
+      if (eqIndex === -1) continue;
+      const key = trimmed.substring(0, eqIndex).trim();
+      let value = trimmed.substring(eqIndex + 1).trim();
+      // Remove surrounding quotes
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      if (key && !process.env[key]) {
+        process.env[key] = value;
+        console.log(`[dev.mjs] Loaded ${key} from .env`);
+      }
+    }
+  }
+}
+
+loadEnv();
 
 const frontendPort = process.env.FRONTEND_PORT ?? "5173";
 const backendPort = process.env.BACKEND_PORT ?? "5000";
