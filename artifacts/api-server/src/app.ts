@@ -5,6 +5,18 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+// Welcome endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Intikhab-e-Zauj API Server',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      auth: '/auth/login',
+    },
+  });
+});
 
 app.use(
   pinoHttp({
