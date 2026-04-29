@@ -17,7 +17,7 @@ const app = express();
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://nikah-network.pk', 'https://intikhab-e-zauj.onrender.com']
-    : ['http://localhost:5173', 'http://localhost:5000'],
+    : ['http://localhost:5175', 'http://localhost:5000'],
   credentials: true,
 }));
 
