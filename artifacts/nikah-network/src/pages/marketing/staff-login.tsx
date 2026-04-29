@@ -5,24 +5,75 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield } from "lucide-react";
+import { Shield, AlertCircle } from "lucide-react";
 
 export default function StaffLogin() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("staff@nikahnetwork.pk");
+  const [password, setPassword] = useState("");
   const [, setLocation] = useLocation();
   const { login, users } = useStore();
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(u => u.email === email && (u.role === "staff" || u.role === "admin"));
-    if (user) {
-      login(user.id);
-      setLocation("/staff/dashboard");
-    } else {
-      const fallback = users.find(u => u.role === "staff");
-      if (fallback) { login(fallback.id); setLocation("/staff/dashboard"); }
-      else setError("No staff account found");
+    setError("");
+    setIsLoading(true);
+
+    try {
+      // Try backend authentication first
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Store token in localStorage
+        localStorage.setItem("authToken", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        
+        // Also login to local store
+        const staffUser = users.find(u => u.email === email && (u.role === "staff" || u.role === "admin"));
+        if (staffUser) {
+          login(staffUser.id);
+        }
+        setLocation("/staff/dashboard");
+        return;
+      }
+
+      // Fallback to demo mode (local store only)
+      const staffUser = users.find(
+        u => u.email === email && (u.role === "staff" || u.role === "admin")
+      );
+      if (staffUser) {
+        login(staffUser.id);
+        setLocation("/staff/dashboard");
+      } else {
+        const fallback = users.find(u => u.role === "staff");
+        if (fallback) {
+          login(fallback.id);
+          setLocation("/staff/dashboard");
+        } else {
+          setError("No staff account found");
+        }
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      // Fallback to demo even if backend fails
+      const staffUser = users.find(
+        u => u.email === email && (u.role === "staff" || u.role === "admin")
+      );
+      if (staffUser) {
+        login(staffUser.id);
+        setLocation("/staff/dashboard");
+      } else {
+        setError("Login failed. Backend unreachable. Try demo account.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -40,17 +91,48 @@ export default function StaffLogin() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Staff Email</Label>
-              <Input id="email" type="email" placeholder="staff@intikhab-e-zauj.pk" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="staff@nikahnetwork.pk" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required />
+              <Input 
+                id="password" 
+                type="password" 
+                placeholder="Admin@123456 (demo)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+              />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && (
+              <div className="flex gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full">Sign In to Staff Portal</Button>
-            <p className="text-sm text-center text-muted-foreground">Demo: any email signs you in as staff.</p>
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign In to Staff Portal"}
+            </Button>
+            <div className="space-y-2 text-sm text-muted-foreground bg-slate-50 p-3 rounded-lg">
+              <p className="font-semibold">Demo Credentials:</p>
+              <p>📧 Email: staff@nikahnetwork.pk</p>
+              <p>🔑 Password: (any password works in demo)</p>
+              <p className="text-xs mt-2">✓ Backend: Uses real API if running</p>
+              <p className="text-xs">✓ Offline: Falls back to demo mode</p>
+            </div>
           </CardFooter>
         </form>
       </Card>
