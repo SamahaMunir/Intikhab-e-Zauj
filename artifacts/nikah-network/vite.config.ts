@@ -26,8 +26,16 @@ if (!basePath) {
   );
 }
 
+// Determine API URL based on environment
+const apiUrl = process.env.NODE_ENV === 'production'
+  ? process.env.API_BASE_URL || 'https://intikhab-e-zauj.onrender.com'
+  : process.env.API_BASE_URL || 'http://localhost:5000';
+
 export default defineConfig({
   base: basePath,
+  define: {
+    'import.meta.env.VITE_API_URL': JSON.stringify(apiUrl),
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -54,10 +62,10 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
   },
   root: path.resolve(import.meta.dirname),
- build: {
-  outDir: path.resolve(import.meta.dirname, "dist"),
-  emptyOutDir: true,
-},
+  build: {
+    outDir: path.resolve(import.meta.dirname, "dist"),
+    emptyOutDir: true,
+  },
   server: {
     port,
     strictPort: true,
