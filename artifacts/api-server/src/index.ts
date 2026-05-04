@@ -5,7 +5,9 @@ import cors from 'cors';
 import { getMongoClient, getDatabase, closeMongoClient } from './db/connection';
 import authRouter from './routes/auth';
 import auditLogsRouter from './routes/auditLogsRoutes';
+import profilesRouter from './routes/profiles';
 import { initAuditLogs } from './db/auditLogs';
+import { seedTestData } from './db/seed';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,24 +15,44 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // ============================================================================
-// Middleware
+// MIDDLEWARE - MUST BE FIRST!
 // ============================================================================
 
+// CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://nikah-network.pk', 'https://intikhab-e-zauj.onrender.com']
-    : ['http://localhost:5175', 'http://localhost:5000'],
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:5175',
+      'http://localhost:5000',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5175',
+      'http://127.0.0.1:5000',
+      'https://nikah-network.pk',
+      'https://intikhab-e-zauj.onrender.com',
+    ];
+
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Parse JSON & URL-encoded bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ============================================================================
-// API Routes
+// API Routes - NOW AFTER MIDDLEWARE
 // ============================================================================
 
-// Health Check Endpoint
+// Health Check
 app.get('/health', async (req, res) => {
   try {
     const db = await getDatabase();
@@ -56,7 +78,26 @@ app.get('/health', async (req, res) => {
 
 // Auth routes
 app.use('/auth', authRouter);
+
+// Initialize audit logs collection (once)
+let auditLogsInitialized = false;
+app.use(async (req, res, next) => {
+  if (!auditLogsInitialized) {
+    try {
+      const db = await getDatabase();
+      await initAuditLogs(db);
+      auditLogsInitialized = true;
+      console.log('✓ Audit logs collection initialized');
+    } catch (error) {
+      console.error('Failed to initialize audit logs:', error);
+    }
+  }
+  next();
+});
+
+// Staff API routes (audit logs & profiles)
 app.use('/api/staff', auditLogsRouter);
+app.use('/api/staff', profilesRouter);
 
 // API info endpoint
 app.get('/api/info', (req, res) => {
@@ -67,42 +108,60 @@ app.get('/api/info', (req, res) => {
     endpoints: {
       health: '/health',
       auth: '/auth/login',
+      profiles: '/api/staff/profiles/:id/approve',
       auditLogs: '/api/staff/audit-logs',
     },
   });
+});
+
+ // Debug: List all users
+app.get('/api/debug/users', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const users = await db.collection('users').find({}).limit(10).toArray();
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+  }
 });
 
 // ============================================================================
 // Serve Frontend (Static Files) - SPA Configuration
 // ============================================================================
 
-// Path to built frontend
-const frontendPath = path.join(__dirname, '../../nikah-network/dist');
+const frontendPath = path.resolve(__dirname, '../../nikah-network/dist');
 
-// Serve static files (JS, CSS, images, etc.)
+// Serve static files
 app.use(express.static(frontendPath, {
-  maxAge: '1h', // Cache static assets for 1 hour
+  maxAge: '1h',
 }));
 
-// SPA fallback: serve index.html for all non-API routes using middleware
-app.use((req, res, next) => {
-  // Skip API and auth routes
-  if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/health')) {
-    return next();
+/// SPA fallback - use middleware instead of app.get('*', ...)
+app.use((req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api') || 
+      req.path.startsWith('/auth') || 
+      req.path.startsWith('/health')) {
+    return res.status(404).json({ 
+      error: 'Not Found',
+      path: req.path,
+      method: req.method,
+    });
   }
-
+ 
+  
+  // Serve index.html for all other routes (SPA routing)
   const indexPath = path.join(frontendPath, 'index.html');
   res.sendFile(indexPath, (err) => {
     if (err) {
       console.error('Error serving index.html:', err.message);
-      res.status(404).json({
+      res.status(404).json({ 
         error: 'Frontend not found',
         message: 'The frontend build is missing. Please run: pnpm run build',
       });
     }
   });
 });
-
 // ============================================================================
 // Server Startup
 // ============================================================================
@@ -112,13 +171,12 @@ const HOST = '0.0.0.0';
 
 async function startServer() {
   try {
-    // Test database connection on startup
     console.log('🔄 Testing database connection...');
     const db = await getDatabase();
     await db.admin().ping();
     console.log('✓ Database connection verified');
+        await seedTestData(db);
 
-    // Initialize audit logs collection and indexes
     console.log('🔄 Initializing audit logs...');
     await initAuditLogs(db);
     console.log('✓ Audit logs initialized');
@@ -130,14 +188,9 @@ async function startServer() {
       console.log(`✓ Health check: http://localhost:${PORT}/health`);
       console.log(`✓ Login: http://localhost:${PORT}/staff-login`);
       console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
-      
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`\n📁 Serving frontend from: ${frontendPath}`);
-      }
       console.log('');
     });
 
-    // Graceful Shutdown
     const handleShutdown = async (signal: string) => {
       console.log(`\n📍 Received ${signal}, shutting down gracefully...`);
       
@@ -147,7 +200,6 @@ async function startServer() {
         process.exit(0);
       });
 
-      // Force shutdown after 10 seconds
       setTimeout(() => {
         console.error('✗ Forced shutdown');
         process.exit(1);
