@@ -4,6 +4,8 @@ import express from 'express';
 import cors from 'cors';
 import { getMongoClient, getDatabase, closeMongoClient } from './db/connection';
 import authRouter from './routes/auth';
+import auditLogsRouter from './routes/auditLogsRoutes';
+import { initAuditLogs } from './db/auditLogs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,6 +56,7 @@ app.get('/health', async (req, res) => {
 
 // Auth routes
 app.use('/auth', authRouter);
+app.use('/api/staff', auditLogsRouter);
 
 // API info endpoint
 app.get('/api/info', (req, res) => {
@@ -64,6 +67,7 @@ app.get('/api/info', (req, res) => {
     endpoints: {
       health: '/health',
       auth: '/auth/login',
+      auditLogs: '/api/staff/audit-logs',
     },
   });
 });
@@ -113,6 +117,11 @@ async function startServer() {
     const db = await getDatabase();
     await db.admin().ping();
     console.log('✓ Database connection verified');
+
+    // Initialize audit logs collection and indexes
+    console.log('🔄 Initializing audit logs...');
+    await initAuditLogs(db);
+    console.log('✓ Audit logs initialized');
 
     const server = app.listen(PORT, HOST, () => {
       console.log(`\n✓ Server running on http://${HOST}:${PORT}`);

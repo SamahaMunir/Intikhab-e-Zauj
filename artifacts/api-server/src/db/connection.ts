@@ -4,6 +4,7 @@ let cachedClient: MongoClient | null = null;
 
 export async function getMongoClient(): Promise<MongoClient> {
   const uri = process.env.DATABASE_URL;
+  console.log("DATABASE_URL present?", Boolean(process.env.DATABASE_URL));
   
   if (!uri) {
     throw new Error('DATABASE_URL environment variable is not set');
