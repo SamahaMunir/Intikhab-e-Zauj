@@ -8,6 +8,7 @@ import auditLogsRouter from './routes/auditLogsRoutes';
 import profilesRouter from './routes/profiles';
 import { initAuditLogs } from './db/auditLogs';
 import { seedTestData } from './db/seed';
+import { authMiddleware, staffOnlyMiddleware } from './middleware/auth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,7 +77,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Auth routes
+// Auth routes (NO middleware needed for login)
 app.use('/auth', authRouter);
 
 // Initialize audit logs collection (once)
@@ -95,9 +96,9 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Staff API routes (audit logs & profiles)
-app.use('/api/staff', auditLogsRouter);
-app.use('/api/staff', profilesRouter);
+// Staff API routes (with auth middleware)
+app.use('/api/staff', authMiddleware, staffOnlyMiddleware, auditLogsRouter);
+app.use('/api/staff', authMiddleware, staffOnlyMiddleware, profilesRouter);
 
 // API info endpoint
 app.get('/api/info', (req, res) => {
@@ -114,7 +115,7 @@ app.get('/api/info', (req, res) => {
   });
 });
 
- // Debug: List all users
+// Debug: List all users
 app.get('/api/debug/users', async (req, res) => {
   try {
     const db = await getDatabase();
@@ -136,7 +137,7 @@ app.use(express.static(frontendPath, {
   maxAge: '1h',
 }));
 
-/// SPA fallback - use middleware instead of app.get('*', ...)
+// SPA fallback - use middleware instead of app.get('*', ...)
 app.use((req, res) => {
   // Don't serve index.html for API routes
   if (req.path.startsWith('/api') || 
@@ -162,6 +163,7 @@ app.use((req, res) => {
     }
   });
 });
+
 // ============================================================================
 // Server Startup
 // ============================================================================
@@ -175,7 +177,7 @@ async function startServer() {
     const db = await getDatabase();
     await db.admin().ping();
     console.log('✓ Database connection verified');
-        await seedTestData(db);
+    await seedTestData(db);
 
     console.log('🔄 Initializing audit logs...');
     await initAuditLogs(db);
