@@ -33,30 +33,28 @@ export default function StaffAudit() {
     setIsLoading(true);
     setError(null);
     try {
-      // Get API URL from Vite environment variable
+      const token = localStorage.getItem('authToken');
       const apiUrl = import.meta.env.VITE_API_URL || window.location.origin;
-      
-      console.log('📋 Fetching audit logs from:', `${apiUrl}/api/staff/audit-logs`);
 
       const response = await fetch(`${apiUrl}/api/staff/audit-logs?limit=100&skip=0`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         credentials: 'include',
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to fetch audit logs'}`);
+        throw new Error(`HTTP ${response.status}: Failed to fetch audit logs`);
       }
 
       const data = await response.json();
       setLogs(data.data || []);
       setTotal(data.total || 0);
     } catch (err) {
-      console.error("❌ Error fetching audit logs:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch audit logs");
+      console.error('Error fetching audit logs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch audit logs');
     } finally {
       setIsLoading(false);
     }
