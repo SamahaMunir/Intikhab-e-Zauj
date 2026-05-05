@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getAuditLogs, getResourceAuditLogs } from "../db/auditLogs";
+import { authMiddleware, staffOnlyMiddleware, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -8,44 +9,49 @@ const router = Router();
  * Fetch all audit logs (staff only)
  * Query params: action, resourceType, resourceId, actorEmail, limit, skip
  */
-router.get("/audit-logs", async (req: Request, res: Response) => {
-  try {
-    const {
-      action,
-      resourceType,
-      resourceId,
-      actorEmail,
-      limit = "100",
-      skip = "0",
-    } = req.query;
+router.get(
+  "/audit-logs",
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const {
+        action,
+        resourceType,
+        resourceId,
+        actorEmail,
+        limit = "100",
+        skip = "0",
+      } = req.query;
 
-    const filters: any = {};
-    if (action) filters.action = action;
-    if (resourceType) filters.resourceType = resourceType;
-    if (resourceId) filters.resourceId = resourceId;
-    if (actorEmail) filters.actorEmail = actorEmail;
+      const filters: any = {};
+      if (action) filters.action = action;
+      if (resourceType) filters.resourceType = resourceType;
+      if (resourceId) filters.resourceId = resourceId;
+      if (actorEmail) filters.actorEmail = actorEmail;
 
-    const { logs, total } = await getAuditLogs(
-      filters,
-      parseInt(limit as string, 10),
-      parseInt(skip as string, 10)
-    );
+      const { logs, total } = await getAuditLogs(
+        filters,
+        parseInt(limit as string, 10),
+        parseInt(skip as string, 10)
+      );
 
-    res.json({
-      success: true,
-      data: logs,
-      total,
-      limit: parseInt(limit as string, 10),
-      skip: parseInt(skip as string, 10),
-    });
-  } catch (error) {
-    console.error("Error fetching audit logs:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch audit logs",
-    });
+      res.json({
+        success: true,
+        data: logs,
+        total,
+        limit: parseInt(limit as string, 10),
+        skip: parseInt(skip as string, 10),
+      });
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch audit logs",
+      });
+    }
   }
-});
+);
 
 /**
  * GET /api/staff/audit-logs/:resourceType/:resourceId
@@ -53,12 +59,11 @@ router.get("/audit-logs", async (req: Request, res: Response) => {
  */
 router.get(
   "/audit-logs/:resourceType/:resourceId",
-  async (
-    req: Request<{ resourceType: string; resourceId: string }>,
-    res: Response
-  ) => {
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response) => {
     try {
-      const { resourceType, resourceId } = req.params;
+      const { resourceType, resourceId } = req.params as { resourceType: string; resourceId: string };
 
       const logs = await getResourceAuditLogs(resourceType, resourceId);
 
