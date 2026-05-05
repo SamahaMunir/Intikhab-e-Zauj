@@ -29,49 +29,44 @@ export default function StaffLogin() {
         body: JSON.stringify({ email, password }),
       });
 
+      console.log("Login response status:", response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log("Login success! Token received:", data.token?.substring(0, 20) + "...");
+        
         // Store token in localStorage
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
+        
+        console.log("Token stored in localStorage");
         
         // Also login to local store
         const staffUser = users.find(u => u.email === email && (u.role === "staff" || u.role === "admin"));
         if (staffUser) {
           login(staffUser.id);
         }
+        
+        // Redirect to dashboard
         setLocation("/staff/dashboard");
         return;
       }
 
-      // Fallback to demo mode (local store only)
+      // If not ok, show error
+      const errorData = await response.json();
+      setError(errorData.message || "Login failed");
+      
+      // Fallback to demo mode ONLY if backend fails
       const staffUser = users.find(
         u => u.email === email && (u.role === "staff" || u.role === "admin")
       );
       if (staffUser) {
         login(staffUser.id);
         setLocation("/staff/dashboard");
-      } else {
-        const fallback = users.find(u => u.role === "staff");
-        if (fallback) {
-          login(fallback.id);
-          setLocation("/staff/dashboard");
-        } else {
-          setError("No staff account found");
-        }
       }
     } catch (err) {
       console.error("Login error:", err);
-      // Fallback to demo even if backend fails
-      const staffUser = users.find(
-        u => u.email === email && (u.role === "staff" || u.role === "admin")
-      );
-      if (staffUser) {
-        login(staffUser.id);
-        setLocation("/staff/dashboard");
-      } else {
-        setError("Login failed. Backend unreachable. Try demo account.");
-      }
+      setError("Login failed. Backend unreachable.");
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +100,7 @@ export default function StaffLogin() {
               <Input 
                 id="password" 
                 type="password" 
-                placeholder="Admin@123456 (demo)"
+                placeholder="staff123"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required 
@@ -127,10 +122,10 @@ export default function StaffLogin() {
               {isLoading ? "Signing in..." : "Sign In to Staff Portal"}
             </Button>
             <div className="space-y-2 text-sm text-muted-foreground bg-slate-50 p-3 rounded-lg">
-              <p className="font-semibold">Demo Credentials:</p>
+              <p className="font-semibold">Staff Credentials:</p>
               <p>📧 Email: staff@nikahnetwork.pk</p>
-              <p>🔑 Password: (any password works in demo)</p>
-              <p className="text-xs mt-2">✓ Backend: Uses real API if running</p>
+              <p>🔑 Password: staff123</p>
+              <p className="text-xs mt-2">✓ Backend: Uses real JWT if running</p>
               <p className="text-xs">✓ Offline: Falls back to demo mode</p>
             </div>
           </CardFooter>
