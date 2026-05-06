@@ -8,17 +8,6 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   const [location] = useLocation();
   const { currentUser, logout } = useStore();
 
-  const navItems = [
-    { href: "/staff/dashboard", label: "Dashboard", icon: BarChart },
-    { href: "/staff/profiles", label: "Profiles", icon: Users },
-    { href: "/staff/matches", label: "Matches", icon: HeartIcon },
-    { href: "/staff/proposals", label: "Proposals", icon: FileText },
-    { href: "/staff/messages", label: "Q&A Moderation", icon: Shield },
-    { href: "/staff/counselling", label: "Counselling", icon: CheckCircle },
-    { href: "/staff/audit", label: "Audit Logs", icon: AlertTriangle },
-    { href: "/staff/config", label: "Settings", icon: Settings },
-  ];
-
   function HeartIcon(props: any) {
     return (
       <svg
@@ -26,7 +15,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         xmlns="http://www.w3.org/2000/svg"
         width="24"
         height="24"
-        viewBox="0 24"
+        viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
@@ -38,6 +27,35 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     )
   }
 
+  // Check if user is admin - check BOTH Zustand and localStorage JWT
+  const isAdmin = currentUser?.role === 'admin' || 
+    (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin');
+
+  // Base nav items for all staff
+  const baseNavItems = [
+    { href: "/staff/dashboard", label: "Dashboard", icon: BarChart },
+    { href: "/staff/profiles", label: "Profiles", icon: Users },
+    { href: "/staff/matches", label: "Matches", icon: HeartIcon },
+    { href: "/staff/proposals", label: "Proposals", icon: FileText },
+    { href: "/staff/messages", label: "Q&A Moderation", icon: Shield },
+    { href: "/staff/counselling", label: "Counselling", icon: CheckCircle },
+    { href: "/staff/audit", label: "Audit Logs", icon: AlertTriangle },
+    { href: "/staff/config", label: "Settings", icon: Settings },
+  ];
+
+  // Prepend Staff Management for admins
+  const navItems = isAdmin
+    ? [
+        { href: "/staff/admin-panel", label: "Staff Management", icon: Users },
+        ...baseNavItems,
+      ]
+    : baseNavItems;
+
+  // Get user from either source
+  const user = currentUser || 
+    (typeof window !== 'undefined' && JSON.parse(localStorage.getItem('user') || '{}'));
+  const userRole = user?.role || 'staff';
+
   return (
     <div className="flex min-h-[100dvh] bg-background">
       {/* Sidebar */}
@@ -47,13 +65,17 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             <HeartIcon className="h-6 w-6 fill-primary" />
             Intikhab-e-Zauj
           </Link>
-          <div className="mt-1 text-xs text-primary font-medium uppercase tracking-wider">Staff Portal</div>
+          <div className="mt-1 text-xs text-primary font-medium uppercase tracking-wider">
+            {isAdmin ? 'Admin Portal' : 'Staff Portal'}
+          </div>
         </div>
         
         <div className="flex-1 overflow-y-auto py-6 px-4">
           <nav className="space-y-1">
             {navItems.map((item) => {
               const isActive = location.startsWith(item.href);
+              const IconComponent = typeof item.icon === 'function' ? item.icon : item.icon;
+              
               return (
                 <Link key={item.href} href={item.href}>
                   <span className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
@@ -61,7 +83,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                       ? "bg-primary text-primary-foreground shadow-sm" 
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   }`}>
-                    <item.icon className={`h-4 w-4 ${isActive ? "" : "text-muted-foreground"}`} />
+                    <IconComponent className={`h-4 w-4 ${isActive ? "" : "text-muted-foreground"}`} />
                     {item.label}
                   </span>
                 </Link>
@@ -73,18 +95,27 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3 mb-4 px-2">
             <Avatar className="h-10 w-10 border border-primary/20">
-              <AvatarImage src={currentUser?.avatar} />
-              <AvatarFallback className="bg-primary text-primary-foreground font-serif">{currentUser?.name?.charAt(0) || "S"}</AvatarFallback>
+              <AvatarImage src={user?.avatar} />
+              <AvatarFallback className="bg-primary text-primary-foreground font-serif">
+                {user?.name?.charAt(0) || "S"}
+              </AvatarFallback>
             </Avatar>
             <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-medium truncate">{currentUser?.name || "Staff"}</span>
-              <span className="text-xs text-muted-foreground truncate">{currentUser?.email}</span>
+              <span className="text-sm font-medium truncate">{user?.name || "Staff"}</span>
+              <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
+              <span className="text-xs text-primary font-semibold capitalize">{userRole}</span>
             </div>
           </div>
-          <Button variant="outline" className="w-full justify-start text-muted-foreground hover:text-foreground" onClick={() => {
-            logout();
-            window.location.href = "/";
-          }}>
+          <Button 
+            variant="outline" 
+            className="w-full justify-start text-muted-foreground hover:text-foreground" 
+            onClick={() => {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('user');
+              logout();
+              window.location.href = "/staff-login";
+            }}
+          >
             <LogOut className="h-4 w-4 mr-2" />
             Sign Out
           </Button>
@@ -99,9 +130,11 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
             Intikhab-e-Zauj
           </Link>
           <div className="flex items-center gap-2">
-             <Avatar className="h-8 w-8 border border-primary/20">
-              <AvatarImage src={currentUser?.avatar} />
-              <AvatarFallback className="bg-primary/10 text-primary font-serif">{currentUser?.name?.charAt(0) || "S"}</AvatarFallback>
+            <Avatar className="h-8 w-8 border border-primary/20">
+              <AvatarImage src={user?.avatar} />
+              <AvatarFallback className="bg-primary/10 text-primary font-serif">
+                {user?.name?.charAt(0) || "S"}
+              </AvatarFallback>
             </Avatar>
           </div>
         </header>
@@ -110,6 +143,8 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         <div className="md:hidden border-b bg-muted/20 overflow-x-auto flex whitespace-nowrap p-2 gap-2">
           {navItems.map((item) => {
             const isActive = location.startsWith(item.href);
+            const IconComponent = typeof item.icon === 'function' ? item.icon : item.icon;
+            
             return (
               <Link key={item.href} href={item.href}>
                 <span className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
