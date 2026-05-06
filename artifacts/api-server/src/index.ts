@@ -9,6 +9,9 @@ import profilesRouter from './routes/profiles';
 import { initAuditLogs } from './db/auditLogs';
 import { seedTestData } from './db/seed';
 import { authMiddleware, staffOnlyMiddleware } from './middleware/auth';
+import { initStaffCollection } from './db/staff';
+import staffRoutes from './routes/staffRoutes';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,6 +52,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ============================================================================
+// API Routes - NOW AFTER MIDDLEWARE
+// ============================================================================
+
+// Health Check
 // ============================================================================
 // API Routes - NOW AFTER MIDDLEWARE
 // ============================================================================
@@ -96,7 +104,8 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Staff API routes (with auth middleware)
+// Staff API routes (with auth middleware for protected endpoints)
+app.use('/api/staff', staffRoutes); // /api/staff/invite, /api/staff/setup-password, /api/staff/list, etc.
 app.use('/api/staff', authMiddleware, staffOnlyMiddleware, auditLogsRouter);
 app.use('/api/staff', authMiddleware, staffOnlyMiddleware, profilesRouter);
 
@@ -111,58 +120,12 @@ app.get('/api/info', (req, res) => {
       auth: '/auth/login',
       profiles: '/api/staff/profiles/:id/approve',
       auditLogs: '/api/staff/audit-logs',
+      staffManagement: '/api/staff/invite',
     },
   });
 });
 
-// Debug: List all users
-app.get('/api/debug/users', async (req, res) => {
-  try {
-    const db = await getDatabase();
-    const users = await db.collection('users').find({}).limit(10).toArray();
-    res.json({ users });
-  } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
-  }
-});
-
-// ============================================================================
-// Serve Frontend (Static Files) - SPA Configuration
-// ============================================================================
-
-const frontendPath = path.resolve(__dirname, '../../nikah-network/dist');
-
-// Serve static files
-app.use(express.static(frontendPath, {
-  maxAge: '1h',
-}));
-
-// SPA fallback - use middleware instead of app.get('*', ...)
-app.use((req, res) => {
-  // Don't serve index.html for API routes
-  if (req.path.startsWith('/api') || 
-      req.path.startsWith('/auth') || 
-      req.path.startsWith('/health')) {
-    return res.status(404).json({ 
-      error: 'Not Found',
-      path: req.path,
-      method: req.method,
-    });
-  }
- 
-  
-  // Serve index.html for all other routes (SPA routing)
-  const indexPath = path.join(frontendPath, 'index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      console.error('Error serving index.html:', err.message);
-      res.status(404).json({ 
-        error: 'Frontend not found',
-        message: 'The frontend build is missing. Please run: pnpm run build',
-      });
-    }
-  });
-});
+// ... rest of index.ts
 
 // ============================================================================
 // Server Startup
@@ -177,11 +140,16 @@ async function startServer() {
     const db = await getDatabase();
     await db.admin().ping();
     console.log('✓ Database connection verified');
+    
     await seedTestData(db);
 
     console.log('🔄 Initializing audit logs...');
     await initAuditLogs(db);
     console.log('✓ Audit logs initialized');
+
+    console.log('🔄 Initializing staff collection...');
+    await initStaffCollection(db);
+    console.log('✓ Staff collection initialized');
 
     const server = app.listen(PORT, HOST, () => {
       console.log(`\n✓ Server running on http://${HOST}:${PORT}`);
@@ -220,3 +188,4 @@ async function startServer() {
 startServer();
 
 export default app;
+
