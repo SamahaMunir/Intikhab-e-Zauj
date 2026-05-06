@@ -10,6 +10,7 @@ import {
   resendInvite,
 } from '../db/staff';
 import { logAudit } from '../db/auditLogs';
+import { sendStaffInviteEmail } from '../utils/email';
 
 const router = Router();
 
@@ -52,6 +53,15 @@ router.post(
         req.user!.email
       );
 
+      // ✅ SEND EMAIL
+      const emailSent = await sendStaffInviteEmail(
+        email,
+        name,
+        inviteLink,
+        req.user!.name
+      );
+
+
       // Log the action
       await logAudit(
         req.user!.email,
@@ -60,14 +70,15 @@ router.post(
         'invite_staff',
         'staff',
         email,
-        `Invited ${role} staff member`,
-        { staffName: name }
+        `Invited ${role} staff member${emailSent ? ' (email sent)' : ' (email failed)'}`,
+        { staffName: name, emailSent }
       );
 
       res.json({
         success: true,
-        message: 'Invite sent',
+        message: emailSent ? 'Invite sent via email' : 'Invite created but email failed',
         inviteLink,
+        emailSent,
         staff: {
           email: staff.email,
           name: staff.name,
