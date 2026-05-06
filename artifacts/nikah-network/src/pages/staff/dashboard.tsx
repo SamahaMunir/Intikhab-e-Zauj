@@ -1,17 +1,142 @@
 import { useStore } from "@/lib/store";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, FileText, CheckCircle, Shield, Sparkles, Check, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import { Users, FileText, CheckCircle, Shield, Sparkles, Check, X, BarChart3, Settings, LogOut } from "lucide-react";
 
 function age(dob: string) {
   return new Date().getFullYear() - new Date(dob).getFullYear();
 }
 
 export default function StaffDashboard() {
-  const { users, proposals, messages, counselling, matches, approveMatch, rejectMatch, currentUser } = useStore();
+  const { users, proposals, messages, counselling, matches, approveMatch, rejectMatch, currentUser, logout } = useStore();
+  const [, setLocation] = useLocation();
 
+  if (!currentUser) return null;
+
+  // ============================================================================
+  // ADMIN DASHBOARD
+  // ============================================================================
+  if (currentUser.role === 'admin') {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-foreground">Admin Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Manage staff, audit logs, and system settings</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              logout();
+              setLocation('/staff-login');
+            }}
+            className="flex gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </Button>
+        </div>
+
+        {/* Main Admin Options */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Staff Management */}
+          <Link href="/staff/admin-panel">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Staff Management</h3>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Add, remove, and manage staff members
+                    </p>
+                  </div>
+                  <Button className="w-full">Manage Staff</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Audit Logs */}
+          <Link href="/staff/audit">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <BarChart3 className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Audit Logs</h3>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      View system activity and staff actions
+                    </p>
+                  </div>
+                  <Button variant="outline" className="w-full">View Logs</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* System Settings */}
+          <Link href="/staff/config">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Settings className="w-8 h-8 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">System Settings</h3>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Configure platform settings
+                    </p>
+                  </div>
+                  <Button variant="outline" className="w-full">Settings</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
+        {/* Admin Info Card */}
+        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Admin Account
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Name</p>
+                <p className="font-semibold">{currentUser.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Email</p>
+                <p className="font-semibold">{currentUser.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Role</p>
+                <p className="font-semibold capitalize px-3 py-1 rounded-full bg-blue-100 text-blue-700 w-fit">
+                  {currentUser.role}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // REGULAR STAFF DASHBOARD
+  // ============================================================================
   const pendingProfiles = users.filter(u => u.profileStatus === "pending").length;
   const pendingProposals = proposals.filter(p => p.status === "pending_staff_approval").length;
   const pendingMessages = messages.filter(m => m.status === "pending_staff_review").length;
@@ -25,9 +150,22 @@ export default function StaffDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-serif font-bold text-foreground">Staff Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Auto-generated matches awaiting your review.</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-serif font-bold text-foreground">Staff Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Auto-generated matches awaiting your review.</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            logout();
+            setLocation('/staff-login');
+          }}
+          className="flex gap-2"
+        >
+          <LogOut className="w-4 h-4" />
+          Logout
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
