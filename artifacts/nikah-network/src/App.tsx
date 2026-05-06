@@ -40,7 +40,8 @@ import StaffMessages from "@/pages/staff/messages";
 import StaffCounselling from "@/pages/staff/counselling";
 import StaffAudit from "@/pages/staff/audit";
 import StaffConfig from "@/pages/staff/config";
-
+import AdminPanel from '@/pages/staff/admin-panel';
+import StaffSetup from '@/pages/staff/setup';
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -97,6 +98,8 @@ function StaffPortalRouter() {
         <Route path="/staff/counselling" component={StaffCounselling} />
         <Route path="/staff/audit" component={StaffAudit} />
         <Route path="/staff/config" component={StaffConfig} />
+        <Route path="/staff/admin-panel" component={AdminPanel} />
+        <Route path="/staff/setup" component={StaffSetup} />
         <Route component={NotFound} />
       </Switch>
     </StaffLayout>
