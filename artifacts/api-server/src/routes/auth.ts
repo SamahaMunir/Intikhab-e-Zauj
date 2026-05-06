@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { generateToken, JWTPayload } from '../utils/jwt';
+import { logAudit } from '../db/auditLogs';
+import { getStaffByEmail, updateLastLogin } from '../db/staff';
 
 const router = Router();
 
@@ -35,29 +37,56 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    const user = STAFF_USERS[email as string];
-    if (!user) {
+    // Get staff from database
+    const staff = await getStaffByEmail(email);
+    
+    if (!staff) {
       return res.status(401).json({
         error: 'Invalid credentials',
         message: 'Email not found',
       });
     }
 
-    if (user.password !== password) {
+    // Check if active
+    if (staff.status !== 'active') {
+      return res.status(401).json({
+        error: 'Account inactive',
+        message: 'Your staff account has been deactivated',
+      });
+    }
+
+    // Verify password
+    if (staff.password !== password) {
       return res.status(401).json({
         error: 'Invalid credentials',
         message: 'Password incorrect',
       });
     }
 
+    // Generate JWT
     const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
       id: email.split('@')[0],
-      email: user.email,
-      name: user.name,
-      role: user.role as any,
+      email: staff.email,
+      name: staff.name,
+      role: staff.role,
     };
 
     const token = generateToken(payload);
+
+    // Update last login
+    await updateLastLogin(email);
+
+    // Log the login
+    await logAudit(
+      email,
+      payload.id,
+      staff.role,
+      'login',
+      'auth',
+      email,
+      'Staff logged in',
+      { userAgent: req.get('user-agent') }
+    );
 
     console.log(`✓ User logged in: ${email}`);
 
@@ -66,9 +95,9 @@ router.post('/login', async (req: Request, res: Response) => {
       token,
       user: {
         id: payload.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
+        email: staff.email,
+        name: staff.name,
+        role: staff.role,
       },
       expiresIn: '24h',
     });
@@ -79,6 +108,37 @@ router.post('/login', async (req: Request, res: Response) => {
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
+});
+
+router.post('/logout', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    message: 'Logged out successfully',
+  });
+});
+
+router.get('/me', (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'No token provided',
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid token format',
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Token is valid',
+  });
 });
 
 /**
