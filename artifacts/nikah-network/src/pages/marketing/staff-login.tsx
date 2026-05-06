@@ -16,61 +16,63 @@ export default function StaffLogin() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setIsLoading(true);
+  e.preventDefault();
+  setError("");
+  setIsLoading(true);
 
-    try {
-      // Try backend authentication first
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-      const response = await fetch(`${apiUrl}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-      console.log("Login response status:", response.status);
+    const response = await fetch(`${apiUrl}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Login success! Token received:", data.token?.substring(0, 20) + "...");
-        
-        // Store token in localStorage
-        localStorage.setItem("authToken", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        
-        console.log("Token stored in localStorage");
-        
-        // Also login to local store
-        const staffUser = users.find(u => u.email === email && (u.role === "staff" || u.role === "admin"));
-        if (staffUser) {
-          login(staffUser.id);
-        }
-        
-        // Redirect to dashboard
-        setLocation("/staff/dashboard");
-        return;
-      }
+    console.log("Login response status:", response.status);
 
-      // If not ok, show error
-      const errorData = await response.json();
-      setError(errorData.message || "Login failed");
-      
-      // Fallback to demo mode ONLY if backend fails
-      const staffUser = users.find(
-        u => u.email === email && (u.role === "staff" || u.role === "admin")
+    const data = await response.json();
+
+    // ✅ SUCCESS
+    if (response.ok && data.token) {
+      console.log(
+        "Login success! Token received:",
+        data.token.substring(0, 20) + "..."
       );
+
+      // Store JWT
+      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      console.log("Token stored in localStorage");
+
+      // Sync with Zustand store
+      const staffUser = users.find(
+        (u) =>
+          u.email === data.user.email &&
+          (u.role === "staff" || u.role === "admin")
+      );
+
       if (staffUser) {
         login(staffUser.id);
-        setLocation("/staff/dashboard");
       }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Login failed. Backend unreachable.");
-    } finally {
-      setIsLoading(false);
+
+      // Redirect
+      setLocation("/staff/dashboard");
+      return;
     }
-  };
+
+    // ❌ ERROR (no fallback now)
+    setError(data.message || "Invalid email or password");
+  } catch (err) {
+    console.error("Login error:", err);
+    setError("Server error. Please try again later.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="container flex items-center justify-center min-h-[calc(100vh-16rem)] py-12">
