@@ -11,6 +11,8 @@ import { seedTestData } from './db/seed';
 import { authMiddleware, staffOnlyMiddleware } from './middleware/auth';
 import { initStaffCollection } from './db/staff';
 import staffRoutes from './routes/staffRoutes';
+import cloudinaryRoutes from './routes/cloudinaryRoutes';
+
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -84,9 +86,10 @@ app.get('/health', async (req, res) => {
     });
   }
 });
-
 // Auth routes (NO middleware needed for login)
 app.use('/auth', authRouter);
+// Cloudinary routes (NO middleware needed)
+app.use('/api/cloudinary', cloudinaryRoutes);
 
 // Initialize audit logs collection (once)
 let auditLogsInitialized = false;
@@ -105,9 +108,10 @@ app.use(async (req, res, next) => {
 });
 
 // Staff API routes (with auth middleware for protected endpoints)
-app.use('/api/staff', staffRoutes); // /api/staff/invite, /api/staff/setup-password, /api/staff/list, etc.
+app.use('/api/staff', staffRoutes);
 app.use('/api/staff', authMiddleware, staffOnlyMiddleware, auditLogsRouter);
 app.use('/api/staff', authMiddleware, staffOnlyMiddleware, profilesRouter);
+
 
 // API info endpoint
 app.get('/api/info', (req, res) => {
