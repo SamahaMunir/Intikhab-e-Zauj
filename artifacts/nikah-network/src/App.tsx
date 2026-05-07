@@ -17,6 +17,7 @@ import StaffLogin from "@/pages/marketing/staff-login";
 import StaffRegister from "@/pages/marketing/staff-register";
 import SuccessStories from "@/pages/marketing/success-stories";
 import Contact from "@/pages/marketing/contact";
+import TestUpload from '@/pages/test-upload';
 
 // App Portal
 import AppLayout from "@/components/layout/AppLayout";
@@ -61,6 +62,7 @@ function MarketingRouter() {
         <Route path="/register" component={Register} />
         <Route path="/staff-login" component={StaffLogin} />
         <Route path="/staff-register" component={StaffRegister} />
+        <Route path="/test-upload" component={TestUpload} />
         <Route component={NotFound} />
       </Switch>
     </MarketingLayout>
