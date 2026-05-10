@@ -104,7 +104,7 @@ export default function StaffDashboard() {
         </div>
 
         {/* Admin Info Card */}
-        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+        <Card className="bg-linear-to-r from-blue-50 to-purple-50 border-blue-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="w-5 h-5" />
