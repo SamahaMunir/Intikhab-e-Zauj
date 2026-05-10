@@ -12,8 +12,8 @@ import { authMiddleware, staffOnlyMiddleware } from './middleware/auth';
 import { initStaffCollection } from './db/staff';
 import staffRoutes from './routes/staffRoutes';
 import cloudinaryRoutes from './routes/cloudinaryRoutes';
-
-
+import crypto from 'crypto';
+ 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
