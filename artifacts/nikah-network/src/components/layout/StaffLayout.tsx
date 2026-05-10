@@ -57,7 +57,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   const userRole = user?.role || 'staff';
 
   return (
-    <div className="flex min-h-[100dvh] bg-background">
+    <div className="flex min-h-dvh bg-background">
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r bg-sidebar border-sidebar-border">
         <div className="p-6 border-b border-sidebar-border bg-primary/10">
