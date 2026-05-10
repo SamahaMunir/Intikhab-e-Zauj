@@ -173,6 +173,20 @@ async function main() {
 
   process.on("SIGINT", () => shutdown("SIGTERM"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("beforeExit", () => shutdown("SIGTERM"));
+  process.on("exit", () => shutdown("SIGTERM"));
+
+  process.on("uncaughtException", (err) => {
+    console.error(`uncaughtException: ${err.message}`);
+    shutdown("SIGTERM");
+    process.exitCode = 1;
+  });
+
+  process.on("unhandledRejection", (reason) => {
+    console.error("unhandledRejection:", reason);
+    shutdown("SIGTERM");
+    process.exitCode = 1;
+  });
 
   backendProcess.once("error", (err) => {
     console.error(`backend failed to start: ${err.message}`);
