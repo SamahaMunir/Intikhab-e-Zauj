@@ -26,7 +26,7 @@ function adminOnly(req: AuthRequest, res: Response, next: Function) {
       message: 'Only admins can manage staff',
     });
   }
-  next();
+  return next();
 }
 
 /**
@@ -42,10 +42,11 @@ router.post(
       const { email, name, role } = req.body;
 
       if (!email || !name || !role) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Missing required fields',
           message: 'email, name, role required',
         });
+        return;
       }
 
       const { staff, inviteLink } = await inviteStaff(
@@ -101,7 +102,7 @@ router.post(
  * POST /api/staff/setup-password
  * Set password with invite token (public - no auth needed)
  */
-router.post('/setup-password', async (req: Request, res: Response) => {
+router.post('/setup-password', async (req: Request, res: Response): Promise<any> => {
   try {
     const { token, password } = req.body;
 
@@ -176,7 +177,7 @@ router.post(
   '/deactivate',
   authMiddleware,
   adminOnly,
-  async (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response): Promise<any> => {
     try {
       const { email } = req.body;
 
@@ -219,7 +220,7 @@ router.post(
   '/activate',
   authMiddleware,
   adminOnly,
-  async (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response): Promise<any> => {
     try {
       const { email } = req.body;
 
@@ -262,7 +263,7 @@ router.post(
   '/remove',
   authMiddleware,
   adminOnly,
-  async (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response): Promise<any> => {
     try {
       const { email } = req.body;
 
@@ -305,7 +306,7 @@ router.post(
   '/create-user',
   authMiddleware,
   staffOnlyMiddleware,
-  async (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response): Promise<any> => {
     try {
       const {
         name,
@@ -325,10 +326,11 @@ router.post(
 
       // Validate required fields
       if (!name || !phone || !gender || !dob || !city) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Missing required fields',
           message: 'name, phone, gender, dob, city are required',
         });
+        return;
       }
 
       const db = await getDatabase();
@@ -337,10 +339,11 @@ router.post(
       // Check if phone already exists
       const existing = await usersCollection.findOne({ phone });
       if (existing) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'User with this phone already exists',
           message: `Phone: ${phone} is already registered`,
         });
+        return;
       }
 
       // Create new user document
@@ -417,7 +420,7 @@ router.get(
   '/pending-profiles',
   authMiddleware,
   staffOnlyMiddleware,
-  async (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response): Promise<any> => {
     try {
       const db = await getDatabase();
       const usersCollection = db.collection('users');
@@ -468,9 +471,9 @@ router.post(
   '/approve-profile/:id',
   authMiddleware,
   staffOnlyMiddleware,
-  async (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response): Promise<any> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { notes } = req.body;
 
       if (!id || !ObjectId.isValid(id)) {
@@ -499,7 +502,7 @@ router.post(
         { returnDocument: 'after' }
       );
 
-      if (!result.value) {
+      if (!result || !result.value) {
         return res.status(404).json({
           error: 'Profile not found or not pending',
           message: `No pending profile found with ID: ${id}`,
@@ -556,9 +559,9 @@ router.post(
   '/reject-profile/:id',
   authMiddleware,
   staffOnlyMiddleware,
-  async (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response): Promise<any> => {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { reason } = req.body;
 
       if (!id || !ObjectId.isValid(id)) {
@@ -569,10 +572,11 @@ router.post(
       }
 
       if (!reason || reason.trim().length === 0) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Rejection reason required',
           message: 'Please provide a reason for rejection',
         });
+        return;
       }
 
       const db = await getDatabase();
@@ -594,14 +598,14 @@ router.post(
         { returnDocument: 'after' }
       );
 
-      if (!result.value) {
+      if (!result || !result.value) {
         return res.status(404).json({
           error: 'Profile not found or not pending',
           message: `No pending profile found with ID: ${id}`,
         });
       }
 
-      const user = result.value;
+      const user = result!.value;
 
       // Send rejection email
       const emailSent = await sendProfileRejectionEmail(
@@ -652,7 +656,7 @@ router.post(
   '/resend-invite',
   authMiddleware,
   adminOnly,
-  async (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response): Promise<any> => {
     try {
       const { email } = req.body;
 
