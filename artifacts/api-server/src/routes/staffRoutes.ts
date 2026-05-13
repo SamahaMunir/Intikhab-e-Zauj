@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { ObjectId } from 'mongodb';
+import { authMiddleware, staffOnlyMiddleware, AuthRequest } from '../middleware/auth';
 import {
   inviteStaff,
   setPasswordWithInvite,
@@ -10,6 +11,7 @@ import {
   resendInvite,
 } from '../db/staff';
 import { logAudit } from '../db/auditLogs';
+import { getDatabase } from '../db/connection';
 import { sendStaffInviteEmail } from '../utils/email';
 
 const router = Router();
@@ -60,7 +62,6 @@ router.post(
         inviteLink,
         req.user!.name
       );
-
 
       // Log the action
       await logAudit(
@@ -292,6 +293,118 @@ router.post(
     } catch (error) {
       console.error('Error removing staff:', error);
       res.status(500).json({ error: 'Failed to remove staff' });
+    }
+  }
+);
+
+/**
+ * POST /api/staff/create-user
+ * Create user from online/form data (staff only)
+ */
+router.post(
+  '/create-user',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const {
+        name,
+        email,
+        phone,
+        gender,
+        dob,
+        city,
+        education,
+        profession,
+        fatherName,
+        height,
+        profilePhoto,
+        source,
+        notes,
+      } = req.body;
+
+      // Validate required fields
+      if (!name || !phone || !gender || !dob || !city) {
+        return res.status(400).json({
+          error: 'Missing required fields',
+          message: 'name, phone, gender, dob, city are required',
+        });
+      }
+
+      const db = await getDatabase();
+      const usersCollection = db.collection('users');
+
+      // Check if phone already exists
+      const existing = await usersCollection.findOne({ phone });
+      if (existing) {
+        return res.status(400).json({
+          error: 'User with this phone already exists',
+          message: `Phone: ${phone} is already registered`,
+        });
+      }
+
+      // Create new user document
+      const newUser = {
+        _id: new ObjectId(),
+        name,
+        email: email || `${phone}@intikhab-pending.pk`,
+        phone,
+        gender,
+        dob: new Date(dob),
+        city,
+        country: 'Pakistan',
+        education: education || 'Not specified',
+        profession: profession || 'Not specified',
+        fatherName: fatherName || 'Not specified',
+        height: height ? parseInt(height) : 0,
+        profilePhoto: profilePhoto || null,
+        profileStatus: 'pending',
+        completion: 60,
+        source: source || 'staff_entry', // whatsapp, paper, staff_entry, other
+        notes: notes || '',
+        enteredBy: req.user!.email,
+        enteredByName: req.user!.name || 'Unknown',
+        enteredAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        active: true,
+      };
+
+      // Insert user
+      const result = await usersCollection.insertOne(newUser);
+
+      // Log audit
+      await logAudit(
+        req.user!.email,
+        req.user!.id,
+        'staff',
+        'create_user',
+        'users',
+        phone,
+        `Created user: ${name} from source: ${source || 'staff_entry'}`,
+        { source, phone, gender, city }
+      );
+
+      res.json({
+        success: true,
+        message: 'User created successfully',
+        user: {
+          _id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          gender: newUser.gender,
+          city: newUser.city,
+          profileStatus: newUser.profileStatus,
+          createdAt: newUser.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating user:', error);
+      res.status(500).json({
+        error: 'Failed to create user',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 );
