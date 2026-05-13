@@ -12,7 +12,7 @@ import {
 } from '../db/staff';
 import { logAudit } from '../db/auditLogs';
 import { getDatabase } from '../db/connection';
-import { sendStaffInviteEmail } from '../utils/email';
+import { sendStaffInviteEmail, sendProfileApprovalEmail, sendProfileRejectionEmail } from '../utils/email';
 
 const router = Router();
 
@@ -403,6 +403,241 @@ router.post(
       console.error('Error creating user:', error);
       res.status(500).json({
         error: 'Failed to create user',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/staff/pending-profiles
+ * Get all pending profiles for approval (staff only)
+ */
+router.get(
+  '/pending-profiles',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const db = await getDatabase();
+      const usersCollection = db.collection('users');
+
+      // Fetch all users with 'pending' status
+      const profiles = await usersCollection
+        .find({ profileStatus: 'pending' })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.json({
+        success: true,
+        count: profiles.length,
+        profiles: profiles.map(p => ({
+          _id: p._id?.toString(),
+          name: p.name,
+          phone: p.phone,
+          email: p.email,
+          gender: p.gender,
+          dob: p.dob,
+          city: p.city,
+          education: p.education,
+          profession: p.profession,
+          fatherName: p.fatherName,
+          profilePhoto: p.profilePhoto,
+          notes: p.notes,
+          source: p.source,
+          enteredBy: p.enteredBy,
+          enteredAt: p.enteredAt,
+          createdAt: p.createdAt,
+        })),
+      });
+    } catch (error) {
+      console.error('Error fetching pending profiles:', error);
+      res.status(500).json({
+        error: 'Failed to fetch pending profiles',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/staff/approve-profile/:id
+ * Approve a pending profile (staff only)
+ */
+router.post(
+  '/approve-profile/:id',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { notes } = req.body;
+
+      if (!id || !ObjectId.isValid(id)) {
+        return res.status(400).json({
+          error: 'Invalid profile ID',
+          message: 'Valid MongoDB ObjectId required',
+        });
+      }
+
+      const db = await getDatabase();
+      const usersCollection = db.collection('users');
+
+      // Find and update user
+      const result = await usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(id), profileStatus: 'pending' },
+        {
+          $set: {
+            profileStatus: 'approved',
+            approvedBy: req.user!.email,
+            approvedAt: new Date(),
+            approvalNotes: notes || '',
+            completion: 100,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after' }
+      );
+
+      if (!result.value) {
+        return res.status(404).json({
+          error: 'Profile not found or not pending',
+          message: `No pending profile found with ID: ${id}`,
+        });
+      }
+
+      const user = result.value;
+
+      // Send approval email
+      const emailSent = await sendProfileApprovalEmail(
+        user.email,
+        user.name
+      );
+
+      // Log audit
+      await logAudit(
+        req.user!.email,
+        req.user!.id,
+        'staff',
+        'approve_profile',
+        'users',
+        user.phone,
+        `Approved profile for: ${user.name}${emailSent ? ' (email sent)' : ' (email failed)'}`,
+        { userId: id, approvalNotes: notes }
+      );
+
+      res.json({
+        success: true,
+        message: 'Profile approved successfully',
+        emailSent,
+        user: {
+          _id: user._id?.toString(),
+          name: user.name,
+          email: user.email,
+          profileStatus: user.profileStatus,
+          approvedAt: user.approvedAt,
+        },
+      });
+    } catch (error) {
+      console.error('Error approving profile:', error);
+      res.status(500).json({
+        error: 'Failed to approve profile',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/staff/reject-profile/:id
+ * Reject a pending profile (staff only)
+ */
+router.post(
+  '/reject-profile/:id',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!id || !ObjectId.isValid(id)) {
+        return res.status(400).json({
+          error: 'Invalid profile ID',
+          message: 'Valid MongoDB ObjectId required',
+        });
+      }
+
+      if (!reason || reason.trim().length === 0) {
+        return res.status(400).json({
+          error: 'Rejection reason required',
+          message: 'Please provide a reason for rejection',
+        });
+      }
+
+      const db = await getDatabase();
+      const usersCollection = db.collection('users');
+
+      // Find and update user
+      const result = await usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(id), profileStatus: 'pending' },
+        {
+          $set: {
+            profileStatus: 'rejected',
+            rejectedBy: req.user!.email,
+            rejectedAt: new Date(),
+            rejectionReason: reason,
+            active: false,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after' }
+      );
+
+      if (!result.value) {
+        return res.status(404).json({
+          error: 'Profile not found or not pending',
+          message: `No pending profile found with ID: ${id}`,
+        });
+      }
+
+      const user = result.value;
+
+      // Send rejection email
+      const emailSent = await sendProfileRejectionEmail(
+        user.email,
+        user.name,
+        reason
+      );
+
+      // Log audit
+      await logAudit(
+        req.user!.email,
+        req.user!.id,
+        'staff',
+        'reject_profile',
+        'users',
+        user.phone,
+        `Rejected profile for: ${user.name} - Reason: ${reason}${emailSent ? ' (email sent)' : ' (email failed)'}`,
+        { userId: id, rejectionReason: reason }
+      );
+
+      res.json({
+        success: true,
+        message: 'Profile rejected successfully',
+        emailSent,
+        user: {
+          _id: user._id?.toString(),
+          name: user.name,
+          email: user.email,
+          profileStatus: user.profileStatus,
+          rejectedAt: user.rejectedAt,
+        },
+      });
+    } catch (error) {
+      console.error('Error rejecting profile:', error);
+      res.status(500).json({
+        error: 'Failed to reject profile',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
