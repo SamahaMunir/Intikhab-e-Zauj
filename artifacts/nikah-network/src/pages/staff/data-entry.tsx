@@ -85,7 +85,7 @@ export default function StaffDataEntry() {
     setLoading(true);
     try {
       // Create user with pending status
-      const response = await fetch('/api/staff/create-user', {
+     const response = await fetch('http://localhost:5000/api/staff/create-user', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
