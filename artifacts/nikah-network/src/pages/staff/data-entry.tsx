@@ -84,8 +84,10 @@ export default function StaffDataEntry() {
 
     setLoading(true);
     try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
       // Create user with pending status
-     const response = await fetch('http://localhost:5000/api/staff/create-user', {
+      const response = await fetch(`${apiUrl}/api/staff/create-user`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -118,7 +120,9 @@ export default function StaffDataEntry() {
         throw new Error(data.message || 'Failed to create user');
       }
 
+      console.log('✅ User created:', data);
       setSuccess(true);
+      
       // Reset form
       setFormData({
         name: '',
@@ -139,6 +143,7 @@ export default function StaffDataEntry() {
 
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
+      console.error('❌ Error:', error);
       setErrors(prev => ({
         ...prev,
         submit: error instanceof Error ? error.message : 'Failed to create user',
