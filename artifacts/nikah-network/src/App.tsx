@@ -45,6 +45,7 @@ import AdminPanel from '@/pages/staff/admin-panel';
 import StaffSetup from '@/pages/staff/setup';
 import NotFound from "@/pages/not-found";
 import StaffDataEntry from "@/pages/staff/data-entry";
+import ProfileApprovalComponent from "@/pages/staff/profile-approval";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,7 @@ function StaffPortalRouter() {
         <Route path="/staff/admin-panel" component={AdminPanel} />
         <Route path="/staff/setup" component={StaffSetup} />
         <Route path="/staff/data-entry" component={StaffDataEntry} />
+        <Route path="/staff/profile-approval" component={ProfileApprovalComponent} />
         <Route component={NotFound} />
       </Switch>
     </StaffLayout>
