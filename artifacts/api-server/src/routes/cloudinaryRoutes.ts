@@ -61,7 +61,7 @@ router.post('/signature', async (req: Request, res: Response) => {
 
     console.log(`✅ Signature generated: ${signature.substring(0, 10)}...`);
 
-    res.json({
+    return res.json({
       signature,
       timestamp,
       cloudName: process.env.CLOUDINARY_CLOUD_NAME,
@@ -69,7 +69,7 @@ router.post('/signature', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('❌ Signature error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to generate signature',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
