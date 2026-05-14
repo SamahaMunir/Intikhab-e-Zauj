@@ -86,12 +86,17 @@ export default function StaffDataEntry() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       
-      // Create user with pending status
+      // ✅ GET TOKEN FROM LOCALSTORAGE
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Not authenticated! Please login.');
+      }
+      
       const response = await fetch(`${apiUrl}/api/staff/create-user`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${token}`, // ✅ USE TOKEN VARIABLE
         },
         body: JSON.stringify({
           name: formData.name,
@@ -114,12 +119,12 @@ export default function StaffDataEntry() {
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to create user');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create user');
       }
 
+      const data = await response.json();
       console.log('✅ User created:', data);
       setSuccess(true);
       
@@ -169,14 +174,14 @@ export default function StaffDataEntry() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {success && (
               <div className="flex gap-2 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
                 <p className="text-sm text-green-700">User created successfully! Profile pending approval.</p>
               </div>
             )}
 
             {errors.submit && (
               <div className="flex gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
                 <p className="text-sm text-red-700">{errors.submit}</p>
               </div>
             )}
