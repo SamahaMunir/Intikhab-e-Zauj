@@ -109,8 +109,9 @@ app.use(async (req, res, next) => {
 
 // Staff API routes (with auth middleware for protected endpoints)
 app.use('/api/staff', staffRoutes);
+app.use('/api/staff/profiles', authMiddleware, staffOnlyMiddleware, profilesRouter);
 app.use('/api/staff', authMiddleware, staffOnlyMiddleware, auditLogsRouter);
-app.use('/api/staff', authMiddleware, staffOnlyMiddleware, profilesRouter);
+
 
 
 // API info endpoint
