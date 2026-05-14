@@ -43,7 +43,7 @@ export default function StaffLogin() {
       );
 
       // Store JWT
-      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("token", data.token); 
       localStorage.setItem("user", JSON.stringify(data.user));
 
       console.log("Token stored in localStorage");
@@ -110,7 +110,7 @@ export default function StaffLogin() {
             </div>
             {error && (
               <div className="flex gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
