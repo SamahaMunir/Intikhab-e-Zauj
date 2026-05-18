@@ -338,3 +338,114 @@ Reapply: https://nikah-network.pk/reapply
     return false;
   }
 }
+/**
+ * Send email verification link
+ */
+export async function sendVerificationEmail(
+  email: string,
+  name: string,
+  verificationLink: string
+): Promise<boolean> {
+  try {
+    const subject = '✉️ Verify Your Email Address - Intikhab-e-Zauj';
+
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+      .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+      .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 20px; border-radius: 8px; }
+      .content { padding: 20px; background: #f0f9ff; border-radius: 8px; margin: 20px 0; }
+      .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; cursor: pointer; }
+      .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+      .code { font-family: monospace; background: #eee; padding: 10px; display: block; word-break: break-all; font-size: 12px; margin: 10px 0; }
+      .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin: 15px 0; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Welcome to Intikhab-e-Zauj!</h1>
+      </div>
+
+      <div class="content">
+        <p>Hello <strong>${name}</strong>,</p>
+
+        <p>Thank you for registering with Intikhab-e-Zauj. We're excited to have you on board!</p>
+
+        <p>To complete your registration and start exploring potential matches, please verify your email address by clicking the button below:</p>
+
+        <center>
+          <a href="${verificationLink}" class="button">Verify Email Address</a>
+        </center>
+
+        <p>Or copy and paste this link in your browser:</p>
+        <code class="code">${verificationLink}</code>
+
+        <div class="warning">
+          <strong>⏰ Important:</strong> This verification link expires in 24 hours. If it expires, you can request a new one from the login page.
+        </div>
+
+        <p>Once you verify your email, you'll be able to:</p>
+        <ul>
+          <li>Complete your profile</li>
+          <li>Browse potential matches</li>
+          <li>Send and receive proposals</li>
+          <li>Connect with others in our community</li>
+        </ul>
+
+        <p><strong>Questions?</strong> Contact our support team at support@intikhab-e-zauj.com</p>
+      </div>
+
+      <div class="footer">
+        <p>© 2026 Intikhab-e-Zauj. All rights reserved.</p>
+        <p>This is an automated email. Please do not reply to this message.</p>
+      </div>
+    </div>
+  </body>
+</html>
+    `;
+
+    const plainTextBody = `
+Welcome to Intikhab-e-Zauj!
+
+Hello ${name},
+
+Thank you for registering with Intikhab-e-Zauj. We're excited to have you on board!
+
+To complete your registration, please verify your email by clicking this link:
+${verificationLink}
+
+This link expires in 24 hours.
+
+Once verified, you'll be able to:
+- Complete your profile
+- Browse potential matches
+- Send and receive proposals
+- Connect with others
+
+Questions? Contact: support@intikhab-e-zauj.com
+
+© 2026 Intikhab-e-Zauj. All rights reserved.
+    `;
+
+    console.log(`📧 Sending verification email to ${email}...`);
+
+    const result = await transporter.sendMail({
+      from: `"Intikhab-e-Zauj" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject,
+      text: plainTextBody,
+      html: htmlBody,
+      replyTo: process.env.EMAIL_USER,
+    });
+
+    console.log(`✅ Verification email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send verification email:', error instanceof Error ? error.message : error);
+    return false;
+  }
+}
