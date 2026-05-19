@@ -29,6 +29,9 @@ async function buildAll() {
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
        'jsonwebtoken',
+      'crypto',
+      'crypto/web',
+      'mongodb',
       "*.node",
       "sharp",
       "better-sqlite3",
