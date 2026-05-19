@@ -194,5 +194,60 @@ router.post('/verify-auto', async (req: Request, res: Response) => {
     });
   }
 });
+/**
+ * GET /auth/test-verification-link
+ * ✅ TEST MODE - Get verification link without email
+ */
+router.get('/test-verification-link', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.query;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({
+        error: 'Email required',
+        message: 'Please provide ?email=test@example.com',
+      });
+    }
+
+    const db = await getDatabase();
+    const usersCollection = db.collection('users');
+
+    const user = await usersCollection.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: `No user with email: ${email}`,
+      });
+    }
+
+    if (!user.verificationToken) {
+      return res.status(400).json({
+        error: 'Already verified',
+        message: 'This user is already verified',
+      });
+    }
+
+    // ✅ RETURN VERIFICATION LINK FOR TESTING
+    const verificationLink = `http://localhost:5175/verify-auto?token=${user.verificationToken}&email=${email}`;
+
+    console.log(`\n✅ TEST MODE - Verification Link:`);
+    console.log(`${verificationLink}\n`);
+
+    return res.json({
+      success: true,
+      message: 'Verification link generated (TEST MODE)',
+      link: verificationLink,
+      token: user.verificationToken,
+      email,
+    });
+  } catch (error) {
+    console.error('Test link error:', error);
+    return res.status(500).json({
+      error: 'Failed to generate test link',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
 
 export default router;
