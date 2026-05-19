@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
@@ -13,6 +14,8 @@ import { initStaffCollection } from './db/staff';
 import staffRoutes from './routes/staffRoutes';
 import cloudinaryRoutes from './routes/cloudinaryRoutes';
 import crypto from 'crypto';
+import registerRouter from './routes/register';  
+
  
 
 const __filename = fileURLToPath(import.meta.url);
@@ -86,6 +89,7 @@ app.get('/health', async (req, res) => {
     });
   }
 });
+app.use('/auth', registerRouter);
 // Auth routes (NO middleware needed for login)
 app.use('/auth', authRouter);
 // Cloudinary routes (NO middleware needed)
