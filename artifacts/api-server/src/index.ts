@@ -18,6 +18,7 @@ import registerRouter from './routes/register';
 import authSimpleRouter from './routes/auth-simple';
 import profileCompletionRouter from './routes/profile-completion';
 import paymentRouter from './routes/payment';
+
  
 
 const __filename = fileURLToPath(import.meta.url);
@@ -91,11 +92,11 @@ app.get('/health', async (req, res) => {
     });
   }
 });
-app.use('/auth', authSimpleRouter);
 app.use('/api/profile', authMiddleware, profileCompletionRouter);
 app.use('/api/payment', authMiddleware, paymentRouter);
 app.use('/auth', registerRouter);
 // Auth routes (NO middleware needed for login)
+app.use('/auth', authSimpleRouter);
 app.use('/auth', authRouter);
 // Cloudinary routes (NO middleware needed)
 app.use('/api/cloudinary', cloudinaryRoutes);
