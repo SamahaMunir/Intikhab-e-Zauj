@@ -19,9 +19,11 @@ import SuccessStories from "@/pages/marketing/success-stories";
 import Contact from "@/pages/marketing/contact";
 import TestUpload from '@/pages/test-upload';
 import VerifyEmail from "@/pages/verify-email";
-import Payment from "@/pages/payment";
-import ProfileWizard from "./pages/profile-wizard";
 import QuickRegister from "./pages/quick-register";
+import VerifyAuto from './pages/verify-auto';
+import TestVerification from './pages/test-verification';
+import ProfileWizard from './pages/profile-wizard';
+import Payment from './pages/payment';
 
 // App Portal
 import AppLayout from "@/components/layout/AppLayout";
@@ -71,9 +73,11 @@ function MarketingRouter() {
         <Route path="/staff-register" component={StaffRegister} />
         <Route path="/test-upload" component={TestUpload} />
         <Route path="/verify-email" component={VerifyEmail} />
-        <Route path="/payment" component={Payment} />
-        <Route path="/profile-wizard" component={ProfileWizard} />
         <Route path="/quick-register" component={QuickRegister} />
+        <Route path="/verify-auto" component={VerifyAuto} />
+        <Route path="/profile-wizard" component={ProfileWizard} />
+        <Route path="/payment" component={Payment} />
+        <Route path="/test-verification" component={TestVerification} />
         <Route component={NotFound} />
       </Switch>
     </MarketingLayout>
