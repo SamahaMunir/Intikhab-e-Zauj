@@ -83,16 +83,20 @@ router.post(
 
 /**
  * POST /api/payment/confirm-jazzcash
- * Confirm JazzCash payment (webhook from JazzCash or manual)
+ * Confirm JazzCash payment (webhook from JazzCash - no auth needed)
  */
 router.post(
   '/confirm-jazzcash',
+  // ❌ REMOVED: authMiddleware (webhooks from JazzCash don't have auth headers)
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { transactionId, status, email } = req.body;
+      const { transactionId, status } = req.body;
 
       if (!transactionId || !status) {
-        res.status(400).json({ error: 'TransactionId and status required' });
+        res.status(400).json({ 
+          error: 'TransactionId and status required',
+          received: { transactionId, status }
+        });
         return;
       }
 
@@ -100,13 +104,21 @@ router.post(
       const paymentCollection = db.collection('payments');
       const usersCollection = db.collection('users');
 
-      // ✅ VERIFY PAYMENT
+      console.log(`📝 Payment confirmation received:`, { transactionId, status });
+
+      // ✅ VERIFY PAYMENT EXISTS
       const payment = await paymentCollection.findOne({ transactionId });
 
       if (!payment) {
-        res.status(404).json({ error: 'Payment not found' });
+        console.warn(`⚠️ Payment not found: ${transactionId}`);
+        res.status(404).json({ 
+          error: 'Payment not found',
+          transactionId 
+        });
         return;
       }
+
+      console.log(`✅ Found payment:`, payment);
 
       // ✅ UPDATE PAYMENT STATUS
       if (status === 'success' || status === 'completed') {
@@ -120,8 +132,10 @@ router.post(
           }
         );
 
+        console.log(`✅ Updated payment status to completed`);
+
         // ✅ UPDATE USER PAYMENT STATUS
-        await usersCollection.updateOne(
+        const updateResult = await usersCollection.updateOne(
           { _id: payment.userId },
           {
             $set: {
@@ -133,12 +147,27 @@ router.post(
           }
         );
 
-        console.log(`✅ Payment confirmed: ${transactionId}`);
+        console.log(`✅ Updated user payment status:`, updateResult);
+
+        // ✅ GET UPDATED USER
+        const user = await usersCollection.findOne({ _id: payment.userId });
+
+        if (!user) {
+          res.status(500).json({
+            error: 'User not found after payment',
+            transactionId
+          });
+          return;
+        }
 
         res.json({
           success: true,
           message: 'Payment confirmed! Full access granted.',
           paymentStatus: 'completed',
+          user: {
+            email: user.email,
+            paymentStatus: 'completed',
+          },
         });
       } else {
         // ✅ PAYMENT FAILED
@@ -152,6 +181,8 @@ router.post(
           }
         );
 
+        console.log(`❌ Payment failed: ${transactionId}`);
+
         res.status(400).json({
           success: false,
           message: 'Payment failed',
@@ -159,7 +190,7 @@ router.post(
         });
       }
     } catch (error) {
-      console.error('Payment confirmation error:', error);
+      console.error('❌ Payment confirmation error:', error);
       res.status(500).json({
         error: 'Payment confirmation failed',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -167,7 +198,6 @@ router.post(
     }
   }
 );
-
 /**
  * GET /api/payment/status/:userId
  * Get payment status for user
