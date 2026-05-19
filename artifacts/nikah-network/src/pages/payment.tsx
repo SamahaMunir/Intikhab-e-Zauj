@@ -49,30 +49,47 @@ export default function PaymentPage() {
       setLoading(false);
     }
   };
+const completePayment = async (transactionId: string) => {
+  try {
+    const token = localStorage.getItem('token');  // ✅ GET TOKEN
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-  const completePayment = async (transactionId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    console.log(`💳 Confirming payment: ${transactionId}`);
 
-      const response = await fetch(`${apiUrl}/api/payment/confirm-jazzcash`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transactionId,
-          status: 'success',
-        }),
-      });
+    const response = await fetch(`${apiUrl}/api/payment/confirm-jazzcash`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,  // ✅ ADD AUTH HEADER
+      },
+      body: JSON.stringify({
+        transactionId,
+        status: 'success',
+      }),
+    });
 
-      if (response.ok) {
-        alert('✅ Payment successful! You now have full access!');
-        setLocation('/dashboard');
-      }
-    } catch (err) {
-      setError('Payment confirmation failed');
+    const data = await response.json();
+
+    console.log(`💳 Payment response:`, data);
+
+    if (response.ok && data.success) {
+      console.log(`✅ Payment successful!`);
+      
+      // ✅ SAVE UPDATED USER INFO
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      user.paymentStatus = 'completed';
+      localStorage.setItem('user', JSON.stringify(user));
+
+      alert('✅ Payment successful! You now have full access!');
+      setLocation('/app/dashboard');
+    } else {
+      throw new Error(data.message || 'Payment confirmation failed');
     }
-  };
-
+  } catch (err) {
+    console.error('❌ Payment confirmation error:', err);
+    setError(err instanceof Error ? err.message : 'Payment confirmation failed');
+  }
+};
   return (
     <div className="min-h-screen bg-linear-to-br from-green-100 to-emerald-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
