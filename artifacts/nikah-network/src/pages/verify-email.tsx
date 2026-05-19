@@ -81,7 +81,7 @@ export default function VerifyEmail() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-green-100 to-emerald-100 flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-12 pb-12 space-y-4">
             <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
@@ -116,7 +116,7 @@ export default function VerifyEmail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center p-4 py-12">
+    <div className="min-h-screen bg-linear-to-br from-blue-100 to-purple-100 flex items-center justify-center p-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-serif">Verify Email</CardTitle>
