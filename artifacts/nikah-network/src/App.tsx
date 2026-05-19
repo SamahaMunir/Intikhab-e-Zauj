@@ -12,12 +12,13 @@ import HowItWorks from "@/pages/marketing/how-it-works";
 import Counselling from "@/pages/marketing/counselling";
 import Pricing from "@/pages/marketing/pricing";
 import Login from "@/pages/marketing/login";
-import Register from "@/pages/marketing/register";
+import Register from "@/pages/register";
 import StaffLogin from "@/pages/marketing/staff-login";
 import StaffRegister from "@/pages/marketing/staff-register";
 import SuccessStories from "@/pages/marketing/success-stories";
 import Contact from "@/pages/marketing/contact";
 import TestUpload from '@/pages/test-upload';
+import VerifyEmail from "@/pages/verify-email";
 
 // App Portal
 import AppLayout from "@/components/layout/AppLayout";
@@ -65,6 +66,7 @@ function MarketingRouter() {
         <Route path="/staff-login" component={StaffLogin} />
         <Route path="/staff-register" component={StaffRegister} />
         <Route path="/test-upload" component={TestUpload} />
+        <Route path="/verify-email" component={VerifyEmail} />
         <Route component={NotFound} />
       </Switch>
     </MarketingLayout>
