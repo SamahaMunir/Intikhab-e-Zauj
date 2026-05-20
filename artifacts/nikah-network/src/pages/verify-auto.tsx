@@ -55,7 +55,7 @@ export default function VerifyAuto() {
 
       // ✅ REDIRECT TO PROFILE WIZARD
       setTimeout(() => {
-        setLocation('/profile-wizard');
+        setLocation('/app/profile-wizard');
       }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Verification failed');
