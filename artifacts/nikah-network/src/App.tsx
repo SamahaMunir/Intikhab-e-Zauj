@@ -11,8 +11,6 @@ import About from "@/pages/marketing/about";
 import HowItWorks from "@/pages/marketing/how-it-works";
 import Counselling from "@/pages/marketing/counselling";
 import Pricing from "@/pages/marketing/pricing";
-//import Login from "@/pages/marketing/login";
-//import Register from "@/pages/register";
 import StaffLogin from "@/pages/marketing/staff-login";
 import StaffRegister from "@/pages/marketing/staff-register";
 import SuccessStories from "@/pages/marketing/success-stories";
@@ -22,12 +20,13 @@ import VerifyEmail from "@/pages/verify-email";
 import QuickRegister from "./pages/quick-register";
 import VerifyAuto from './pages/verify-auto';
 import TestVerification from './pages/test-verification';
-
-
+import UserLogin from "@/pages/user-login";
 
 // App Portal
 import AppLayout from "@/components/layout/AppLayout";
-//import AppDashboard from "@/pages/app/dashboard";
+import ApplicantDashboard from './pages/applicant-dashboard';
+import ProfileWizard from './pages/profile-wizard';
+import Payment from './pages/payment';
 import AppMatches from "@/pages/app/matches";
 import AppMatchDetail from "@/pages/app/match-detail";
 import AppProposals from "@/pages/app/proposals";
@@ -35,12 +34,6 @@ import AppProposalDetail from "@/pages/app/proposal-detail";
 import AppProfile from "@/pages/app/profile";
 import AppCounselling from "@/pages/app/counselling";
 import AppSettings from "@/pages/app/settings";
-import ApplicantDashboard from './pages/applicant-dashboard';
-import ProfileWizard from './pages/profile-wizard';
-import UserLogin from './pages/user-login';
-import Payment from './pages/payment';
-
-
 
 // Staff Portal
 import StaffLayout from "@/components/layout/StaffLayout";
@@ -61,10 +54,14 @@ import ProfileApprovalComponent from "@/pages/staff/profile-approval";
 
 const queryClient = new QueryClient();
 
+// ============================================================================
+// MARKETING ROUTER - Public pages with marketing layout
+// ============================================================================
 function MarketingRouter() {
   return (
     <MarketingLayout>
       <Switch>
+        {/* Marketing Pages */}
         <Route path="/" component={Home} />
         <Route path="/about" component={About} />
         <Route path="/how-it-works" component={HowItWorks} />
@@ -72,67 +69,88 @@ function MarketingRouter() {
         <Route path="/pricing" component={Pricing} />
         <Route path="/success-stories" component={SuccessStories} />
         <Route path="/contact" component={Contact} />
+        
+        {/* Staff Portal */}
         <Route path="/staff-login" component={StaffLogin} />
         <Route path="/staff-register" component={StaffRegister} />
         <Route path="/test-upload" component={TestUpload} />
         <Route path="/verify-email" component={VerifyEmail} />
+        
+        {/* PUBLIC AUTH PAGES - NO /app prefix here! */}
         <Route path="/quick-register" component={QuickRegister} />
+        <Route path="/register" component={QuickRegister} />
+        <Route path="/user-login" component={UserLogin} />
+        <Route path="/login" component={UserLogin} />
         <Route path="/verify-auto" component={VerifyAuto} />
         <Route path="/test-verification" component={TestVerification} />
+        
+        {/* 404 */}
         <Route component={NotFound} />
       </Switch>
     </MarketingLayout>
   );
 }
 
+// ============================================================================
+// APP PORTAL ROUTER - Authenticated user pages
+// ============================================================================
 function AppPortalRouter() {
   return (
     <AppLayout>
       <Switch>
-       
-        <Route path="/app/matches" component={AppMatches} />
-        <Route path="/app/match/:id" component={AppMatchDetail} />
-        <Route path="/app/proposals" component={AppProposals} />
-        <Route path="/app/proposals/:id" component={AppProposalDetail} />
-        <Route path="/app/profile" component={AppProfile} />
-        <Route path="/app/counselling" component={AppCounselling} />
-        <Route path="/app/settings" component={AppSettings} />
+        {/* ✅ NO /app prefix - wouter already stripped it! */}
         <Route path="/dashboard" component={ApplicantDashboard} />
         <Route path="/profile-wizard" component={ProfileWizard} />
-        <Route path="/user-login" component={UserLogin} />
         <Route path="/payment" component={Payment} />
-
-
-
+        
+        {/* Browse & Interact - NO /app prefix */}
+        <Route path="/matches" component={AppMatches} />
+        <Route path="/match/:id" component={AppMatchDetail} />
+        <Route path="/proposals" component={AppProposals} />
+        <Route path="/proposals/:id" component={AppProposalDetail} />
+        <Route path="/profile" component={AppProfile} />
+        <Route path="/counselling" component={AppCounselling} />
+        <Route path="/settings" component={AppSettings} />
+        
+        {/* 404 */}
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
   );
 }
 
+// ============================================================================
+// STAFF PORTAL ROUTER - Staff pages
+// ============================================================================
 function StaffPortalRouter() {
   return (
     <StaffLayout>
       <Switch>
-        <Route path="/staff/dashboard" component={StaffDashboard} />
-        <Route path="/staff/profiles" component={StaffProfiles} />
-        <Route path="/staff/profiles/:id" component={StaffProfileDetail} />
-        <Route path="/staff/matches" component={StaffMatches} />
-        <Route path="/staff/proposals" component={StaffProposals} />
-        <Route path="/staff/messages" component={StaffMessages} />
-        <Route path="/staff/counselling" component={StaffCounselling} />
-        <Route path="/staff/audit" component={StaffAudit} />
-        <Route path="/staff/config" component={StaffConfig} />
-        <Route path="/staff/admin-panel" component={AdminPanel} />
-        <Route path="/staff/setup" component={StaffSetup} />
-        <Route path="/staff/data-entry" component={StaffDataEntry} />
-        <Route path="/staff/profile-approval" component={ProfileApprovalComponent} />
+        {/* ✅ NO /staff prefix - wouter already stripped it! */}
+        <Route path="/dashboard" component={StaffDashboard} />
+        <Route path="/profiles" component={StaffProfiles} />
+        <Route path="/profiles/:id" component={StaffProfileDetail} />
+        <Route path="/matches" component={StaffMatches} />
+        <Route path="/proposals" component={StaffProposals} />
+        <Route path="/messages" component={StaffMessages} />
+        <Route path="/counselling" component={StaffCounselling} />
+        <Route path="/audit" component={StaffAudit} />
+        <Route path="/config" component={StaffConfig} />
+        <Route path="/admin-panel" component={AdminPanel} />
+        <Route path="/setup" component={StaffSetup} />
+        <Route path="/data-entry" component={StaffDataEntry} />
+        <Route path="/profile-approval" component={ProfileApprovalComponent} />
+        
+        {/* 404 */}
         <Route component={NotFound} />
       </Switch>
     </StaffLayout>
   );
 }
 
+// ============================================================================
+// MAIN ROUTER
+// ============================================================================
 function Router() {
   return (
     <Switch>
