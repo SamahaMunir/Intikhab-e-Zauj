@@ -65,7 +65,7 @@ router.post('/login-user', async (req: Request, res: Response) => {
       id: user._id.toString(),
       email: user.email,
       name: user.name || 'User',
-      role: 'applicant',
+      role: 'user'
     };
 
     const token = generateToken(payload);
@@ -76,12 +76,12 @@ router.post('/login-user', async (req: Request, res: Response) => {
       { $set: { lastLogin: new Date() } }
     );
 
-    // ✅ LOG AUDIT (using 'staff' type for compatibility)
+    // ✅ LOG AUDIT
     try {
       await logAudit(
         email,
         user._id.toString(),
-        'staff',
+        'applicant',
         'user_login',
         'users',
         email,
@@ -90,7 +90,6 @@ router.post('/login-user', async (req: Request, res: Response) => {
       );
     } catch (auditError) {
       console.warn('⚠️ Audit logging failed:', auditError);
-      // Don't block login if audit fails
     }
 
     console.log(`✅ User logged in: ${email}`);
@@ -175,12 +174,12 @@ router.delete(
 
       console.log(`🗑️ User account deleted: ${user.email}`);
 
-      // ✅ LOG AUDIT (using 'staff' type for compatibility)
+      // ✅ LOG AUDIT
       try {
         await logAudit(
           user.email,
           req.user.id,
-          'staff',
+          'applicant',
           'account_deleted',
           'users',
           user.email,
@@ -189,7 +188,6 @@ router.delete(
         );
       } catch (auditError) {
         console.warn('⚠️ Audit logging failed:', auditError);
-        // Don't block deletion if audit fails
       }
 
       res.json({
