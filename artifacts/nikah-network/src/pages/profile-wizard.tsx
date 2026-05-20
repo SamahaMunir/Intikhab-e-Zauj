@@ -100,13 +100,14 @@ export default function ProfileWizard() {
         throw new Error(data.message || 'Failed to save step');
       }
 
-      if (step < 4) {
-        setStep(step + 1);
-      } else {
-        // ✅ PROFILE COMPLETE - GO TO PAYMENT
-        console.log('✅ Profile completed!');
-        setLocation('/app/payment');
-      }
+     // At the end of the wizard, look for:
+if (step < 4) {
+  setStep(step + 1);
+} else {
+  // ✅ CORRECT REDIRECT
+  console.log('✅ Profile completed!');
+  setLocation('/app/payment');  // ✅ Use /app/payment
+}
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error saving profile');
     } finally {
