@@ -96,21 +96,22 @@ function MarketingRouter() {
 // ============================================================================
 function AppPortalRouter() {
   return (
+    
     <AppLayout>
       <Switch>
         {/* ✅ NO /app prefix - wouter already stripped it! */}
-        <Route path="/dashboard" component={ApplicantDashboard} />
-        <Route path="/profile-wizard" component={ProfileWizard} />
-        <Route path="/payment" component={Payment} />
+        <Route path="/app/dashboard" component={ApplicantDashboard} />
+        <Route path="/app/profile-wizard" component={ProfileWizard} />
+        <Route path="/app/payment" component={Payment} />
         
         {/* Browse & Interact - NO /app prefix */}
-        <Route path="/matches" component={AppMatches} />
-        <Route path="/match/:id" component={AppMatchDetail} />
-        <Route path="/proposals" component={AppProposals} />
-        <Route path="/proposals/:id" component={AppProposalDetail} />
-        <Route path="/profile" component={AppProfile} />
-        <Route path="/counselling" component={AppCounselling} />
-        <Route path="/settings" component={AppSettings} />
+        <Route path="/app/matches" component={AppMatches} />
+        <Route path="/app/match/:id" component={AppMatchDetail} />
+        <Route path="/app/proposals" component={AppProposals} />
+        <Route path="/app/proposals/:id" component={AppProposalDetail} />
+        <Route path="/app/profile" component={AppProfile} />
+        <Route path="/app/counselling" component={AppCounselling} />
+        <Route path="/app/settings" component={AppSettings} />
         
         {/* 404 */}
         <Route component={NotFound} />
@@ -127,19 +128,19 @@ function StaffPortalRouter() {
     <StaffLayout>
       <Switch>
         {/* ✅ NO /staff prefix - wouter already stripped it! */}
-        <Route path="/dashboard" component={StaffDashboard} />
-        <Route path="/profiles" component={StaffProfiles} />
-        <Route path="/profiles/:id" component={StaffProfileDetail} />
-        <Route path="/matches" component={StaffMatches} />
-        <Route path="/proposals" component={StaffProposals} />
-        <Route path="/messages" component={StaffMessages} />
-        <Route path="/counselling" component={StaffCounselling} />
-        <Route path="/audit" component={StaffAudit} />
-        <Route path="/config" component={StaffConfig} />
-        <Route path="/admin-panel" component={AdminPanel} />
-        <Route path="/setup" component={StaffSetup} />
-        <Route path="/data-entry" component={StaffDataEntry} />
-        <Route path="/profile-approval" component={ProfileApprovalComponent} />
+        <Route path="/staff/dashboard" component={StaffDashboard} />
+        <Route path="/staff/profiles" component={StaffProfiles} />
+        <Route path="/staff/profiles/:id" component={StaffProfileDetail} />
+        <Route path="/staff/matches" component={StaffMatches} />
+        <Route path="/staff/proposals" component={StaffProposals} />
+        <Route path="/staff/messages" component={StaffMessages} />
+        <Route path="/staff/counselling" component={StaffCounselling} />
+        <Route path="/staff/audit" component={StaffAudit} />
+        <Route path="/staff/config" component={StaffConfig} />
+        <Route path="/staff/admin-panel" component={AdminPanel} />
+        <Route path="/staff/setup" component={StaffSetup} />
+        <Route path="/staff/data-entry" component={StaffDataEntry} />
+        <Route path="/staff/profile-approval" component={ProfileApprovalComponent} />
         
         {/* 404 */}
         <Route component={NotFound} />
