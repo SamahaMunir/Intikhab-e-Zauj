@@ -22,9 +22,10 @@ import VerifyEmail from "@/pages/verify-email";
 import QuickRegister from "./pages/quick-register";
 import VerifyAuto from './pages/verify-auto';
 import TestVerification from './pages/test-verification';
-import ProfileWizard from './pages/profile-wizard';
+
 import Payment from './pages/payment';
-import ApplicantDashboard from './pages/applicant-dashboard';
+
+
 // App Portal
 import AppLayout from "@/components/layout/AppLayout";
 //import AppDashboard from "@/pages/app/dashboard";
@@ -35,6 +36,9 @@ import AppProposalDetail from "@/pages/app/proposal-detail";
 import AppProfile from "@/pages/app/profile";
 import AppCounselling from "@/pages/app/counselling";
 import AppSettings from "@/pages/app/settings";
+import ApplicantDashboard from './pages/applicant-dashboard';
+import ProfileWizard from './pages/profile-wizard';
+import UserLogin from './pages/user-login';
 
 
 // Staff Portal
@@ -53,7 +57,6 @@ import StaffSetup from '@/pages/staff/setup';
 import NotFound from "@/pages/not-found";
 import StaffDataEntry from "@/pages/staff/data-entry";
 import ProfileApprovalComponent from "@/pages/staff/profile-approval";
-import UserLogin from './pages/user-login';
 
 const queryClient = new QueryClient();
 
@@ -68,18 +71,14 @@ function MarketingRouter() {
         <Route path="/pricing" component={Pricing} />
         <Route path="/success-stories" component={SuccessStories} />
         <Route path="/contact" component={Contact} />
-        
         <Route path="/staff-login" component={StaffLogin} />
         <Route path="/staff-register" component={StaffRegister} />
         <Route path="/test-upload" component={TestUpload} />
         <Route path="/verify-email" component={VerifyEmail} />
         <Route path="/quick-register" component={QuickRegister} />
         <Route path="/verify-auto" component={VerifyAuto} />
-        <Route path="/profile-wizard" component={ProfileWizard} />
         <Route path="/payment" component={Payment} />
         <Route path="/test-verification" component={TestVerification} />
-        <Route path="/app/dashboard" component={ApplicantDashboard} />
-        <Route path="/user-login" component={UserLogin} />
         <Route component={NotFound} />
       </Switch>
     </MarketingLayout>
@@ -98,6 +97,11 @@ function AppPortalRouter() {
         <Route path="/app/profile" component={AppProfile} />
         <Route path="/app/counselling" component={AppCounselling} />
         <Route path="/app/settings" component={AppSettings} />
+        <Route path="/app/dashboard" component={ApplicantDashboard} />
+        <Route path="/profile-wizard" component={ProfileWizard} />
+        <Route path="/user-login" component={UserLogin} />
+
+
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
