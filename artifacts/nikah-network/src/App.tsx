@@ -24,7 +24,7 @@ import VerifyAuto from './pages/verify-auto';
 import TestVerification from './pages/test-verification';
 import ProfileWizard from './pages/profile-wizard';
 import Payment from './pages/payment';
-
+import ApplicantDashboard from './pages/applicant-dashboard';
 // App Portal
 import AppLayout from "@/components/layout/AppLayout";
 import AppDashboard from "@/pages/app/dashboard";
@@ -53,6 +53,7 @@ import StaffSetup from '@/pages/staff/setup';
 import NotFound from "@/pages/not-found";
 import StaffDataEntry from "@/pages/staff/data-entry";
 import ProfileApprovalComponent from "@/pages/staff/profile-approval";
+import UserLogin from './pages/user-login';
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,8 @@ function MarketingRouter() {
         <Route path="/profile-wizard" component={ProfileWizard} />
         <Route path="/payment" component={Payment} />
         <Route path="/test-verification" component={TestVerification} />
+        <Route path="/app/dashboard" component={ApplicantDashboard} />
+        <Route path="/user-login" component={UserLogin} />
         <Route component={NotFound} />
       </Switch>
     </MarketingLayout>
