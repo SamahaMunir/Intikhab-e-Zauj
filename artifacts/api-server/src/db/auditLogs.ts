@@ -30,12 +30,12 @@ export async function initAuditLogs(db: Db) {
 }
 
 /**
- * Log an admin/staff action to the audit trail
+ * Log an admin/staff/applicant action to the audit trail
  */
 export async function logAudit(
   actorEmail: string,
   actorId: string,
-  actorRole: "staff" | "admin"| "applicant",
+  actorRole: "staff" | "admin" | "applicant",
   action: string,
   resourceType: string,
   resourceId: string,
