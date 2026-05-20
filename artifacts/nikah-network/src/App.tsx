@@ -11,8 +11,8 @@ import About from "@/pages/marketing/about";
 import HowItWorks from "@/pages/marketing/how-it-works";
 import Counselling from "@/pages/marketing/counselling";
 import Pricing from "@/pages/marketing/pricing";
-import Login from "@/pages/marketing/login";
-import Register from "@/pages/register";
+//import Login from "@/pages/marketing/login";
+//import Register from "@/pages/register";
 import StaffLogin from "@/pages/marketing/staff-login";
 import StaffRegister from "@/pages/marketing/staff-register";
 import SuccessStories from "@/pages/marketing/success-stories";
@@ -27,7 +27,7 @@ import Payment from './pages/payment';
 import ApplicantDashboard from './pages/applicant-dashboard';
 // App Portal
 import AppLayout from "@/components/layout/AppLayout";
-import AppDashboard from "@/pages/app/dashboard";
+//import AppDashboard from "@/pages/app/dashboard";
 import AppMatches from "@/pages/app/matches";
 import AppMatchDetail from "@/pages/app/match-detail";
 import AppProposals from "@/pages/app/proposals";
@@ -68,8 +68,7 @@ function MarketingRouter() {
         <Route path="/pricing" component={Pricing} />
         <Route path="/success-stories" component={SuccessStories} />
         <Route path="/contact" component={Contact} />
-        <Route path="/login" component={Login} />
-        <Route path="/register" component={Register} />
+        
         <Route path="/staff-login" component={StaffLogin} />
         <Route path="/staff-register" component={StaffRegister} />
         <Route path="/test-upload" component={TestUpload} />
@@ -91,7 +90,7 @@ function AppPortalRouter() {
   return (
     <AppLayout>
       <Switch>
-        <Route path="/app/dashboard" component={AppDashboard} />
+       
         <Route path="/app/matches" component={AppMatches} />
         <Route path="/app/match/:id" component={AppMatchDetail} />
         <Route path="/app/proposals" component={AppProposals} />
