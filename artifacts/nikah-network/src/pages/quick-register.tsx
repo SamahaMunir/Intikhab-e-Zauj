@@ -39,7 +39,7 @@ export default function QuickRegister() {
       alert(`✅ Check your email for verification link`);
       
       // Redirect to login
-      setLocation('/login');
+      setLocation('/user-login');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
