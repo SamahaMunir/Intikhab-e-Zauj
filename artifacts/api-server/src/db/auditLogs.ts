@@ -4,7 +4,7 @@ export interface AuditLog {
   _id?: string;
   actorId: string;
   actorEmail: string;
-  actorRole: "staff" | "admin";
+  actorRole: "staff" | "admin" | "applicant";
   action: string; // "approve_profile", "reject_proposal", etc.
   resourceType: string; // "profile", "proposal", "message", "match", etc.
   resourceId: string;
@@ -35,7 +35,7 @@ export async function initAuditLogs(db: Db) {
 export async function logAudit(
   actorEmail: string,
   actorId: string,
-  actorRole: "staff" | "admin",
+  actorRole: "staff" | "admin"| "applicant",
   action: string,
   resourceType: string,
   resourceId: string,
