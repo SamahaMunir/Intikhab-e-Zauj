@@ -105,7 +105,7 @@ export default function ProfileWizard() {
       } else {
         // ✅ PROFILE COMPLETE - GO TO PAYMENT
         console.log('✅ Profile completed!');
-        setLocation('/payment');
+        setLocation('/app/payment');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error saving profile');
