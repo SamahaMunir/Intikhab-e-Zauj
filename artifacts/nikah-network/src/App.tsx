@@ -23,7 +23,6 @@ import QuickRegister from "./pages/quick-register";
 import VerifyAuto from './pages/verify-auto';
 import TestVerification from './pages/test-verification';
 
-import Payment from './pages/payment';
 
 
 // App Portal
@@ -39,6 +38,8 @@ import AppSettings from "@/pages/app/settings";
 import ApplicantDashboard from './pages/applicant-dashboard';
 import ProfileWizard from './pages/profile-wizard';
 import UserLogin from './pages/user-login';
+import Payment from './pages/payment';
+
 
 
 // Staff Portal
@@ -77,7 +78,6 @@ function MarketingRouter() {
         <Route path="/verify-email" component={VerifyEmail} />
         <Route path="/quick-register" component={QuickRegister} />
         <Route path="/verify-auto" component={VerifyAuto} />
-        <Route path="/payment" component={Payment} />
         <Route path="/test-verification" component={TestVerification} />
         <Route component={NotFound} />
       </Switch>
@@ -97,9 +97,11 @@ function AppPortalRouter() {
         <Route path="/app/profile" component={AppProfile} />
         <Route path="/app/counselling" component={AppCounselling} />
         <Route path="/app/settings" component={AppSettings} />
-        <Route path="/app/dashboard" component={ApplicantDashboard} />
+        <Route path="/dashboard" component={ApplicantDashboard} />
         <Route path="/profile-wizard" component={ProfileWizard} />
         <Route path="/user-login" component={UserLogin} />
+        <Route path="/payment" component={Payment} />
+
 
 
         <Route component={NotFound} />
