@@ -19,7 +19,8 @@ import authSimpleRouter from './routes/auth-simple';
 import profileCompletionRouter from './routes/profile-completion';
 import paymentRouter from './routes/payment';
 import userAuthRouter from './routes/user-auth';
-
+import { initMatchesCollection } from './db/matches-schema';
+import matchingRoutes from './routes/matchingRoutes';
  
 
 const __filename = fileURLToPath(import.meta.url);
@@ -122,6 +123,9 @@ app.use(async (req, res, next) => {
 // Staff API routes (with auth middleware for protected endpoints)
 app.use('/api/staff', staffRoutes);
 app.use('/api/staff/profiles', authMiddleware, staffOnlyMiddleware, profilesRouter);
+// Matching API routes
+//app.use('/api/matches', matchingRoutes);
+app.use('/api/staff/matches', authMiddleware, staffOnlyMiddleware, matchingRoutes);
 app.use('/api/staff', authMiddleware, staffOnlyMiddleware, auditLogsRouter);
 
 
@@ -167,6 +171,10 @@ async function startServer() {
     console.log('🔄 Initializing staff collection...');
     await initStaffCollection(db);
     console.log('✓ Staff collection initialized');
+
+    console.log('🔄 Initializing matches collection...');
+await initMatchesCollection(db);
+console.log('✓ Matches collection initialized');
 
     const server = app.listen(PORT, HOST, () => {
       console.log(`\n✓ Server running on http://${HOST}:${PORT}`);
