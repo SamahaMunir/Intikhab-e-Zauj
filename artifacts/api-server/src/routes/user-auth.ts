@@ -12,15 +12,16 @@ const router = Router();
  * POST /auth/login-user
  * User login with email and password
  */
-router.post('/login-user', async (req: Request, res: Response) => {
+router.post('/login-user', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Validation failed',
         message: 'Email and password required',
       });
+      return;
     }
 
     const db = await getDatabase();
@@ -30,34 +31,38 @@ router.post('/login-user', async (req: Request, res: Response) => {
     const user = await usersCollection.findOne({ email });
 
     if (!user) {
-      return res.status(401).json({
+      res.status(401).json({
         error: 'Invalid credentials',
         message: 'Email or password incorrect',
       });
+      return;
     }
 
     // ✅ VERIFY PASSWORD
     if (!verifyPassword(password, user.password)) {
-      return res.status(401).json({
+      res.status(401).json({
         error: 'Invalid credentials',
         message: 'Email or password incorrect',
       });
+      return;
     }
 
     // ✅ CHECK IF EMAIL VERIFIED
     if (!user.emailVerified) {
-      return res.status(403).json({
+      res.status(403).json({
         error: 'Email not verified',
         message: 'Please verify your email to login',
       });
+      return;
     }
 
     // ✅ CHECK IF ACCOUNT ACTIVE
     if (!user.active) {
-      return res.status(403).json({
+      res.status(403).json({
         error: 'Account inactive',
         message: 'Your account has been deactivated',
       });
+      return;
     }
 
     // ✅ GENERATE JWT
@@ -65,7 +70,7 @@ router.post('/login-user', async (req: Request, res: Response) => {
       id: user._id.toString(),
       email: user.email,
       name: user.name || 'User',
-      role: 'user'
+      role: 'user',
     };
 
     const token = generateToken(payload);
@@ -90,6 +95,7 @@ router.post('/login-user', async (req: Request, res: Response) => {
       );
     } catch (auditError) {
       console.warn('⚠️ Audit logging failed:', auditError);
+      // Don't block login if audit fails
     }
 
     console.log(`✅ User logged in: ${email}`);
@@ -101,7 +107,7 @@ router.post('/login-user', async (req: Request, res: Response) => {
         _id: user._id.toString(),
         email: user.email,
         name: user.name,
-        role: 'applicant',
+        role: 'user',
         profileCompletion: user.profileCompletion || 0,
         paymentStatus: user.paymentStatus || 'pending',
       },
@@ -188,6 +194,7 @@ router.delete(
         );
       } catch (auditError) {
         console.warn('⚠️ Audit logging failed:', auditError);
+        // Don't block deletion if audit fails
       }
 
       res.json({
