@@ -511,6 +511,64 @@ router.post(
 
       const user = result.value;
 
+      // AUTO-GENERATE MATCHES after approval
+console.log('\n✅ Generating matches for newly approved profile...');
+
+try {
+  // Get opposite-gender approved candidates
+  const candidates = await usersCollection
+    .find({
+      gender: { $ne: user.gender },
+      profileStatus: 'approved',
+      _id: { $ne: user._id },
+    })
+    .toArray();
+
+  // Import hard filters and scoring
+  const { filterCandidatesByHardFilters } = require('../lib/hard-filters');
+  const { computeMatchScore } = require('../lib/scoring');
+  const { createMatchDocument } = require('../db/matches-schema');
+
+  // Apply hard filters
+  const { passed: hardFilterPassed } =
+    filterCandidatesByHardFilters(user, candidates);
+
+  // Create matches
+  const matchesCollection = db.collection('matches');
+  const matchesToInsert: any[] = [];
+
+  for (const candidate of hardFilterPassed) {
+    const { total, breakdown } = computeMatchScore(user, candidate);
+
+    // Only save good matches
+    if (total >= 40) {
+      const matchDoc = createMatchDocument(
+        user._id,
+        candidate._id,
+        total,
+        breakdown,
+        true,
+        []
+      );
+
+      matchesToInsert.push(matchDoc);
+    }
+  }
+
+  // Insert matches
+  if (matchesToInsert.length > 0) {
+    await matchesCollection.insertMany(matchesToInsert);
+
+    console.log(
+      `✓ Auto-generated ${matchesToInsert.length} matches`
+    );
+  }
+} catch (error) {
+  console.error('ℹ Auto-generation error:', error);
+
+  // Don't fail approval if matching fails
+}
+
       // Send approval email
       const emailSent = await sendProfileApprovalEmail(
         user.email,
