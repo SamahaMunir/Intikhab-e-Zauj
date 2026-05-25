@@ -38,9 +38,9 @@ requiredFields: (keyof UserProfile)[];
 }
 
 export const DEFAULT_HARD_FILTER_CONFIG: HardFilterConfig = {
-enableCasteFilter: true,
+enableCasteFilter: false,
 strictCasteFilter: false,          // "Any" is acceptable (lenient mode)
-enableLocationFilter: true,
+enableLocationFilter: false,
 enableAgeFilter: true,
 enableRequiredFieldsFilter: true,
 requiredFields: ['name', 'gender', 'dob', 'city', 'caste', 'education', 'bio'],
