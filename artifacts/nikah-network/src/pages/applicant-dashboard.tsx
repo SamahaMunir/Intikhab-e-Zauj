@@ -34,7 +34,7 @@ export default function ApplicantDashboard() {
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (!userStr) {
-      setLocation('/login');
+      setLocation('/user-login');
       return;
     }
 
@@ -43,7 +43,7 @@ export default function ApplicantDashboard() {
       setUser(userData);
     } catch (error) {
       console.error('Failed to parse user data:', error);
-      setLocation('/login');
+      setLocation('/user-login');
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export default function ApplicantDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    setLocation('/login');
+    setLocation('/user-login');
   };
 
   const handleDeleteAccount = async () => {
@@ -94,7 +94,7 @@ export default function ApplicantDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-100 to-purple-100">
         <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
       </div>
     );
@@ -102,13 +102,13 @@ export default function ApplicantDashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-100 to-purple-100">
         <Card className="w-full max-w-md">
           <CardContent className="pt-12 pb-12 text-center">
             <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
             <p className="text-lg font-semibold">Not Authenticated</p>
             <p className="text-muted-foreground mb-4">Please login to continue</p>
-            <Button onClick={() => setLocation('/login')} className="w-full">
+            <Button onClick={() => setLocation('/user-login')} className="w-full">
               Go to Login
             </Button>
           </CardContent>
@@ -121,7 +121,7 @@ export default function ApplicantDashboard() {
   const paymentComplete = user.paymentStatus === 'completed';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-100 p-4 py-12">
+    <div className="min-h-screen bg-linear-to-br from-blue-100 to-purple-100 p-4 py-12">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
