@@ -95,9 +95,13 @@ app.get('/health', async (req, res) => {
   }
 });
 app.use('/auth', userAuthRouter);
+
 app.use('/api/profile', authMiddleware, profileCompletionRouter);
 app.use('/api/payment', authMiddleware, paymentRouter);
 app.use('/auth', registerRouter);
+// Matching API routes
+app.use('/api/matches', matchingRoutes);
+app.use('/api/staff/matches', authMiddleware, staffOnlyMiddleware, matchingRoutes);
 // Auth routes (NO middleware needed for login)
 app.use('/auth', authSimpleRouter);
 app.use('/auth', authRouter);
@@ -123,9 +127,10 @@ app.use(async (req, res, next) => {
 // Staff API routes (with auth middleware for protected endpoints)
 app.use('/api/staff', staffRoutes);
 app.use('/api/staff/profiles', authMiddleware, staffOnlyMiddleware, profilesRouter);
-// Matching API routes
-//app.use('/api/matches', matchingRoutes);
-app.use('/api/staff/matches', authMiddleware, staffOnlyMiddleware, matchingRoutes);
+
+// Public matches routes for app-side matching screens and direct API testing
+app.use('/api/matches', matchingRoutes);
+
 app.use('/api/staff', authMiddleware, staffOnlyMiddleware, auditLogsRouter);
 
 
