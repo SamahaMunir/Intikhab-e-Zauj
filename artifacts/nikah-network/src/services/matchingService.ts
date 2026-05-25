@@ -20,7 +20,7 @@ class MatchingService {
    * Generate matches for a user
    */
   async generateMatches(userId: string): Promise<{ generated: number; matches: Match[] }> {
-    const response = await fetch(`${API_BASE}/api/staff/matches/generate/${userId}`, {
+    const response = await fetch(`${API_BASE}/api/matches/generate/${userId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -37,7 +37,7 @@ class MatchingService {
    */
   async getMatches(userId: string): Promise<{ total: number; matches: Match[] }> {
     const response = await fetch(
-      `${API_BASE}/api/staff/matches?userId=${userId}&status=suggested`,
+      `${API_BASE}/api/matches?userId=${userId}&status=suggested`,
       {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
@@ -53,7 +53,7 @@ class MatchingService {
    * Get match details
    */
   async getMatchDetails(matchId: string): Promise<Match> {
-    const response = await fetch(`${API_BASE}/api/staff/matches/${matchId}`, {
+    const response = await fetch(`${API_BASE}/api/matches/${matchId}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
       },
@@ -107,7 +107,7 @@ class MatchingService {
    */
   async getDebugInfo(userId: string): Promise<any> {
     const response = await fetch(
-      `${API_BASE}/api/staff/matches/debug/${userId}`,
+      `${API_BASE}/api/matches/debug/${userId}`,
       {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
