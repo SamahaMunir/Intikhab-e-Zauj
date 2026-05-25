@@ -8,6 +8,90 @@ import { authMiddleware } from '../middleware/auth';
 const router = express.Router();
 
 /**
+ * DEBUG: Search for specific profile
+ * GET /api/matches/debug-find/:userId
+ */
+router.get('/debug-find/:userId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userIdParam = getSingleParam(req.params.userId as string | string[]);
+    const db = await getDatabase();
+    const profilesCol = db.collection('profiles');
+    
+    console.log(`\n🔍 Searching for: ${userIdParam}`);
+    
+    // Try as ObjectId
+    try {
+      const userObjectId = new ObjectId(userIdParam);
+      const found = await profilesCol.findOne({ _id: userObjectId });
+      if (found) {
+        console.log('✅ Found with ObjectId!');
+        return res.json({ success: true, found: true, profile: found });
+      }
+      console.log('❌ Not found with ObjectId');
+    } catch (err) {
+      console.log('⚠️ Invalid ObjectId format:', err);
+    }
+    
+    // Try as string
+    const foundStr = await profilesCol.findOne({ _id: userIdParam });
+    if (foundStr) {
+      console.log('✅ Found with string ID!');
+      return res.json({ success: true, found: true, profile: foundStr });
+    }
+    
+    console.log('❌ Not found as string either');
+    
+    // List all
+    const all = await profilesCol.find({}).toArray();
+    res.json({
+      success: true,
+      found: false,
+      totalInDb: all.length,
+      profileIds: all.map(p => p._id.toString()),
+    });
+  } catch (error) {
+    console.error('❌ Error searching:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to search',
+    });
+  }
+});
+
+/**
+ * DEBUG: List all profiles
+ * GET /api/matches/debug-profiles
+ */
+router.get('/debug-profiles', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const db = await getDatabase();
+    const profilesCol = db.collection('profiles');
+    
+    const allProfiles = await profilesCol.find({}).toArray();
+    const count = await profilesCol.countDocuments();
+    
+    console.log(`📊 Total profiles in DB: ${count}`);
+    console.log('Profile IDs:', allProfiles.map(p => ({ _id: p._id.toString(), name: p.name })));
+    
+    res.json({
+      success: true,
+      totalCount: count,
+      profiles: allProfiles.map(p => ({
+        _id: p._id.toString(),
+        name: p.name || '(no name)',
+        email: p.email || '(no email)',
+      })),
+    });
+  } catch (error) {
+    console.error('❌ Error listing profiles:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to list profiles',
+    });
+  }
+});
+
+/**
  * Helper: Get single string param (handles string | string[])
  */
 function getSingleParam(param: string | string[] | undefined): string | null {
@@ -50,7 +134,14 @@ router.post('/generate/:userId', authMiddleware, async (req: Request, res: Respo
     const matchesCol = db.collection('matches');
 
     // Find the user
-    const user = await profilesCol.findOne({ _id: userObjectId });
+    console.log(`🔍 Searching for user with ObjectId: ${userObjectId.toString()}`);
+    let user = await profilesCol.findOne({ _id: userObjectId });
+    
+    if (!user) {
+      console.log(`⚠️  Not found with ObjectId, trying string ID...`);
+      user = await profilesCol.findOne({ _id: userIdParam });
+    }
+    
     if (!user) {
       console.error(`❌ User not found with ID: ${userIdParam}`);
       res.status(404).json({
@@ -196,15 +287,25 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
     const matchesCol = db.collection('matches');
 
     // Verify user exists
-    const user = await profilesCol.findOne({ _id: userObjectId });
+    console.log(`🔍 Searching for user with ObjectId: ${userObjectId.toString()}`);
+    
+    // Try ObjectId first, then string fallback
+    let user = await profilesCol.findOne({ _id: userObjectId });
+    
     if (!user) {
-      console.error(`❌ User not found: ${userIdParam}`);
+      console.log(`⚠️  Not found with ObjectId, trying string ID...`);
+      user = await profilesCol.findOne({ _id: userIdParam });
+    }
+    
+    if (!user) {
+      console.error(`❌ User not found: ${userIdParam} (ObjectId: ${userObjectId.toString()})`);
       res.status(404).json({
         success: false,
         error: 'User not found',
       });
       return;
     }
+    console.log(`✅ Found user: ${user.name}`);
 
     // Build query
     const query: any = { userId: userObjectId };
