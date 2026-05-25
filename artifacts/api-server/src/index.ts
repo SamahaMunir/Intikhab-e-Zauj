@@ -128,8 +128,6 @@ app.use(async (req, res, next) => {
 app.use('/api/staff', staffRoutes);
 app.use('/api/staff/profiles', authMiddleware, staffOnlyMiddleware, profilesRouter);
 
-// Public matches routes for app-side matching screens and direct API testing
-app.use('/api/matches', matchingRoutes);
 
 app.use('/api/staff', authMiddleware, staffOnlyMiddleware, auditLogsRouter);
 
