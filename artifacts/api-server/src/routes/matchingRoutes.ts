@@ -128,16 +128,19 @@ true,
 matchesToInsert.push(matchDoc);
 }
 // 5. SAVE MATCHES TO DATABASE
-if (matchesToInsert.length > 0) {
-  await matchesCol.insertMany(matchesToInsert);
-  console.log(`   ✓ Saved ${matchesToInsert.length} matches`);
+matchesToInsert.sort((a, b) => b.score - a.score);
+const topMatches = matchesToInsert.slice(0, 10);
+
+if (topMatches.length > 0) {
+  await matchesCol.insertMany(topMatches);
+  console.log(`   ✓ Saved ${topMatches.length} matches`);
 } else {
   console.log(`   ℹ No matches above score threshold`);
 }
 return res.json({
 success: true,
-generated: matchesToInsert.length,
-matches: matchesToInsert,
+generated: topMatches.length,
+matches: topMatches,
 });
 } catch (error) {
 console.error('❌ Match generation error:', error);
