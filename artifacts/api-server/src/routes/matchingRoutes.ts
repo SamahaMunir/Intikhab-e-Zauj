@@ -1,502 +1,411 @@
-import { Router, Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
-import { createMatchDocument, Match } from '../db/matches-schema';
-import {
-checkHardFilters,
-filterCandidatesByHardFilters,
-DEFAULT_HARD_FILTER_CONFIG,
-UserProfile,
-} from '../lib/hard-filters';
-import { computeMatchScore } from '../lib/scoring';
-const router = Router();
+import { applyHardFilters } from '../lib/hard-filters';
+import { calculateScore } from '../lib/scoring';
+import { authMiddleware } from '../middleware/auth';
 
-function getSingleParam(value: string | string[] | undefined): string | undefined {
-if (Array.isArray(value)) {
-return value[0];
-}
-return value;
-}
-
-function getProfileIdFilter(userId: string) {
-  if (ObjectId.isValid(userId)) {
-    return { _id: new ObjectId(userId) };
-  }
-
-  return { _id: userId as unknown as ObjectId };
-}
-console.log("MATCHING ROUTES ACTIVE");
-/**
-
-POST /api/matches/generate/:userId
-
-Generate all possible matches for a user
-
-
-
-Gets all opposite-gender approved users
-
-
-
-
-Applies hard filters
-
-
-
-
-Scores with soft scoring
-
-
-
-
-Saves to database
-
-
-
-Returns: { generated: number, matches: [] }
-*/
-router.post('/generate/:userId', async (req: Request, res: Response) => {
-try {
-const userId = getSingleParam(req.params.userId);
-if (!userId) {
-return res.status(400).json({
-error: 'userId required',
-});
-}
-const db = await getDatabase();
-const profilesCol = db.collection<UserProfile>('profiles');
-const matchesCol = db.collection<Match>('matches');
-// 1. GET THE USER
-const user = await profilesCol.findOne(getProfileIdFilter(userId));
-if (!user) {
-return res.status(200).json({
-success: true,
-generated: 0,
-matches: [],
-warning: 'User not found',
-});
-}
-if (user.profileStatus !== 'approved') {
-return res.status(400).json({
-error: 'Profile not approved',
-message: 'Only approved profiles can have matches generated',
-});
-}
-// 2. GET OPPOSITE-GENDER CANDIDATES
-const candidates = await profilesCol
-.find({
-gender: { $ne: user.gender },
-profileStatus: 'approved',
-_id: { $ne: user._id },
-})
-.toArray();
-console.log(`\n📊 Generating matches for ${user.name}`);
-console.log(`   Total candidates: ${candidates.length}`);
-// 3. APPLY HARD FILTERS
-const { passed: hardFilterPassed, rejected: hardFilterRejected } =
-filterCandidatesByHardFilters(user, candidates, DEFAULT_HARD_FILTER_CONFIG);
-console.log(`   After hard filters: ${hardFilterPassed.length} passed`);
-console.log(`   Rejected: ${hardFilterRejected.length}`);
-// 4. SCORE CANDIDATES & CREATE MATCHES
-const matchesToInsert: Match[] = [];
-const existingMatches = await matchesCol
-.find({ userId: new ObjectId(userId) })
-.toArray();
-const existingCandidateIds = new Set(
-existingMatches.map(m => m.candidateId.toString())
-);
-for (const candidate of hardFilterPassed) {
-// Skip if match already exists
-if (!candidate._id || existingCandidateIds.has(candidate._id.toString())) {
-continue;
-}
-// Compute score
-const { total, breakdown } = computeMatchScore(user, candidate);
-// Only keep matches with score >= 40
-if (total < 40) {
-continue;
-}
-// Create match document
-const matchDoc = createMatchDocument(
-user._id,
-candidate._id,
-total,
-breakdown,
-true,
-[]
-);
-matchesToInsert.push(matchDoc);
-}
-// 5. SAVE MATCHES TO DATABASE
-matchesToInsert.sort((a, b) => b.score - a.score);
-const topMatches = matchesToInsert.slice(0, 10);
-
-if (topMatches.length > 0) {
-  await matchesCol.insertMany(topMatches);
-  console.log(`   ✓ Saved ${topMatches.length} matches`);
-} else {
-  console.log(`   ℹ No matches above score threshold`);
-}
-return res.json({
-success: true,
-generated: topMatches.length,
-matches: topMatches,
-});
-} catch (error) {
-console.error('❌ Match generation error:', error);
-return res.status(500).json({
-error: 'Match generation failed',
-message: error instanceof Error ? error.message : 'Unknown error',
-});
-}
-});
+const router = express.Router();
 
 /**
-
-GET /api/matches
-
-Get all suggested matches for a user
-
-Query params:
-
-
-userId (required): User's ID
-
-
-
-
-status (optional): 'suggested', 'approved', 'rejected'
-
-
-
-Returns: { total: number, matches: [] }
-*/
-router.get('/', async (req: Request, res: Response) => {
-try {
-const { userId, status } = req.query;
-if (!userId || typeof userId !== 'string') {
-return res.status(400).json({
-error: 'userId required',
-});
+ * Helper: Get single string param (handles string | string[])
+ */
+function getSingleParam(param: string | string[] | undefined): string | null {
+  if (!param) return null;
+  if (Array.isArray(param)) return param[0] || null;
+  return param;
 }
-const db = await getDatabase();
-const matchesCol = db.collection<Match>('matches');
-const profilesCol = db.collection<UserProfile>('profiles');
-// Build query
-const query: any = {
-$or: [
-{ userId: new ObjectId(userId) },
-{ candidateId: new ObjectId(userId) },
-],
-};
-// Filter by status if provided
-if (status && status !== 'all') {
-query.status = status;
-} else {
-query.status = 'suggested'; // Default to suggested
-}
-// Get matches
-const matches = await matchesCol
-.find(query)
-.sort({ score: -1 })
-.toArray();
-// Enrich with candidate details
-const enriched = await Promise.all(
-  matches.map(async match => {
-    // Determine which is the candidate
-    const candidateId = match.userId.toString() === userId ? match.candidateId : match.userId;
-    const candidate = await profilesCol.findOne({
-      _id: typeof candidateId === 'string' ? new ObjectId(candidateId) : candidateId,
+
+/**
+ * GENERATE MATCHES FOR A USER
+ * POST /api/matches/generate/:userId
+ * 
+ * Finds all compatible profiles and creates match records
+ */
+router.post('/generate/:userId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userIdParam = getSingleParam(req.params.userId);
+    if (!userIdParam) {
+      res.status(400).json({ success: false, error: 'userId is required' });
+      return;
+    }
+
+    console.log(`\n📍 GENERATE MATCHES for user: ${userIdParam}`);
+
+    // Convert string userId to ObjectId
+    let userObjectId: ObjectId;
+    try {
+      userObjectId = new ObjectId(userIdParam);
+    } catch (err) {
+      console.error('❌ Invalid ObjectId format:', userIdParam);
+      res.status(400).json({
+        success: false,
+        error: `Invalid user ID format: "${userIdParam}" is not a valid ObjectId`,
+      });
+      return;
+    }
+
+    const db = await getDatabase();
+    const profilesCol = db.collection('profiles');
+    const matchesCol = db.collection('matches');
+
+    // Find the user
+    const user = await profilesCol.findOne({ _id: userObjectId });
+    if (!user) {
+      console.error(`❌ User not found with ID: ${userIdParam}`);
+      res.status(404).json({
+        success: false,
+        error: `User not found`,
+      });
+      return;
+    }
+
+    console.log(`✅ Found user: ${user.name} (${user.email})`);
+
+    // Clear old matches for this user
+    await matchesCol.deleteMany({ userId: userObjectId });
+    console.log(`🧹 Cleared old matches for user`);
+
+    // Get all candidate profiles
+    const candidates = await profilesCol
+      .find({
+        _id: { $ne: userObjectId },
+        profileStatus: 'approved',
+        paymentStatus: 'completed',
+      })
+      .toArray();
+
+    console.log(`📊 Evaluating ${candidates.length} candidates...`);
+
+    const matchRecords: any[] = [];
+    let passedCount = 0;
+    let rejectedCount = 0;
+
+    // Evaluate each candidate
+    for (const candidate of candidates) {
+      // Apply hard filters
+      const filterResult = applyHardFilters(user, candidate);
+
+      if (filterResult.passes) {
+        // Calculate compatibility score
+        const score = calculateScore(user, candidate);
+
+        // Create match record
+        const match = {
+          userId: userObjectId,
+          candidateId: candidate._id,
+          score: score,
+          hardFiltersPassed: true,
+          status: 'suggested',
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        };
+
+        matchRecords.push(match);
+        passedCount++;
+      } else {
+        rejectedCount++;
+      }
+    }
+
+    // Save all matches
+    if (matchRecords.length > 0) {
+      await matchesCol.insertMany(matchRecords);
+    }
+
+    console.log(`✅ Generated ${passedCount} matches`);
+    console.log(`❌ Rejected ${rejectedCount} candidates`);
+
+    // Fetch created matches with candidate details
+    const createdMatches = await matchesCol
+      .find({ userId: userObjectId })
+      .sort({ score: -1 })
+      .toArray();
+
+    // Enrich with candidate details
+    const enrichedMatches = [];
+    for (const m of createdMatches) {
+      const candidate = await profilesCol.findOne(
+        { _id: m.candidateId },
+        { projection: { name: 1, age: 1, city: 1, education: 1, photo: 1 } }
+      );
+      enrichedMatches.push({
+        _id: m._id,
+        userId: m.userId,
+        candidateId: m.candidateId,
+        candidate: candidate,
+        score: m.score,
+        status: m.status,
+        createdAt: m.createdAt,
+        expiresAt: m.expiresAt,
+        hardFiltersPassed: m.hardFiltersPassed,
+      });
+    }
+
+    res.json({
+      success: true,
+      generated: passedCount,
+      total: enrichedMatches.length,
+      matches: enrichedMatches,
     });
+  } catch (error) {
+    console.error('❌ Error generating matches:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate matches',
+    });
+  }
+});
 
-    return {
-      ...match,
-      candidate: candidate
-        ? {
-            id: candidate._id,
-            name: candidate.name,
-            age: new Date().getFullYear() - new Date(candidate.dob).getFullYear(),
-            city: candidate.city,
-            education: candidate.education,
-            photo: (candidate as UserProfile & { photo?: string }).photo,
-          }
-        : null,
+/**
+ * GET MATCHES FOR A USER
+ * GET /api/matches?userId=:userId&status=suggested
+ * 
+ * Returns all active matches for a user with candidate details
+ */
+router.get('/', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userIdParam = getSingleParam(req.query.userId as string | string[]);
+    const statusParam = getSingleParam(req.query.status as string | string[] | undefined);
+
+    if (!userIdParam) {
+      res.status(400).json({
+        success: false,
+        error: 'userId query parameter is required',
+      });
+      return;
+    }
+
+    console.log(`\n📥 Getting matches for userId: ${userIdParam}, status: ${statusParam || 'all'}`);
+
+    // Convert string userId to ObjectId
+    let userObjectId: ObjectId;
+    try {
+      userObjectId = new ObjectId(userIdParam);
+    } catch (err) {
+      console.error('❌ Invalid ObjectId format:', userIdParam);
+      res.status(400).json({
+        success: false,
+        error: `Invalid user ID format`,
+      });
+      return;
+    }
+
+    const db = await getDatabase();
+    const profilesCol = db.collection('profiles');
+    const matchesCol = db.collection('matches');
+
+    // Verify user exists
+    const user = await profilesCol.findOne({ _id: userObjectId });
+    if (!user) {
+      console.error(`❌ User not found: ${userIdParam}`);
+      res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+      return;
+    }
+
+    // Build query
+    const query: any = { userId: userObjectId };
+    if (statusParam) {
+      query.status = statusParam;
+    }
+
+    // Get matches
+    const matches = await matchesCol
+      .find(query)
+      .sort({ score: -1 })
+      .toArray();
+
+    console.log(`✅ Found ${matches.length} matches`);
+
+    // Enrich with candidate details
+    const enrichedMatches = [];
+    for (const match of matches) {
+      const candidate = await profilesCol.findOne(
+        { _id: match.candidateId },
+        { projection: { name: 1, age: 1, city: 1, education: 1, photo: 1 } }
+      );
+      enrichedMatches.push({
+        _id: match._id,
+        userId: match.userId,
+        candidateId: match.candidateId,
+        candidate: candidate,
+        score: match.score,
+        status: match.status,
+        createdAt: match.createdAt,
+        expiresAt: match.expiresAt,
+      });
+    }
+
+    res.json({
+      success: true,
+      total: enrichedMatches.length,
+      matches: enrichedMatches,
+    });
+  } catch (error) {
+    console.error('❌ Error fetching matches:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch matches',
+    });
+  }
+});
+
+/**
+ * GET SINGLE MATCH
+ * GET /api/matches/:matchId
+ */
+router.get('/:matchId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const matchIdParam = getSingleParam(req.params.matchId as string | string[]);
+    if (!matchIdParam) {
+      res.status(400).json({ success: false, error: 'matchId is required' });
+      return;
+    }
+
+    let matchObjectId: ObjectId;
+    try {
+      matchObjectId = new ObjectId(matchIdParam);
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid match ID format',
+      });
+      return;
+    }
+
+    const db = await getDatabase();
+    const matchesCol = db.collection('matches');
+    const profilesCol = db.collection('profiles');
+
+    const match = await matchesCol.findOne({ _id: matchObjectId });
+
+    if (!match) {
+      res.status(404).json({
+        success: false,
+        error: 'Match not found',
+      });
+      return;
+    }
+
+    // Enrich with candidate details
+    const candidate = await profilesCol.findOne(
+      { _id: match.candidateId },
+      { projection: { name: 1, age: 1, city: 1, education: 1, photo: 1 } }
+    );
+
+    res.json({
+      success: true,
+      match: {
+        ...match,
+        candidate,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error fetching match:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch match',
+    });
+  }
+});
+
+/**
+ * DEBUG - See why candidates pass/fail filters
+ * GET /api/matches/debug/:userId
+ * 
+ * Shows detailed breakdown of hard filter evaluation
+ */
+router.get('/debug/:userId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userIdParam = getSingleParam(req.params.userId as string | string[]);
+    if (!userIdParam) {
+      res.status(400).json({ success: false, error: 'userId is required' });
+      return;
+    }
+
+    console.log(`\n🔍 DEBUG filters for user: ${userIdParam}`);
+
+    // Convert string userId to ObjectId
+    let userObjectId: ObjectId;
+    try {
+      userObjectId = new ObjectId(userIdParam);
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        error: `Invalid user ID format`,
+      });
+      return;
+    }
+
+    const db = await getDatabase();
+    const profilesCol = db.collection('profiles');
+
+    // Find user
+    const user = await profilesCol.findOne({ _id: userObjectId });
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+      return;
+    }
+
+    // Get all candidates
+    const candidates = await profilesCol
+      .find({
+        _id: { $ne: userObjectId },
+      })
+      .toArray();
+
+    const results: any = {
+      user: {
+        id: user._id,
+        name: user.name,
+      },
+      totalCandidates: candidates.length,
+      passed: 0,
+      rejected: 0,
+      rejectionReasons: {} as Record<string, number>,
+      details: [],
     };
-  })
-);
-return res.json({
-total: enriched.length,
-matches: enriched,
-});
-} catch (error) {
-console.error('❌ Get matches error:', error);
-return res.status(500).json({
-error: 'Failed to fetch matches',
-message: error instanceof Error ? error.message : 'Unknown error',
-});
-}
-});
 
-/**
+    // Evaluate each
+    for (const candidate of candidates) {
+      const filterResult = applyHardFilters(user, candidate);
 
-GET /api/matches/:matchId
+      if (filterResult.passes) {
+        results.passed++;
+      } else {
+        results.rejected++;
 
-Get detailed match information
+        // Track rejection reasons
+        for (const rejection of filterResult.rejections) {
+          const key = rejection.reason;
+          results.rejectionReasons[key] = (results.rejectionReasons[key] || 0) + 1;
+        }
 
-Returns: Full match object with score breakdown
-*/
-router.get('/:matchId', async (req: Request, res: Response) => {
-try {
-const matchId = getSingleParam(req.params.matchId);
-if (!matchId) {
-return res.status(400).json({
-error: 'matchId required',
-});
-}
-const db = await getDatabase();
-const matchesCol = db.collection<Match>('matches');
-const match = await matchesCol.findOne({
-_id: new ObjectId(matchId),
-});
-if (!match) {
-return res.status(404).json({
-error: 'Match not found',
-});
-}
-return res.json(match);
-} catch (error) {
-console.error('❌ Get match error:', error);
-return res.status(500).json({
-error: 'Failed to fetch match',
-});
-}
-});
+        // Add detailed entry
+        results.details.push({
+          candidate: candidate.name,
+          rejections: filterResult.rejections.map((r: any) => ({
+            reason: r.reason,
+            detail: r.detail,
+          })),
+        });
+      }
+    }
 
-/**
-
-PUT /api/staff/matches/:matchId/approve
-
-Staff approves a match
-
-Returns: { success: true, message: '...' }
-*/
-router.put('/:matchId/approve', async (req: Request, res: Response) => {
-try {
-const matchId = getSingleParam(req.params.matchId);
-if (!matchId) {
-return res.status(400).json({
-error: 'matchId required',
-});
-}
-const staffId = (req as any).user?.id; // From auth middleware
-const db = await getDatabase();
-const matchesCol = db.collection<Match>('matches');
-const result = await matchesCol.updateOne(
-{ _id: new ObjectId(matchId) },
-{
-$set: {
-status: 'approved',
-approvedAt: new Date(),
-approvedBy: staffId ? new ObjectId(staffId) : undefined,
-},
-}
-);
-if (result.matchedCount === 0) {
-return res.status(404).json({
-error: 'Match not found',
-});
-}
-return res.json({
-success: true,
-message: 'Match approved',
-});
-} catch (error) {
-console.error('❌ Approve match error:', error);
-return res.status(500).json({
-error: 'Failed to approve match',
-});
-}
-});
-
-/**
-
-PUT /api/staff/matches/:matchId/reject
-
-Staff rejects a match with reason
-
-Body: { reason: string }
-Returns: { success: true, message: '...' }
-*/
-router.put('/:matchId/reject', async (req: Request, res: Response) => {
-try {
-const matchId = getSingleParam(req.params.matchId);
-if (!matchId) {
-return res.status(400).json({
-error: 'matchId required',
-});
-}
-const { reason } = req.body;
-const staffId = (req as any).user?.id;
-const db = await getDatabase();
-const matchesCol = db.collection<Match>('matches');
-const result = await matchesCol.updateOne(
-{ _id: new ObjectId(matchId) },
-{
-$set: {
-status: 'rejected',
-rejectionReason: reason || 'No reason provided',
-rejectedAt: new Date(),
-rejectedBy: staffId ? new ObjectId(staffId) : undefined,
-},
-}
-);
-if (result.matchedCount === 0) {
-return res.status(404).json({
-error: 'Match not found',
-});
-}
-return res.json({
-success: true,
-message: 'Match rejected',
-});
-} catch (error) {
-console.error('❌ Reject match error:', error);
-return res.status(500).json({
-error: 'Failed to reject match',
-});
-}
-});
-
-/**
-
-POST /api/staff/matches/generate-all
-
-Generate matches for ALL approved users
-
-Returns: { generated: number, users: number }
-*/
-router.post('/generate-all', async (req: Request, res: Response) => {
-try {
-const db = await getDatabase();
-const profilesCol = db.collection<UserProfile>('profiles');
-// Get all approved users
-const approvedUsers = await profilesCol
-.find({ profileStatus: 'approved' })
-.toArray();
-console.log(`\n🔄 Bulk match generation for ${approvedUsers.length} users`);
-let totalGenerated = 0;
-const userResults: any[] = [];
-// Generate matches for each user
-for (const user of approvedUsers) {
-// Create a fake request/response for generate endpoint
-const mockReq = {
-params: { userId: user._id.toString() },
-};
-const mockRes = {
-json: (data: any) => {
-if (data.success) {
-totalGenerated += data.generated || 0;
-userResults.push({
-userId: user._id,
-name: user.name,
-generated: data.generated || 0,
-});
-}
-},
-status: () => mockRes,
-};
-// Call generate endpoint logic
-await (router.stack.find(
-r => r.route?.path === '/generate/:userId' && (r.route as any)?.methods?.post
-) as any)?.handle?.({ ...mockReq, user }, mockRes);
-}
-console.log(`✓ Generated ${totalGenerated} matches for ${userResults.length} users`);
-return res.json({
-success: true,
-generated: totalGenerated,
-users: userResults.length,
-details: userResults,
-});
-} catch (error) {
-console.error('❌ Bulk generation error:', error);
-return res.status(500).json({
-error: 'Bulk generation failed',
-});
-}
-});
-
-/**
-
-GET /api/staff/matches/debug/:userId
-
-DEBUG: Show why candidates pass/fail hard filters
-
-Returns: Statistics about filter failures
-*/
-router.get('/debug/:userId', async (req: Request, res: Response) => {
-try {
-const userId = getSingleParam(req.params.userId);
-if (!userId) {
-return res.status(400).json({
-error: 'userId required',
-});
-}
-const db = await getDatabase();
-const profilesCol = db.collection<UserProfile>('profiles');
-// Get user
-const user = await profilesCol.findOne(getProfileIdFilter(userId));
-if (!user) {
-return res.status(200).json({
-user: null,
-totalCandidates: 0,
-passed: 0,
-rejected: 0,
-passRate: '0.0%',
-rejectionReasons: {},
-sampleFailures: [],
-warning: 'User not found',
-});
-}
-// Get candidates
-const candidates = await profilesCol
-.find({
-gender: { $ne: user.gender },
-profileStatus: 'approved',
-_id: { $ne: user._id },
-})
-.toArray();
-// Analyze hard filters
-const { passed, rejected } = filterCandidatesByHardFilters(
-user,
-candidates,
-DEFAULT_HARD_FILTER_CONFIG
-);
-// Count rejection reasons
-const reasonCounts: Record<string, number> = {};
-for (const { reasons } of rejected) {
-for (const reason of reasons) {
-const key = reason.split(':')[0].trim();
-reasonCounts[key] = (reasonCounts[key] || 0) + 1;
-}
-}
-return res.json({
-user: { id: user._id, name: user.name },
-totalCandidates: candidates.length,
-passed: passed.length,
-rejected: rejected.length,
-passRate: `${((passed.length / candidates.length) * 100).toFixed(1)}%`,
-rejectionReasons: reasonCounts,
-sampleFailures: rejected.slice(0, 5).map(r => ({
-name: r.candidate.name,
-reasons: r.reasons,
-})),
-});
-} catch (error) {
-console.error('❌ Debug error:', error);
-return res.status(500).json({
-error: 'Debug failed',
-});
-}
+    res.json(results);
+  } catch (error) {
+    console.error('❌ Error in debug endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Debug failed',
+    });
+  }
 });
 
 export default router;
