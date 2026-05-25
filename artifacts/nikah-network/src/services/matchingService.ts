@@ -24,7 +24,7 @@ class MatchingService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
     });
 
@@ -40,7 +40,7 @@ class MatchingService {
       `${API_BASE}/api/matches?userId=${userId}&status=suggested`,
       {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       }
     );
@@ -55,7 +55,7 @@ class MatchingService {
   async getMatchDetails(matchId: string): Promise<Match> {
     const response = await fetch(`${API_BASE}/api/matches/${matchId}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
     });
 
@@ -73,7 +73,7 @@ class MatchingService {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       }
     );
@@ -92,7 +92,7 @@ class MatchingService {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ reason }),
       }
@@ -107,10 +107,10 @@ class MatchingService {
    */
   async getDebugInfo(userId: string): Promise<any> {
     const response = await fetch(
-      `${API_BASE}/api/matches/debug/${userId}`,
+      `${API_BASE}/api/staff/matches/debug/${userId}`,
       {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       }
     );
