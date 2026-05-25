@@ -11,17 +11,29 @@ export default function Matches() {
   const [error, setError] = useState<string | null>(null);
 
   const storedUser = localStorage.getItem('user');
-  const userId = storedUser ? JSON.parse(storedUser)?.id : null;
+  const userId = storedUser ? JSON.parse(storedUser)?._id : null;
 
   useEffect(() => {
     const loadMatches = async () => {
       try {
         setLoading(true);
-        if (!userId) return;
+        console.log('📋 Matches page loading...');
+        console.log('   storedUser:', storedUser);
+        console.log('   userId:', userId);
+        console.log('   token:', localStorage.getItem('token') ? 'present' : 'missing');
+        
+        if (!userId) {
+          console.log('❌ No userId found in localStorage');
+          setError('No user ID found. Please log in.');
+          setLoading(false);
+          return;
+        }
 
         const data = await matchingService.getMatches(userId);
+        console.log('✅ Matches fetched:', data);
         setMatches(data.matches || []);
       } catch (err) {
+        console.error('❌ Error loading matches:', err);
         setError(err instanceof Error ? err.message : 'Failed to load matches');
       } finally {
         setLoading(false);
