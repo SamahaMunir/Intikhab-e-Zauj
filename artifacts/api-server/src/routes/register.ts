@@ -80,10 +80,38 @@ router.post('/register', async (req: Request, res: Response) => {
       updatedAt: new Date(),
       active: true,
     };
+    
 
     // ✅ INSERT USER
     const result = await usersCollection.insertOne(newUser);
     console.log(`✅ User registered: ${email}`);
+
+    // Also create matching profile (same _id)
+await db.collection('profiles').insertOne({
+  _id: newUser._id,
+  name,
+  email,
+  phone,
+  gender,
+  dob: new Date(dob),
+  city,
+  age: new Date().getFullYear() - new Date(dob).getFullYear(),
+  caste: '',
+  education: '',
+  profession: '',
+  income: '',
+  height: '',
+  houseStatus: '',
+  houseArea: '',
+  bio: '',
+  photo: '',
+  profileStatus: 'approved',
+  paymentStatus: 'completed',
+  profileCompletion: 100,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
+console.log(`✅ Profile created: ${email}`);
 
     // ✅ SEND VERIFICATION EMAIL
     const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/verify-email?token=${verificationToken}&email=${email}`;
