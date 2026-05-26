@@ -46,8 +46,8 @@ export async function seedTestData(db: Db) {
 
     if (existingProfiles >= 15) {
       console.log('✓ Test profiles already exist, skipping seed');
-      return;
-    }
+      // Continue to ensure user profile is added (don't return early)
+    } else {
 
     // ✅ Test profile data
     const testProfiles = [
@@ -308,6 +308,44 @@ export async function seedTestData(db: Db) {
     console.log('   Cities:', ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad']);
     console.log('   Ages:', '24-31');
     console.log('   All profiles: APPROVED + PAYMENT COMPLETED');
+    }
+
+    // ✅ INSERT USER'S PROFILE (from JWT token: 6a107ece86657cc5f284f9e7) - ALWAYS CHECK
+    const userProfileId = '6a107ece86657cc5f284f9e7';
+    const userExists = await profilesCol.findOne({ _id: userProfileId });
+    
+    if (!userExists) {
+      const userProfile = {
+        _id: userProfileId,
+        name: 'Usama Khalid',
+        email: 'usamakhalid.uk14@gmail.com',
+        phone: '03001234599',
+        gender: 'male',
+        age: 26,
+        dob: new Date('1998-06-10'),
+        city: 'Karachi',
+        education: 'Bachelors',
+        profession: 'Software Engineer',
+        income: '500000-1000000',
+        caste: 'Sheikh',
+        height: '5.9',
+        houseStatus: 'Own',
+        houseArea: '2500 sqft',
+        bio: 'Tech enthusiast looking for genuine connection',
+        photo: 'https://i.pravatar.cc/150?img=33',
+        profileStatus: 'approved',
+        profileCompletion: 100,
+        paymentStatus: 'completed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        role: 'applicant',
+        emailVerified: true,
+        active: true,
+      };
+      
+      await profilesCol.insertOne(userProfile);
+      console.log(`✓ User profile added (${userProfileId})`);
+    }
 
   } catch (error) {
     if (error instanceof Error && error.message.includes('E11000')) {
