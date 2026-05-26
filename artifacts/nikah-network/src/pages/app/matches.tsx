@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from 'wouter';
-import matchingService from '@/services/matchingService';
+
+import MatchingService  from '../../services/matchingService';
 
 export default function Matches() {
   const [matches, setMatches] = useState<any[]>([]);
@@ -14,31 +15,23 @@ export default function Matches() {
   const userId = storedUser ? JSON.parse(storedUser)?._id : null;
 
   useEffect(() => {
-    const loadMatches = async () => {
-      try {
-        setLoading(true);
-        console.log('📋 Matches page loading...');
-        console.log('   storedUser:', storedUser);
-        console.log('   userId:', userId);
-        console.log('   token:', localStorage.getItem('token') ? 'present' : 'missing');
-        
-        if (!userId) {
-          console.log('❌ No userId found in localStorage');
-          setError('No user ID found. Please log in.');
-          setLoading(false);
-          return;
-        }
+   const loadMatches = async () => {
+  try {
+    let res = await MatchingService.getMatches(userId);
 
-        const data = await matchingService.getMatches(userId);
-        console.log('✅ Matches fetched:', data);
-        setMatches(data.matches || []);
-      } catch (err) {
-        console.error('❌ Error loading matches:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load matches');
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Auto-generate if no matches exist yet
+    if (res.total === 0) {
+      console.log('No matches — generating...');
+      await MatchingService.generateMatches(userId);
+      res = await MatchingService.getMatches(userId);
+    }
+
+    console.log('✅ Matches:', res);
+    setMatches(res.matches);
+  } catch (e) {
+    console.error('❌ Error loading matches:', e);
+  }
+};
 
     loadMatches();
   }, [userId]);
