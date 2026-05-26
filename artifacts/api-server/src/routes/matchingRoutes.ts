@@ -7,34 +7,46 @@ import { authMiddleware } from '../middleware/auth';
 
 const router = express.Router();
 
-// Helper to extract string from userId (handles string | string[])
-function getUserId(id: string | string[] | undefined): string | null {
+function getId(id: string | string[] | undefined): string | null {
   if (!id) return null;
   if (Array.isArray(id)) return id[0] || null;
   return id;
 }
 
+function toObjectId(id: string): ObjectId | null {
+  try {
+    return new ObjectId(id);
+  } catch {
+    return null;
+  }
+}
+
+// GET /api/matches?userId=xxx  — NEVER 404s, returns matches (empty if none)
 router.get('/', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const userIdStr = getUserId(req.query.userId as string | string[] | undefined);
+    const userIdStr = getId(req.query.userId as string | string[] | undefined);
+    console.log(`📥 [NEW CODE] Get matches for: ${userIdStr}`);
+
     if (!userIdStr) {
       res.status(400).json({ success: false, error: 'userId required' });
       return;
     }
 
-    const db = await getDatabase();
-    const userObjectId = new ObjectId(userIdStr);
-    const user = await db.collection('profiles').findOne({ _id: userObjectId });
-
-    if (!user) {
-      res.status(404).json({ success: false, error: 'User not found' });
+    const oid = toObjectId(userIdStr);
+    if (!oid) {
+      res.status(400).json({ success: false, error: 'Invalid userId format' });
       return;
     }
 
+    const db = await getDatabase();
+
+    // Query matches by BOTH ObjectId and string (covers either storage type)
     const matches = await db.collection('matches')
-      .find({ userId: userObjectId, status: 'suggested' })
+      .find({ userId: { $in: [oid, userIdStr] }, status: 'suggested' })
       .sort({ score: -1 })
       .toArray();
+
+    console.log(`✅ Found ${matches.length} matches`);
 
     const enriched = await Promise.all(
       matches.map(async (m) => {
@@ -48,45 +60,58 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
 
     res.json({ success: true, total: enriched.length, matches: enriched });
   } catch (error) {
+    console.error('❌ Get matches error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
   }
 });
 
+// POST /api/matches/generate/:userId
 router.post('/generate/:userId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const userIdStr = getUserId(req.params.userId);
+    const userIdStr = getId(req.params.userId);
+    console.log(`📍 [NEW CODE] Generate matches for: ${userIdStr}`);
+
     if (!userIdStr) {
       res.status(400).json({ success: false, error: 'userId required' });
       return;
     }
 
-    const db = await getDatabase();
-    const userObjectId = new ObjectId(userIdStr);
-    const user = await db.collection('profiles').findOne({ _id: userObjectId });
-
-    if (!user) {
-      res.status(404).json({ success: false, error: 'User not found' });
+    const oid = toObjectId(userIdStr);
+    if (!oid) {
+      res.status(400).json({ success: false, error: 'Invalid userId format' });
       return;
     }
 
-    await db.collection('matches').deleteMany({ userId: userObjectId });
+    const db = await getDatabase();
+
+    // Find user — try ObjectId first, then string _id
+    let user = await db.collection('profiles').findOne({ _id: oid });
+    if (!user) {
+      user = await db.collection('profiles').findOne({ _id: userIdStr as any });
+    }
+
+    if (!user) {
+        const count = await db.collection('profiles').countDocuments();
+console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
+      res.status(404).json({ success: false, error: 'Profile not found. Create a profile first.' });
+      return;
+    }
+
+    console.log(`✅ Found user: ${user.name}`);
+
+    await db.collection('matches').deleteMany({ userId: oid });
 
     const candidates = await db.collection('profiles')
-      .find({
-        _id: { $ne: userObjectId },
-        profileStatus: 'approved',
-        paymentStatus: 'completed',
-      })
+      .find({ _id: { $ne: user._id }, profileStatus: 'approved', paymentStatus: 'completed' })
       .toArray();
 
-    const matchRecords: any[] = [];
-    for (const candidate of candidates) {
-      const filterResult = applyHardFilters(user, candidate);
-      if (filterResult.passes) {
-        matchRecords.push({
-          userId: userObjectId,
-          candidateId: candidate._id,
-          score: calculateScore(user, candidate),
+    const records: any[] = [];
+    for (const c of candidates) {
+      if (applyHardFilters(user, c).passes) {
+        records.push({
+          userId: oid,
+          candidateId: c._id,
+          score: calculateScore(user, c),
           hardFiltersPassed: true,
           status: 'suggested',
           createdAt: new Date(),
@@ -95,35 +120,32 @@ router.post('/generate/:userId', authMiddleware, async (req: Request, res: Respo
       }
     }
 
-    if (matchRecords.length > 0) {
-      await db.collection('matches').insertMany(matchRecords);
-    }
+    if (records.length > 0) await db.collection('matches').insertMany(records);
+    console.log(`✅ Generated ${records.length} matches`);
 
-    const created = await db.collection('matches')
-      .find({ userId: userObjectId })
-      .sort({ score: -1 })
-      .toArray();
-
-    res.json({ success: true, generated: matchRecords.length, matches: created });
+    res.json({ success: true, generated: records.length, matches: records });
   } catch (error) {
+    console.error('❌ Generate error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
   }
 });
 
+// GET /api/matches/debug/:userId
 router.get('/debug/:userId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const userIdStr = getUserId(req.params.userId);
+    const userIdStr = getId(req.params.userId);
     if (!userIdStr) {
       res.status(400).json({ success: false, error: 'userId required' });
       return;
     }
-
+    const oid = toObjectId(userIdStr);
     const db = await getDatabase();
-    const userObjectId = new ObjectId(userIdStr);
-    const user = await db.collection('profiles').findOne({ _id: userObjectId });
+
+    let user = oid ? await db.collection('profiles').findOne({ _id: oid }) : null;
+    if (!user) user = await db.collection('profiles').findOne({ _id: userIdStr as any });
 
     if (!user) {
-      res.status(404).json({ success: false, error: 'User not found' });
+      res.status(404).json({ success: false, error: 'Profile not found' });
       return;
     }
 
@@ -136,14 +158,13 @@ router.get('/debug/:userId', authMiddleware, async (req: Request, res: Response)
       rejectionReasons: {},
     };
 
-    for (const candidate of candidates) {
-      const filterResult = applyHardFilters(user, candidate);
-      if (filterResult.passes) {
-        results.passed++;
-      } else {
+    for (const c of candidates) {
+      const r = applyHardFilters(user, c);
+      if (r.passes) results.passed++;
+      else {
         results.rejected++;
-        for (const rejection of filterResult.rejections) {
-          results.rejectionReasons[rejection.reason] = (results.rejectionReasons[rejection.reason] || 0) + 1;
+        for (const rej of r.rejections) {
+          results.rejectionReasons[rej.reason] = (results.rejectionReasons[rej.reason] || 0) + 1;
         }
       }
     }
