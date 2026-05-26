@@ -1,10 +1,6 @@
-console.log('🔍 Cloudinary Config:');
-console.log('Cloud Name:', import.meta.env.VITE_CLOUDINARY_CLOUD_NAME);
-console.log('API Key:', import.meta.env.VITE_CLOUDINARY_API_KEY);
-
 export const cloudinaryConfig = {
-  cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dwhrcw5wi',
-  apiKey: import.meta.env.VITE_CLOUDINARY_API_KEY || '489688758727171',
+  cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME,
+  apiKey: import.meta.env.VITE_CLOUDINARY_API_KEY,
 };
 
 /**
