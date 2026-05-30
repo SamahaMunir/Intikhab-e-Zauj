@@ -300,7 +300,8 @@ router.post(
 
 /**
  * POST /api/staff/create-user
- * Create user from online/form data (staff only)
+ * Create applicant profile (staff only) - UNIFIED COLLECTION
+ * Saves directly to 'profiles' collection with ALL required fields
  */
 router.post(
   '/create-user',
@@ -317,9 +318,12 @@ router.post(
         city,
         education,
         profession,
-        fatherName,
+        income,
+        caste,
         height,
-        profilePhoto,
+        houseStatus,
+        bio,
+        photo,
         source,
         notes,
       } = req.body;
@@ -334,10 +338,11 @@ router.post(
       }
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      // ✅ FIX: Use 'profiles' collection for ALL user profiles
+      const profilesCollection = db.collection('profiles');
 
       // Check if phone already exists
-      const existing = await usersCollection.findOne({ phone });
+      const existing = await profilesCollection.findOne({ phone });
       if (existing) {
         res.status(400).json({
           error: 'User with this phone already exists',
@@ -346,66 +351,83 @@ router.post(
         return;
       }
 
-      // Create new user document
-      const newUser = {
+      // Create new profile with ALL required fields for matching
+      const newProfile = {
         _id: new ObjectId(),
+        
+        // IDENTITY
         name,
         email: email || `${phone}@intikhab-pending.pk`,
         phone,
         gender,
         dob: new Date(dob),
+        
+        // ROLE & STATUS
+        role: 'applicant',
+        profileStatus: 'pending',
+        active: true,
+        
+        // PROFILE DATA - ✅ ALL FIELDS REQUIRED FOR MATCHING
         city,
-        country: 'Pakistan',
         education: education || 'Not specified',
         profession: profession || 'Not specified',
-        fatherName: fatherName || 'Not specified',
-        height: height ? parseInt(height) : 0,
-        profilePhoto: profilePhoto || null,
-        profileStatus: 'pending',
-        completion: 60,
-        source: source || 'staff_entry', // whatsapp, paper, staff_entry, other
+        income: income || 'Not specified',
+        caste: caste || 'Not specified',
+        height: height || 'Not specified',
+        houseStatus: houseStatus || 'Not specified',
+        bio: bio || '',
+        photo: photo || null,
+        
+        // COMPLETION & PAYMENT
+        profileCompletion: 60,
+        paymentStatus: 'pending',
+        emailVerified: false,
+        
+        // TIMESTAMPS & METADATA
+        source: source || 'staff_entry',
         notes: notes || '',
         enteredBy: req.user!.email,
         enteredByName: req.user!.name || 'Unknown',
         enteredAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
-        active: true,
       };
 
-      // Insert user
-      const result = await usersCollection.insertOne(newUser);
+      // Insert profile
+      const result = await profilesCollection.insertOne(newProfile);
 
       // Log audit
       await logAudit(
         req.user!.email,
         req.user!.id,
         'staff',
-        'create_user',
-        'users',
+        'create_applicant',
+        'profiles',
         phone,
-        `Created user: ${name} from source: ${source || 'staff_entry'}`,
-        { source, phone, gender, city }
+        `Created applicant: ${name} from source: ${source || 'staff_entry'}`,
+        { source, phone, gender, city, role: 'applicant' }
       );
+
+      console.log(`✅ Applicant profile created: ${name} (${phone})`);
 
       res.json({
         success: true,
-        message: 'User created successfully',
-        user: {
-          _id: newUser._id,
-          name: newUser.name,
-          email: newUser.email,
-          phone: newUser.phone,
-          gender: newUser.gender,
-          city: newUser.city,
-          profileStatus: newUser.profileStatus,
-          createdAt: newUser.createdAt,
+        message: 'Applicant profile created successfully',
+        profile: {
+          _id: result.insertedId.toString(),
+          name: newProfile.name,
+          email: newProfile.email,
+          phone: newProfile.phone,
+          gender: newProfile.gender,
+          city: newProfile.city,
+          profileStatus: newProfile.profileStatus,
+          createdAt: newProfile.createdAt,
         },
       });
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('Error creating applicant:', error);
       res.status(500).json({
-        error: 'Failed to create user',
+        error: 'Failed to create applicant',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
@@ -415,6 +437,7 @@ router.post(
 /**
  * GET /api/staff/pending-profiles
  * Get all pending profiles for approval (staff only)
+ * Uses unified 'profiles' collection
  */
 router.get(
   '/pending-profiles',
@@ -423,11 +446,12 @@ router.get(
   async (req: AuthRequest, res: Response): Promise<any> => {
     try {
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      // ✅ FIX: Use 'profiles' collection
+      const profilesCollection = db.collection('profiles');
 
-      // Fetch all users with 'pending' status
-      const profiles = await usersCollection
-        .find({ profileStatus: 'pending' })
+      // Fetch all applicants with 'pending' status
+      const profiles = await profilesCollection
+        .find({ role: 'applicant', profileStatus: 'pending' })
         .sort({ createdAt: -1 })
         .toArray();
 
@@ -444,12 +468,17 @@ router.get(
           city: p.city,
           education: p.education,
           profession: p.profession,
-          fatherName: p.fatherName,
-          profilePhoto: p.profilePhoto,
+          income: p.income,
+          caste: p.caste,
+          height: p.height,
+          houseStatus: p.houseStatus,
+          bio: p.bio,
+          photo: p.photo,
           notes: p.notes,
           source: p.source,
           enteredBy: p.enteredBy,
           enteredAt: p.enteredAt,
+          profileCompletion: p.profileCompletion,
           createdAt: p.createdAt,
         })),
       });
@@ -466,6 +495,7 @@ router.get(
 /**
  * POST /api/staff/approve-profile/:id
  * Approve a pending profile (staff only)
+ * Uses unified 'profiles' collection and auto-generates matches
  */
 router.post(
   '/approve-profile/:id',
@@ -484,18 +514,20 @@ router.post(
       }
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      // ✅ FIX: Use 'profiles' collection
+      const profilesCollection = db.collection('profiles');
 
-      // Find and update user
-      const result = await usersCollection.findOneAndUpdate(
-        { _id: new ObjectId(id), profileStatus: 'pending' },
+      // Find and update profile
+      const result = await profilesCollection.findOneAndUpdate(
+        { _id: new ObjectId(id), role: 'applicant', profileStatus: 'pending' },
         {
           $set: {
             profileStatus: 'approved',
             approvedBy: req.user!.email,
             approvedAt: new Date(),
             approvalNotes: notes || '',
-            completion: 100,
+            profileCompletion: 100,
+            paymentStatus: 'completed',
             updatedAt: new Date(),
           },
         },
@@ -505,74 +537,71 @@ router.post(
       if (!result || !result.value) {
         return res.status(404).json({
           error: 'Profile not found or not pending',
-          message: `No pending profile found with ID: ${id}`,
+          message: `No pending applicant profile found with ID: ${id}`,
         });
       }
 
-      const user = result.value;
+      const profile = result.value;
 
-      // AUTO-GENERATE MATCHES after approval
-console.log('\n✅ Generating matches for newly approved profile...');
+      // ✅ AUTO-GENERATE MATCHES after approval
+      console.log('\n✅ Generating matches for newly approved profile...');
 
-try {
-  // Get opposite-gender approved candidates
-  const candidates = await usersCollection
-    .find({
-      gender: { $ne: user.gender },
-      profileStatus: 'approved',
-      _id: { $ne: user._id },
-    })
-    .toArray();
+      try {
+        // Get opposite-gender approved candidates
+        const candidates = await profilesCollection
+          .find({
+            role: 'applicant',
+            gender: { $ne: profile.gender },
+            profileStatus: 'approved',
+            _id: { $ne: profile._id },
+          })
+          .toArray();
 
-  // Import hard filters and scoring
-  const { filterCandidatesByHardFilters } = require('../lib/hard-filters');
-  const { computeMatchScore } = require('../lib/scoring');
-  const { createMatchDocument } = require('../db/matches-schema');
+        // Import hard filters and scoring
+        const { applyHardFilters } = require('../lib/hard-filters');
+        const { calculateScore } = require('../lib/scoring');
 
-  // Apply hard filters
-  const { passed: hardFilterPassed } =
-    filterCandidatesByHardFilters(user, candidates);
+        // Apply hard filters and generate matches
+        const matchesCollection = db.collection('matches');
+        const matchesToInsert: any[] = [];
 
-  // Create matches
-  const matchesCollection = db.collection('matches');
-  const matchesToInsert: any[] = [];
+        for (const candidate of candidates) {
+          const filterResult = applyHardFilters(profile, candidate);
+          
+          if (filterResult.passes) {
+            const score = calculateScore(profile, candidate);
 
-  for (const candidate of hardFilterPassed) {
-    const { total, breakdown } = computeMatchScore(user, candidate);
+            // Only save good matches (score >= 40)
+            if (score >= 40) {
+              matchesToInsert.push({
+                userId: profile._id,
+                candidateId: candidate._id,
+                score,
+                status: 'suggested',
+                hardFiltersPassed: true,
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+              });
+            }
+          }
+        }
 
-    // Only save good matches
-    if (total >= 40) {
-      const matchDoc = createMatchDocument(
-        user._id,
-        candidate._id,
-        total,
-        breakdown,
-        true,
-        []
-      );
-
-      matchesToInsert.push(matchDoc);
-    }
-  }
-
-  // Insert matches
-  if (matchesToInsert.length > 0) {
-    await matchesCollection.insertMany(matchesToInsert);
-
-    console.log(
-      `✓ Auto-generated ${matchesToInsert.length} matches`
-    );
-  }
-} catch (error) {
-  console.error('ℹ Auto-generation error:', error);
-
-  // Don't fail approval if matching fails
-}
+        // Insert matches
+        if (matchesToInsert.length > 0) {
+          await matchesCollection.insertMany(matchesToInsert);
+          console.log(`✓ Auto-generated ${matchesToInsert.length} matches`);
+        } else {
+          console.log(`ℹ No matches generated (no suitable candidates found)`);
+        }
+      } catch (matchError) {
+        console.error('⚠️ Matching generation error (non-fatal):', matchError);
+        // Don't fail approval if matching fails
+      }
 
       // Send approval email
       const emailSent = await sendProfileApprovalEmail(
-        user.email,
-        user.name
+        profile.email,
+        profile.name
       );
 
       // Log audit
@@ -581,22 +610,25 @@ try {
         req.user!.id,
         'staff',
         'approve_profile',
-        'users',
-        user.phone,
-        `Approved profile for: ${user.name}${emailSent ? ' (email sent)' : ' (email failed)'}`,
-        { userId: id, approvalNotes: notes }
+        'profiles',
+        profile.phone,
+        `Approved profile for: ${profile.name}${emailSent ? ' (email sent)' : ' (email failed)'}`,
+        { profileId: id, approvalNotes: notes }
       );
+
+      console.log(`✅ Profile approved: ${profile.name}`);
 
       res.json({
         success: true,
         message: 'Profile approved successfully',
         emailSent,
-        user: {
-          _id: user._id?.toString(),
-          name: user.name,
-          email: user.email,
-          profileStatus: user.profileStatus,
-          approvedAt: user.approvedAt,
+        profile: {
+          _id: profile._id?.toString(),
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          profileStatus: profile.profileStatus,
+          approvedAt: profile.approvedAt,
         },
       });
     } catch (error) {
@@ -638,11 +670,12 @@ router.post(
       }
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      // ✅ FIX: Use 'profiles' collection
+      const profilesCollection = db.collection('profiles');
 
-      // Find and update user
-      const result = await usersCollection.findOneAndUpdate(
-        { _id: new ObjectId(id), profileStatus: 'pending' },
+      // Find and update profile
+      const result = await profilesCollection.findOneAndUpdate(
+        { _id: new ObjectId(id), role: 'applicant', profileStatus: 'pending' },
         {
           $set: {
             profileStatus: 'rejected',
@@ -659,16 +692,16 @@ router.post(
       if (!result || !result.value) {
         return res.status(404).json({
           error: 'Profile not found or not pending',
-          message: `No pending profile found with ID: ${id}`,
+          message: `No pending applicant profile found with ID: ${id}`,
         });
       }
 
-      const user = result!.value;
+      const profile = result.value;
 
       // Send rejection email
       const emailSent = await sendProfileRejectionEmail(
-        user.email,
-        user.name,
+        profile.email,
+        profile.name,
         reason
       );
 
@@ -678,22 +711,25 @@ router.post(
         req.user!.id,
         'staff',
         'reject_profile',
-        'users',
-        user.phone,
-        `Rejected profile for: ${user.name} - Reason: ${reason}${emailSent ? ' (email sent)' : ' (email failed)'}`,
-        { userId: id, rejectionReason: reason }
+        'profiles',
+        profile.phone,
+        `Rejected profile for: ${profile.name} - Reason: ${reason}${emailSent ? ' (email sent)' : ' (email failed)'}`,
+        { profileId: id, rejectionReason: reason }
       );
+
+      console.log(`✅ Profile rejected: ${profile.name}`);
 
       res.json({
         success: true,
         message: 'Profile rejected successfully',
         emailSent,
-        user: {
-          _id: user._id?.toString(),
-          name: user.name,
-          email: user.email,
-          profileStatus: user.profileStatus,
-          rejectedAt: user.rejectedAt,
+        profile: {
+          _id: profile._id?.toString(),
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          profileStatus: profile.profileStatus,
+          rejectedAt: profile.rejectedAt,
         },
       });
     } catch (error) {
