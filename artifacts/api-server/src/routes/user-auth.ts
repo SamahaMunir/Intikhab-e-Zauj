@@ -39,30 +39,22 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
       });
       return;
     }
-// ✅ HANDLE NULL PASSWORD
+// ✅ VERIFY PASSWORD - with null check
 if (!profile.password) {
   res.status(401).json({
     error: 'Invalid credentials',
-    message: 'Please register with a password first',
+    message: 'Account not properly configured. Please register again.',
   });
   return;
 }
-    // ✅ VERIFY PASSWORD - Handle null/undefined
-    if (!profile.password) {
-      res.status(401).json({
-        error: 'Invalid credentials',
-        message: 'Password not set. Please complete registration.',
-      });
-      return;
-    }
 
-    if (!verifyPassword(password, profile.password)) {
-      res.status(401).json({
-        error: 'Invalid credentials',
-        message: 'Email or password incorrect',
-      });
-      return;
-    }
+if (!verifyPassword(password, profile.password)) {
+  res.status(401).json({
+    error: 'Invalid credentials',
+    message: 'Email or password incorrect',
+  });
+  return;
+}
 
     // ✅ CHECK IF EMAIL VERIFIED
    // if (!profile.emailVerified) {
