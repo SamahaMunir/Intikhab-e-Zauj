@@ -15,34 +15,30 @@ router.post('/register', async (req: Request, res: Response) => {
   try {
     const { name, email, phone, password, passwordConfirm, gender, dob, city } = req.body;
 
-    // ✅ VALIDATE INPUT
-    if (!name || !email || !phone || !gender || !dob || !city) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Name, email, phone, gender, dob, city are required',
-      });
-    }
+    // ✅ VALIDATE ALL REQUIRED FIELDS INCLUDING PASSWORD
+if (!name || !email || !phone || !password || !passwordConfirm || !gender || !dob || !city) {
+  return res.status(400).json({
+    error: 'Validation failed',
+    message: 'All fields are required',
+  });
+}
 
-    // ✅ VALIDATE PASSWORD - Optional but if provided must match
-    if (password) {
-      if (password !== passwordConfirm) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          message: 'Passwords do not match',
-        });
-      }
+// ✅ PASSWORD VALIDATION - ALWAYS REQUIRED
+if (password !== passwordConfirm) {
+  return res.status(400).json({
+    error: 'Validation failed',
+    message: 'Passwords do not match',
+  });
+}
 
-      if (password.length < 6) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          message: 'Password must be at least 6 characters',
-        });
-      }
-    }
+if (password.length < 6) {
+  return res.status(400).json({
+    error: 'Validation failed',
+    message: 'Password must be at least 6 characters',
+  });
+}
 
     const db = await getDatabase();
-    
-    // ✅ FIX: Use ONLY 'profiles' collection - unified
     const profilesCollection = db.collection('profiles');
 
     // ✅ CHECK DUPLICATE EMAIL & PHONE
@@ -80,8 +76,8 @@ router.post('/register', async (req: Request, res: Response) => {
       active: true,
       
       // AUTHENTICATION
-      password: password ? hashPassword(password) : null,
-      emailVerified: password ? false : true,
+      password: hashPassword(password),  // ✅ ALWAYS hash - never null
+emailVerified: true,  // ✅ Skip verification for now
       
       // PROFILE DATA - REQUIRED FOR MATCHING
       education: '',
@@ -214,7 +210,7 @@ router.post('/verify-email', async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
       },
-      expiresIn: '24h',
+      expiresIn: '7d',
     });
   } catch (error) {
     console.error('Email verification error:', error);
