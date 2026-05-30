@@ -23,7 +23,7 @@ export default function QuickRegister() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-      const response = await fetch(`${apiUrl}/auth/register-simple`, {
+     const response = await fetch(`${apiUrl}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, passwordConfirm }),

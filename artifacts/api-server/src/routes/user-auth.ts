@@ -39,7 +39,14 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
       });
       return;
     }
-
+// ✅ HANDLE NULL PASSWORD
+if (!profile.password) {
+  res.status(401).json({
+    error: 'Invalid credentials',
+    message: 'Please register with a password first',
+  });
+  return;
+}
     // ✅ VERIFY PASSWORD - Handle null/undefined
     if (!profile.password) {
       res.status(401).json({
