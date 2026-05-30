@@ -40,8 +40,16 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // ✅ VERIFY PASSWORD
-    if (!profile.password || !verifyPassword(password, profile.password)) {
+    // ✅ VERIFY PASSWORD - Handle null/undefined
+    if (!profile.password) {
+      res.status(401).json({
+        error: 'Invalid credentials',
+        message: 'Password not set. Please complete registration.',
+      });
+      return;
+    }
+
+    if (!verifyPassword(password, profile.password)) {
       res.status(401).json({
         error: 'Invalid credentials',
         message: 'Email or password incorrect',
@@ -50,13 +58,13 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
     }
 
     // ✅ CHECK IF EMAIL VERIFIED
-    if (!profile.emailVerified) {
-      res.status(403).json({
-        error: 'Email not verified',
-        message: 'Please verify your email to login',
-      });
-      return;
-    }
+   // if (!profile.emailVerified) {
+      //res.status(403).json({
+     //   error: 'Email not verified',
+    //    message: 'Please verify your email to login',
+     // });
+     // return;
+  //  }
 
     // ✅ CHECK IF ACCOUNT ACTIVE
     if (!profile.active) {
@@ -164,7 +172,15 @@ router.delete(
         return;
       }
 
-      // ✅ VERIFY PASSWORD
+      // ✅ VERIFY PASSWORD - Handle null/undefined
+      if (!profile.password) {
+        res.status(401).json({
+          error: 'Invalid password',
+          message: 'Password not set on account.',
+        });
+        return;
+      }
+
       if (!verifyPassword(password, profile.password)) {
         res.status(401).json({
           error: 'Invalid password',
