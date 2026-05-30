@@ -18,18 +18,15 @@ export default function Matches() {
    const loadMatches = async () => {
   try {
     let res = await MatchingService.getMatches(userId);
-
-    // Auto-generate if no matches exist yet
     if (res.total === 0) {
-      console.log('No matches — generating...');
       await MatchingService.generateMatches(userId);
       res = await MatchingService.getMatches(userId);
     }
-
-    console.log('✅ Matches:', res);
     setMatches(res.matches);
   } catch (e) {
-    console.error('❌ Error loading matches:', e);
+    console.error('❌ Error:', e);
+  } finally {
+    setLoading(false);
   }
 };
 
