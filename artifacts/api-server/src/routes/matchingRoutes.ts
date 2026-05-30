@@ -100,10 +100,15 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
     console.log(`✅ Found user: ${user.name}`);
 
     await db.collection('matches').deleteMany({ userId: oid });
+const candidates = await db.collection('profiles')
+  .find({ _id: { $ne: user._id }, profileStatus: 'approved', paymentStatus: 'completed' })
+  .toArray();
 
-    const candidates = await db.collection('profiles')
-      .find({ _id: { $ne: user._id }, profileStatus: 'approved', paymentStatus: 'completed' })
-      .toArray();
+console.log(`🔍 Found ${candidates.length} candidates, filtering...`);
+for (const c of candidates) {
+  const result = applyHardFilters(user, c);
+  console.log(`  ${c.name || c.email}: ${result.passes ? '✅ PASS' : '❌ ' + result.rejections.map(r => r.reason).join(', ')}`);
+}
 
     const records: any[] = [];
     for (const c of candidates) {
