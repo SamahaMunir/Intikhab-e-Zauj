@@ -21,6 +21,7 @@ import paymentRouter from './routes/payment';
 import userAuthRouter from './routes/user-auth';
 import { initMatchesCollection } from './db/matches-schema';
 import matchingRoutes from './routes/matchingRoutes';
+import seedRoutes from './routes/seed-data';
  
 
 const __filename = fileURLToPath(import.meta.url);
@@ -107,6 +108,8 @@ app.use('/auth', authSimpleRouter);
 app.use('/auth', authRouter);
 // Cloudinary routes (NO middleware needed)
 app.use('/api/cloudinary', cloudinaryRoutes);
+// Seed data routes (for testing/development)
+app.use('/api/seed', seedRoutes);
 
 // Initialize audit logs collection (once)
 let auditLogsInitialized = false;
