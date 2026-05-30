@@ -43,8 +43,11 @@ if (password.length < 6) {
 
     // ✅ CHECK DUPLICATE EMAIL & PHONE
     const existingUser = await profilesCollection.findOne({
-      $or: [{ email }, { phone }],
-    });
+  $or: [
+    { email: { $regex: `^${email}$`, $options: 'i' } },
+    { phone },
+  ],
+});
 
     if (existingUser) {
       return res.status(409).json({
