@@ -11,6 +11,7 @@ const router = Router();
 /**
  * POST /auth/login-user
  * User login with email and password
+ * ✅ UNIFIED: Uses 'profiles' collection for ALL users
  */
 router.post('/login-user', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -25,12 +26,13 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
     }
 
     const db = await getDatabase();
-    const usersCollection = db.collection('users');
+    // ✅ FIX: Use 'profiles' collection for all user types
+    const profilesCollection = db.collection('profiles');
 
-    // ✅ FIND USER
-    const user = await usersCollection.findOne({ email });
+    // ✅ FIND USER (applicant or staff)
+    const profile = await profilesCollection.findOne({ email });
 
-    if (!user) {
+    if (!profile) {
       res.status(401).json({
         error: 'Invalid credentials',
         message: 'Email or password incorrect',
@@ -39,7 +41,7 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
     }
 
     // ✅ VERIFY PASSWORD
-    if (!verifyPassword(password, user.password)) {
+    if (!profile.password || !verifyPassword(password, profile.password)) {
       res.status(401).json({
         error: 'Invalid credentials',
         message: 'Email or password incorrect',
@@ -48,7 +50,7 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
     }
 
     // ✅ CHECK IF EMAIL VERIFIED
-    if (!user.emailVerified) {
+    if (!profile.emailVerified) {
       res.status(403).json({
         error: 'Email not verified',
         message: 'Please verify your email to login',
@@ -57,7 +59,7 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
     }
 
     // ✅ CHECK IF ACCOUNT ACTIVE
-    if (!user.active) {
+    if (!profile.active) {
       res.status(403).json({
         error: 'Account inactive',
         message: 'Your account has been deactivated',
@@ -65,19 +67,19 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // ✅ GENERATE JWT
+    // ✅ GENERATE JWT (7 days expiry)
     const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name || 'User',
-      role: 'user',
+      id: profile._id.toString(),
+      email: profile.email,
+      name: profile.name || 'User',
+      role: profile.role || 'applicant',
     };
 
     const token = generateToken(payload);
 
     // ✅ UPDATE LAST LOGIN
-    await usersCollection.updateOne(
-      { _id: user._id },
+    await profilesCollection.updateOne(
+      { _id: profile._id },
       { $set: { lastLogin: new Date() } }
     );
 
@@ -85,33 +87,34 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
     try {
       await logAudit(
         email,
-        user._id.toString(),
-        'applicant',
+        profile._id.toString(),
+        profile.role || 'applicant',
         'user_login',
-        'users',
+        'profiles',
         email,
         'User logged in',
-        { userAgent: req.get('user-agent') }
+        { userAgent: req.get('user-agent'), role: profile.role }
       );
     } catch (auditError) {
       console.warn('⚠️ Audit logging failed:', auditError);
       // Don't block login if audit fails
     }
 
-    console.log(`✅ User logged in: ${email}`);
+    console.log(`✅ User logged in: ${email} (role: ${profile.role})`);
 
     res.json({
       success: true,
       token,
       user: {
-        _id: user._id.toString(),
-        email: user.email,
-        name: user.name,
-        role: 'user',
-        profileCompletion: user.profileCompletion || 0,
-        paymentStatus: user.paymentStatus || 'pending',
+        _id: profile._id.toString(),
+        email: profile.email,
+        name: profile.name,
+        role: profile.role || 'applicant',
+        profileCompletion: profile.profileCompletion || 0,
+        paymentStatus: profile.paymentStatus || 'pending',
+        profileStatus: profile.profileStatus || 'pending',
       },
-      expiresIn: '24h',
+      expiresIn: '7d',
     });
   } catch (error) {
     console.error('❌ Login error:', error);
@@ -125,6 +128,7 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
 /**
  * DELETE /auth/delete-account
  * User deletes their own account (authenticated)
+ * ✅ UNIFIED: Uses 'profiles' collection
  */
 router.delete(
   '/delete-account',
@@ -147,20 +151,21 @@ router.delete(
       }
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      // ✅ FIX: Use 'profiles' collection
+      const profilesCollection = db.collection('profiles');
 
       // ✅ FIND USER
-      const user = await usersCollection.findOne({
+      const profile = await profilesCollection.findOne({
         _id: new ObjectId(req.user.id),
       });
 
-      if (!user) {
-        res.status(404).json({ error: 'User not found' });
+      if (!profile) {
+        res.status(404).json({ error: 'User profile not found' });
         return;
       }
 
       // ✅ VERIFY PASSWORD
-      if (!verifyPassword(password, user.password)) {
+      if (!verifyPassword(password, profile.password)) {
         res.status(401).json({
           error: 'Invalid password',
           message: 'Password is incorrect',
@@ -169,7 +174,7 @@ router.delete(
       }
 
       // ✅ DELETE USER (PERMANENT)
-      const deleteResult = await usersCollection.deleteOne({
+      const deleteResult = await profilesCollection.deleteOne({
         _id: new ObjectId(req.user.id),
       });
 
@@ -178,17 +183,17 @@ router.delete(
         return;
       }
 
-      console.log(`🗑️ User account deleted: ${user.email}`);
+      console.log(`🗑️ User account deleted: ${profile.email}`);
 
       // ✅ LOG AUDIT
       try {
         await logAudit(
-          user.email,
+          profile.email,
           req.user.id,
-          'applicant',
+          profile.role || 'applicant',
           'account_deleted',
-          'users',
-          user.email,
+          'profiles',
+          profile.email,
           'User account deleted by self',
           { deletedAt: new Date().toISOString() }
         );
