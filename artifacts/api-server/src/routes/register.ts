@@ -16,32 +16,37 @@ router.post('/register', async (req: Request, res: Response) => {
     const { name, email, phone, password, passwordConfirm, gender, dob, city } = req.body;
 
     // ✅ VALIDATE INPUT
-    if (!name || !email || !phone || !password || !gender || !dob || !city) {
+    if (!name || !email || !phone || !gender || !dob || !city) {
       return res.status(400).json({
         error: 'Validation failed',
-        message: 'All fields are required',
+        message: 'Name, email, phone, gender, dob, city are required',
       });
     }
 
-    if (password !== passwordConfirm) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Passwords do not match',
-      });
-    }
+    // ✅ VALIDATE PASSWORD - Optional but if provided must match
+    if (password) {
+      if (password !== passwordConfirm) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          message: 'Passwords do not match',
+        });
+      }
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Password must be at least 6 characters',
-      });
+      if (password.length < 6) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          message: 'Password must be at least 6 characters',
+        });
+      }
     }
 
     const db = await getDatabase();
-    const usersCollection = db.collection('users');
+    
+    // ✅ FIX: Use ONLY 'profiles' collection - unified
+    const profilesCollection = db.collection('profiles');
 
     // ✅ CHECK DUPLICATE EMAIL & PHONE
-    const existingUser = await usersCollection.findOne({
+    const existingUser = await profilesCollection.findOne({
       $or: [{ email }, { phone }],
     });
 
@@ -54,64 +59,56 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    // ✅ CREATE USER DOCUMENT
+    // ✅ CREATE USER DOCUMENT - SINGLE INSERT
     const verificationToken = generateVerificationToken();
     const tokenExpiry = getTokenExpiryTime();
 
     const newUser = {
       _id: new ObjectId(),
+      
+      // IDENTITY
       name,
       email,
       phone,
       gender,
       dob: new Date(dob),
       city,
-      password: hashPassword(password),
-      passwordSet: true,
+      
+      // ROLE & STATUS
       role: 'applicant',
-      profileStatus: 'approved',
-      paymentStatus: 'completed',
-      completion: 10,
-      emailVerified: false,
+      profileStatus: 'pending',
+      active: true,
+      
+      // AUTHENTICATION
+      password: password ? hashPassword(password) : null,
+      emailVerified: password ? false : true,
+      
+      // PROFILE DATA - REQUIRED FOR MATCHING
+      education: '',
+      profession: '',
+      income: '',
+      caste: '',
+      height: '',
+      houseStatus: '',
+      bio: '',
+      photo: '',
+      
+      // COMPLETION & PAYMENT
+      profileCompletion: 10,
+      paymentStatus: 'pending',
+      
+      // VERIFICATION
       verificationToken,
       verificationTokenExpiry: tokenExpiry,
-      verificationCode: null,
+      
+      // TIMESTAMPS
       createdAt: new Date(),
       updatedAt: new Date(),
-      active: true,
     };
-    
 
-    // ✅ INSERT USER
-    const result = await usersCollection.insertOne(newUser);
-    console.log(`✅ User registered: ${email}`);
-
-    // Also create matching profile (same _id)
-await db.collection('profiles').insertOne({
-  _id: newUser._id,
-  name,
-  email,
-  phone,
-  gender,
-  dob: new Date(dob),
-  city,
-  age: new Date().getFullYear() - new Date(dob).getFullYear(),
-  caste: '',
-  education: '',
-  profession: '',
-  income: '',
-  height: '',
-  houseStatus: '',
-  houseArea: '',
-  bio: '',
-  photo: '',
-  profileStatus: 'approved',
-  paymentStatus: 'completed',
-  profileCompletion: 100,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-});
-console.log(`✅ Profile created: ${email}`);
+    // ✅ INSERT ONCE - NO DUPLICATION
+    const result = await profilesCollection.insertOne(newUser);
+    console.log(`✅ User profile created: ${email}`);
 
     // ✅ SEND VERIFICATION EMAIL
     const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/verify-email?token=${verificationToken}&email=${email}`;
@@ -154,10 +151,10 @@ router.post('/verify-email', async (req: Request, res: Response) => {
     }
 
     const db = await getDatabase();
-    const usersCollection = db.collection('users');
+    const profilesCollection = db.collection('profiles');
 
     // ✅ FIND USER
-    const user = await usersCollection.findOne({ email });
+    const user = await profilesCollection.findOne({ email });
 
     if (!user) {
       return res.status(404).json({
@@ -183,7 +180,7 @@ router.post('/verify-email', async (req: Request, res: Response) => {
     }
 
     // ✅ MARK EMAIL AS VERIFIED
-    await usersCollection.updateOne(
+    await profilesCollection.updateOne(
       { email },
       {
         $set: {
@@ -244,9 +241,9 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     }
 
     const db = await getDatabase();
-    const usersCollection = db.collection('users');
+    const profilesCollection = db.collection('profiles');
 
-    const user = await usersCollection.findOne({ email });
+    const user = await profilesCollection.findOne({ email });
 
     if (!user) {
       return res.status(404).json({
@@ -266,7 +263,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     const verificationToken = generateVerificationToken();
     const tokenExpiry = getTokenExpiryTime();
 
-    await usersCollection.updateOne(
+    await profilesCollection.updateOne(
       { email },
       {
         $set: {
