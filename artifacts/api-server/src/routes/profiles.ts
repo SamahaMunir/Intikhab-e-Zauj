@@ -10,6 +10,7 @@ const router = Router();
 /**
  * GET /api/staff/profiles
  * Fetch all profiles (staff only)
+ * ✅ UNIFIED: Uses 'profiles' collection
  */
 router.get(
   '/',
@@ -20,21 +21,22 @@ router.get(
       const status = req.query.status as string | undefined;
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      // ✅ FIX: Use 'profiles' collection
+      const profilesCollection = db.collection('profiles');
 
-      let query: any = {};
+      let query: any = { role: 'applicant' };
       if (status) {
         query.profileStatus = status;
       }
 
       console.log(`📊 Fetching profiles with query:`, query);
 
-      const profiles = await usersCollection
+      const profiles = await profilesCollection
         .find(query)
         .sort({ createdAt: -1 })
         .toArray();
 
-      console.log(`✅ Found ${profiles.length} profiles`);
+      console.log(`✅ Found ${profiles.length} applicant profiles`);
 
       res.json({
         success: true,
@@ -49,14 +51,24 @@ router.get(
           city: p.city,
           education: p.education,
           profession: p.profession,
-          profilePhoto: p.profilePhoto,
+          income: p.income,
+          caste: p.caste,
+          height: p.height,
+          houseStatus: p.houseStatus,
+          bio: p.bio,
+          photo: p.photo,
           profileStatus: p.profileStatus,
+          profileCompletion: p.profileCompletion,
+          paymentStatus: p.paymentStatus,
           notes: p.notes,
+          source: p.source,
           enteredBy: p.enteredBy,
           enteredAt: p.enteredAt,
           createdAt: p.createdAt,
           approvedAt: p.approvedAt,
+          approvedBy: p.approvedBy,
           rejectedAt: p.rejectedAt,
+          rejectedBy: p.rejectedBy,
           rejectionReason: p.rejectionReason,
         })),
       });
@@ -73,6 +85,7 @@ router.get(
 /**
  * POST /api/staff/profiles/:id/approve
  * Approve a user profile (staff only)
+ * ✅ UNIFIED: Uses 'profiles' collection
  */
 router.post(
   '/:id/approve',
@@ -95,7 +108,8 @@ router.post(
       console.log(`📝 Approving profile: ${id} by ${staffEmail}`);
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      // ✅ FIX: Use 'profiles' collection
+      const profilesCollection = db.collection('profiles');
 
       let query: any = { _id: id };
 
@@ -105,17 +119,17 @@ router.post(
 
       console.log(`🔍 Query: ${JSON.stringify(query)}`);
 
-      const user = await usersCollection.findOne(query);
+      const profile = await profilesCollection.findOne(query);
 
-      if (!user) {
+      if (!profile) {
         console.warn(`⚠️  Profile not found: ${id}`);
         res.status(404).json({ error: 'Profile not found' });
         return;
       }
 
-      console.log(`✓ Found user: ${user.email || user._id}`);
+      console.log(`✓ Found profile: ${profile.email || profile._id}`);
 
-      const result = await usersCollection.updateOne(
+      const result = await profilesCollection.updateOne(
         query,
         {
           $set: {
@@ -137,7 +151,7 @@ router.post(
       // 📧 Send approval email
       let emailSent = false;
       try {
-        emailSent = await sendProfileApprovalEmail(user.email, user.name);
+        emailSent = await sendProfileApprovalEmail(profile.email, profile.name);
         console.log(`✅ Approval email sent: ${emailSent}`);
       } catch (emailError) {
         console.error('⚠️ Failed to send approval email:', emailError);
@@ -151,7 +165,7 @@ router.post(
         'profile',
         id,
         reason || 'Profile meets guidelines',
-        { user_email: user.email, emailSent }
+        { profile_email: profile.email, emailSent }
       );
 
       console.log(`✅ Profile approved and logged`);
@@ -177,6 +191,7 @@ router.post(
 /**
  * POST /api/staff/profiles/:id/reject
  * Reject a user profile (staff only)
+ * ✅ UNIFIED: Uses 'profiles' collection
  */
 router.post(
   '/:id/reject',
@@ -204,7 +219,8 @@ router.post(
       console.log(`📝 Rejecting profile: ${id} by ${staffEmail}`);
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      // ✅ FIX: Use 'profiles' collection
+      const profilesCollection = db.collection('profiles');
 
       let query: any = { _id: id };
 
@@ -214,17 +230,17 @@ router.post(
 
       console.log(`🔍 Query: ${JSON.stringify(query)}`);
 
-      const user = await usersCollection.findOne(query);
+      const profile = await profilesCollection.findOne(query);
 
-      if (!user) {
+      if (!profile) {
         console.warn(`⚠️  Profile not found: ${id}`);
         res.status(404).json({ error: 'Profile not found' });
         return;
       }
 
-      console.log(`✓ Found user: ${user.email || user._id}`);
+      console.log(`✓ Found profile: ${profile.email || profile._id}`);
 
-      const result = await usersCollection.updateOne(
+      const result = await profilesCollection.updateOne(
         query,
         {
           $set: {
@@ -247,7 +263,7 @@ router.post(
       // 📧 Send rejection email
       let emailSent = false;
       try {
-        emailSent = await sendProfileRejectionEmail(user.email, user.name, reason);
+        emailSent = await sendProfileRejectionEmail(profile.email, profile.name, reason);
         console.log(`✅ Rejection email sent: ${emailSent}`);
       } catch (emailError) {
         console.error('⚠️ Failed to send rejection email:', emailError);
@@ -261,7 +277,7 @@ router.post(
         'profile',
         id,
         `Profile rejected: ${reason}`,
-        { user_email: user.email, emailSent }
+        { profile_email: profile.email, emailSent }
       );
 
       console.log(`✅ Profile rejected and logged`);
