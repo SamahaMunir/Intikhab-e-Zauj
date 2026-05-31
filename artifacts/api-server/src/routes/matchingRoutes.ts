@@ -113,10 +113,12 @@ for (const c of candidates) {
     const records: any[] = [];
     for (const c of candidates) {
       if (applyHardFilters(user, c).passes) {
+        const scoreObj = calculateScore(user, c);
         records.push({
           userId: oid,
           candidateId: c._id,
-          score: calculateScore(user, c),
+          score: scoreObj.total,
+          scoreBreakdown: scoreObj,
           hardFiltersPassed: true,
           status: 'suggested',
           createdAt: new Date(),
