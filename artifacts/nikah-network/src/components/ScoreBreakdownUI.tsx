@@ -1,3 +1,5 @@
+import React from 'react';
+
 export interface ScoreBreakdown {
   caste: number;
   profession: number;
@@ -10,152 +12,130 @@ export interface ScoreBreakdown {
 }
 
 export function calculateScore(user: any, candidate: any): ScoreBreakdown {
-  let breakdown: ScoreBreakdown = {
-    caste: 0,
-    profession: 0,
-    ageGap: 0,
-    city: 0,
-    height: 0,
-    houseStatus: 0,
-    houseArea: 0,
-    total: 0,
+  const breakdown: ScoreBreakdown = {
+    caste: 0, profession: 0, ageGap: 0, city: 0,
+    height: 0, houseStatus: 0, houseArea: 0, total: 0,
   };
 
-  // 1. CASTE MATCH (25 points max)
   if (user.caste && candidate.caste) {
-    if (user.caste.toLowerCase() === candidate.caste.toLowerCase()) {
-      breakdown.caste = 25; // Perfect match
-    } else {
-      breakdown.caste = 5; // Some alignment
-    }
+    breakdown.caste = user.caste.toLowerCase() === candidate.caste.toLowerCase() ? 25 : 5;
   }
-
-  // 2. PROFESSION MATCH (15 points max)
   if (user.profession && candidate.profession) {
-    const userProf = user.profession.toLowerCase();
-    const candProf = candidate.profession.toLowerCase();
-    
-    if (userProf === candProf) {
-      breakdown.profession = 15;
-    } else if (userProf.includes('engineer') && candProf.includes('engineer')) {
-      breakdown.profession = 12;
-    } else if (userProf.includes('doctor') && candProf.includes('health')) {
-      breakdown.profession = 10;
-    } else if (userProf.includes('business') || candProf.includes('business')) {
-      breakdown.profession = 8;
-    } else {
-      breakdown.profession = 3;
-    }
+    const up = user.profession.toLowerCase();
+    const cp = candidate.profession.toLowerCase();
+    if (up === cp) breakdown.profession = 15;
+    else if (up.includes('engineer') && cp.includes('engineer')) breakdown.profession = 12;
+    else if (up.includes('doctor') && cp.includes('health')) breakdown.profession = 10;
+    else if (up.includes('business') || cp.includes('business')) breakdown.profession = 8;
+    else breakdown.profession = 3;
   }
-
-  // 3. AGE GAP (15 points max)
   if (user.age && candidate.age) {
-    const ageDiff = Math.abs(user.age - candidate.age);
-    
-    if (ageDiff <= 2) {
-      breakdown.ageGap = 15; // Ideal
-    } else if (ageDiff <= 5) {
-      breakdown.ageGap = 12; // Good
-    } else if (ageDiff <= 8) {
-      breakdown.ageGap = 8; // Acceptable
-    } else if (ageDiff <= 12) {
-      breakdown.ageGap = 4; // Stretched
-    } else {
-      breakdown.ageGap = 0; // Too far
-    }
+    const d = Math.abs(user.age - candidate.age);
+    if (d <= 2) breakdown.ageGap = 15;
+    else if (d <= 5) breakdown.ageGap = 12;
+    else if (d <= 8) breakdown.ageGap = 8;
+    else if (d <= 12) breakdown.ageGap = 4;
+    else breakdown.ageGap = 0;
   }
-
-  // 4. CITY MATCH (15 points max)
   if (user.city && candidate.city) {
-    const userCity = user.city.toLowerCase().trim();
-    const candCity = candidate.city.toLowerCase().trim();
-    
-    if (userCity === candCity) {
-      breakdown.city = 15; // Same city
-    } else {
-      // Check if nearby cities (simplified)
-      const lahoreVariants = ['lahore', 'lahore city', 'cantonment lahore'];
-      const karachiVariants = ['karachi', 'karachi city'];
-      
-      if (lahoreVariants.some(v => userCity.includes(v)) && lahoreVariants.some(v => candCity.includes(v))) {
-        breakdown.city = 12;
-      } else if (karachiVariants.some(v => userCity.includes(v)) && karachiVariants.some(v => candCity.includes(v))) {
-        breakdown.city = 12;
-      } else {
-        breakdown.city = 5; // Different cities
-      }
-    }
+    const uc = user.city.toLowerCase().trim();
+    const cc = candidate.city.toLowerCase().trim();
+    if (uc === cc) breakdown.city = 15;
+    else if (['lahore','lahore city','cantonment lahore'].some(v => uc.includes(v)) &&
+             ['lahore','lahore city','cantonment lahore'].some(v => cc.includes(v))) breakdown.city = 12;
+    else breakdown.city = 5;
   }
-
-  // 5. HEIGHT PREFERENCE (10 points max)
-  // Assume height is stored as "5.9" (feet.inches format)
   if (user.height && candidate.height) {
-    const userHeight = parseFloat(user.height);
-    const candHeight = parseFloat(candidate.height);
-    
-    const heightDiff = Math.abs(userHeight - candHeight);
-    
-    if (heightDiff <= 0.2) {
-      breakdown.height = 10;
-    } else if (heightDiff <= 0.5) {
-      breakdown.height = 8;
-    } else if (heightDiff <= 0.8) {
-      breakdown.height = 5;
-    } else if (heightDiff <= 1.2) {
-      breakdown.height = 2;
-    } else {
-      breakdown.height = 0;
-    }
+    const d = Math.abs(parseFloat(user.height) - parseFloat(candidate.height));
+    if (d <= 0.2) breakdown.height = 10;
+    else if (d <= 0.5) breakdown.height = 8;
+    else if (d <= 0.8) breakdown.height = 5;
+    else if (d <= 1.2) breakdown.height = 2;
+    else breakdown.height = 0;
   }
-
-  // 6. HOUSE STATUS (10 points max)
   if (user.houseStatus && candidate.houseStatus) {
-    const userStatus = user.houseStatus.toLowerCase();
-    const candStatus = candidate.houseStatus.toLowerCase();
-    
-    if (userStatus === candStatus) {
-      breakdown.houseStatus = 10; // Same
-    } else if ((userStatus.includes('own') && candStatus.includes('own')) || 
-               (userStatus.includes('rent') && candStatus.includes('rent'))) {
-      breakdown.houseStatus = 10;
-    } else {
-      breakdown.houseStatus = 5; // Different status
-    }
+    const us = user.houseStatus.toLowerCase();
+    const cs = candidate.houseStatus.toLowerCase();
+    breakdown.houseStatus = (us === cs || (us.includes('own') && cs.includes('own')) ||
+      (us.includes('rent') && cs.includes('rent'))) ? 10 : 5;
   }
-
-  // 7. HOUSE AREA (10 points max)
-  // Assume area is stored as a number (e.g., 2500 sqft)
   if (user.houseArea && candidate.houseArea) {
-    const userArea = parseInt(user.houseArea) || 0;
-    const candArea = parseInt(candidate.houseArea) || 0;
-    
-    if (userArea > 0 && candArea > 0) {
-      const areaDiff = Math.abs(userArea - candArea);
-      const maxArea = Math.max(userArea, candArea);
-      const percentDiff = (areaDiff / maxArea) * 100;
-      
-      if (percentDiff <= 10) {
-        breakdown.houseArea = 10;
-      } else if (percentDiff <= 25) {
-        breakdown.houseArea = 8;
-      } else if (percentDiff <= 50) {
-        breakdown.houseArea = 5;
-      } else {
-        breakdown.houseArea = 2;
-      }
+    const ua = parseInt(user.houseArea) || 0;
+    const ca = parseInt(candidate.houseArea) || 0;
+    if (ua > 0 && ca > 0) {
+      const pct = (Math.abs(ua - ca) / Math.max(ua, ca)) * 100;
+      if (pct <= 10) breakdown.houseArea = 10;
+      else if (pct <= 25) breakdown.houseArea = 8;
+      else if (pct <= 50) breakdown.houseArea = 5;
+      else breakdown.houseArea = 2;
     }
   }
 
-  // Calculate total
   breakdown.total = Math.round(
-    breakdown.caste +
-    breakdown.profession +
-    breakdown.ageGap +
-    breakdown.city +
-    breakdown.height +
-    breakdown.houseStatus +
-    breakdown.houseArea
+    breakdown.caste + breakdown.profession + breakdown.ageGap +
+    breakdown.city + breakdown.height + breakdown.houseStatus + breakdown.houseArea
   );
-
   return breakdown;
+}
+
+const CATEGORIES: Array<{ key: keyof Omit<ScoreBreakdown,'total'>; label: string; max: number }> = [
+  { key: 'caste',       label: 'Caste Match',              max: 25 },
+  { key: 'profession',  label: 'Profession Compatibility',  max: 15 },
+  { key: 'ageGap',      label: 'Age Gap Suitability',       max: 15 },
+  { key: 'city',        label: 'City Match',                max: 15 },
+  { key: 'height',      label: 'Height Preference',         max: 10 },
+  { key: 'houseStatus', label: 'House Ownership',           max: 10 },
+  { key: 'houseArea',   label: 'House Area',                max: 10 },
+];
+
+interface ScoreBreakdownPanelProps {
+  scoreBreakdown: ScoreBreakdown;
+}
+
+export default function ScoreBreakdownPanel({ scoreBreakdown }: ScoreBreakdownPanelProps) {
+  const total = scoreBreakdown.total;
+  const totalColor =
+    total >= 75 ? 'text-green-600' :
+    total >= 60 ? 'text-orange-500' :
+    total >= 40 ? 'text-yellow-500' : 'text-red-500';
+  const totalLabel =
+    total >= 75 ? 'Excellent Match' :
+    total >= 60 ? 'Good Match' :
+    total >= 40 ? 'Fair Match' : 'Low Match';
+
+  return (
+    <div className="bg-white rounded-lg p-4 border border-gray-200">
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="font-semibold text-gray-800 text-sm">Compatibility Breakdown (100 pts)</h4>
+        <div className="text-right">
+          <span className={"text-2xl font-bold " + totalColor}>{total}</span>
+          <span className="text-gray-400 text-sm">/100</span>
+          <p className={"text-xs font-medium mt-0.5 " + totalColor}>{totalLabel}</p>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {CATEGORIES.map(({ key, label, max }) => {
+          const score = scoreBreakdown[key] as number;
+          const pct = Math.round((score / max) * 100);
+          const barColor =
+            pct >= 80 ? 'bg-green-500' :
+            pct >= 50 ? 'bg-yellow-400' : 'bg-red-400';
+          return (
+            <div key={key}>
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>{label}</span>
+                <span className="font-semibold">{score}<span className="text-gray-400">/{max}</span></span>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className={"h-full rounded-full " + barColor}
+                  style={{ width: pct + '%' }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
