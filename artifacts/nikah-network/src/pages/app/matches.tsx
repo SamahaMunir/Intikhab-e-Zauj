@@ -1,38 +1,46 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import matchingService from '../../services/matchingService';
+import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
 
 interface Match {
   _id: string;
   candidateId: string;
   score: number;
   scoreBreakdown?: {
-    caste: number;
-    profession: number;
-    ageGap: number;
-    city: number;
-    height: number;
-    houseStatus: number;
-    houseArea: number;
-    total: number;
+    caste: number; profession: number; ageGap: number; city: number;
+    height: number; houseStatus: number; houseArea: number; total: number;
   };
   candidate?: {
-    _id: string;
-    name: string;
-    age: number;
-    city: string;
-    profession: string;
-    photo?: string;
-    gender: string;
+    _id: string; name: string; age: number; dob?: string;
+    city: string; profession: string; photo?: string;
+    gender: string; caste?: string; height?: string; education?: string;
   };
+}
+
+function dedup(raw: Match[]): Match[] {
+  const seen = new Map<string, Match>();
+  for (const m of raw) {
+    const cid = m.candidateId || m.candidate?._id;
+    if (!cid) continue;
+    const existing = seen.get(cid);
+    const score = m.scoreBreakdown?.total ?? m.score ?? 0;
+    const existScore = existing ? (existing.scoreBreakdown?.total ?? existing.score ?? 0) : -1;
+    if (!existing || score > existScore) seen.set(cid, m);
+  }
+  return Array.from(seen.values())
+    .filter(m => m.candidate?.name && m.candidate?.city)
+    .sort((a, b) => (b.scoreBreakdown?.total ?? b.score) - (a.scoreBreakdown?.total ?? a.score));
 }
 
 const Matches: React.FC = () => {
   const [, setLocation] = useLocation();
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filterScore, setFilterScore] = useState<number>(0);
 
   const storedUser = localStorage.getItem('user');
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -40,11 +48,10 @@ const Matches: React.FC = () => {
 
   useEffect(() => {
     if (!userId) {
-      setError('User not authenticated');
+      setError('Please log in to view matches.');
       setIsLoading(false);
       return;
     }
-
     loadMatches();
   }, [userId]);
 
@@ -52,194 +59,222 @@ const Matches: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
-
-      let res = await matchingService.getMatches(userId);
-
-      if (res.total === 0) {
-        console.log('No matches — generating...');
-        await matchingService.generateMatches(userId);
-        res = await matchingService.getMatches(userId);
+      const res = await matchingService.getMatches(userId);
+      if (!res.matches || res.total === 0) {
+        await generateMatches();
+        return;
       }
-
-      console.log('✅ Matches:', res);
-      setMatches(res.matches || []);
+      setMatches(dedup(res.matches));
     } catch (e) {
-      console.error('❌ Error loading matches:', e);
       setError(e instanceof Error ? e.message : 'Failed to load matches');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (isLoading) {
+  const generateMatches = async () => {
+    try {
+      setIsGenerating(true);
+      setIsLoading(false);
+      setError(null);
+      await matchingService.generateMatches(userId);
+      const res = await matchingService.getMatches(userId);
+      setMatches(dedup(res.matches || []));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to generate matches');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const filteredMatches = matches.filter(
+    m => (m.scoreBreakdown?.total ?? m.score) >= filterScore
+  );
+
+  const getQuality = (s: number) =>
+    s >= 75 ? 'Excellent' : s >= 60 ? 'Good' : s >= 40 ? 'Fair' : 'Low';
+  const getScoreColor = (s: number) =>
+    s >= 75 ? 'text-green-600' : s >= 60 ? 'text-orange-500' : s >= 40 ? 'text-yellow-500' : 'text-red-500';
+  const getBorderColor = (s: number) =>
+    s >= 75 ? 'border-l-green-500' : s >= 60 ? 'border-l-orange-400' : s >= 40 ? 'border-l-yellow-400' : 'border-l-red-400';
+  const getBgColor = (s: number) =>
+    s >= 75 ? 'bg-green-50' : s >= 60 ? 'bg-orange-50' : s >= 40 ? 'bg-yellow-50' : 'bg-gray-50';
+
+  if (isLoading || isGenerating) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading matches...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-14 w-14 border-4 border-gray-200 border-t-green-600 mx-auto" />
+          <div>
+            <p className="text-gray-800 font-semibold text-lg">
+              {isGenerating ? 'Finding your matches...' : 'Loading matches...'}
+            </p>
+            {isGenerating && (
+              <p className="text-gray-500 text-sm mt-1">Applying compatibility criteria from your profile</p>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Matches</h1>
-          <p className="text-gray-600">
-            {matches.length} compatible profile{matches.length !== 1 ? 's' : ''} found
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Your Matches</h1>
+            <p className="text-gray-500 mt-1">
+              {filteredMatches.length} compatible profile{filteredMatches.length !== 1 ? 's' : ''} found
+              {filterScore > 0 ? ` with score ≥ ${filterScore}` : ''}
+            </p>
+          </div>
+          <button
+            onClick={generateMatches}
+            disabled={isGenerating}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+          >
+            Refresh Matches
+          </button>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-            {error}
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            <p className="font-medium">{error}</p>
+            <button onClick={loadMatches} className="text-sm underline mt-1">Try again</button>
           </div>
         )}
 
-        {/* No Matches */}
-        {matches.length === 0 && !error && (
-          <div className="text-center py-12 bg-white rounded-lg">
-            <p className="text-gray-600 mb-4">No matches found yet.</p>
-            <button
-              onClick={loadMatches}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              Try Again
-            </button>
+        {/* Score filter */}
+        {matches.length > 0 && (
+          <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <p className="text-sm font-medium text-gray-600 mb-3">Filter by compatibility score:</p>
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { label: 'All', value: 0, active: 'bg-gray-700 text-white' },
+                { label: 'Fair  40+', value: 40, active: 'bg-yellow-500 text-white' },
+                { label: 'Good  60+', value: 60, active: 'bg-orange-500 text-white' },
+                { label: 'Excellent  75+', value: 75, active: 'bg-green-600 text-white' },
+              ].map(({ label, value, active }) => (
+                <button
+                  key={value}
+                  onClick={() => setFilterScore(value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    filterScore === value ? active : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Matches Grid */}
-        <div className="space-y-6">
-          {matches.map((match) => (
-            <div
-              key={match._id}
-              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-            >
-              {/* Match Header */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-start justify-between gap-4">
-                  {/* Profile Info */}
-                  <div className="flex-1 flex gap-4">
-                    {/* Photo */}
-                    {match.candidate?.photo ? (
-                      <img
-                        src={match.candidate.photo}
-                        alt={match.candidate.name}
-                        className="w-20 h-20 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="w-20 h-20 rounded-lg bg-gray-300 flex items-center justify-center">
-                        <span className="text-gray-500">No Photo</span>
+        {/* Empty state */}
+        {filteredMatches.length === 0 && !error && (
+          <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+            <div className="text-5xl mb-4">🔍</div>
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              {matches.length === 0 ? 'No matches found yet' : `No matches with score ≥ ${filterScore}`}
+            </h3>
+            <p className="text-gray-400 text-sm mb-6 max-w-sm mx-auto">
+              {matches.length === 0
+                ? 'Complete your profile wizard and await staff approval to start seeing matches.'
+                : 'Lower the score filter to see more profiles.'}
+            </p>
+            {matches.length === 0 ? (
+              <button onClick={generateMatches} className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-medium">
+                Generate Matches
+              </button>
+            ) : (
+              <button onClick={() => setFilterScore(0)} className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 font-medium">
+                Show All Matches
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Match cards */}
+        <div className="space-y-5">
+          {filteredMatches.map((match, idx) => {
+            const score = match.scoreBreakdown?.total ?? match.score;
+            const cardId = match._id || `${match.candidateId}-${idx}`;
+            const isExpanded = expandedId === cardId;
+
+            return (
+              <div key={cardId} className={`bg-white rounded-2xl shadow-sm overflow-hidden border-l-4 ${getBorderColor(score)} hover:shadow-md transition-shadow`}>
+
+                {/* Header */}
+                <div className={`p-6 ${getBgColor(score)}`}>
+                  <div className="flex items-start gap-5">
+                    <div className="shrink-0">
+                      {match.candidate?.photo ? (
+                        <img src={match.candidate.photo} alt={match.candidate.name} className="w-20 h-20 rounded-xl object-cover shadow-sm" />
+                      ) : (
+                        <div className="w-20 h-20 rounded-xl bg-gray-200 flex items-center justify-center text-3xl text-gray-400">👤</div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-gray-900">{match.candidate?.name || 'Profile'}</h3>
+                      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
+                        <span>📅 Age: <strong>{match.candidate?.age || '—'}</strong></span>
+                        <span>📍 <strong>{match.candidate?.city || '—'}</strong></span>
+                        <span>💼 <strong>{match.candidate?.profession || '—'}</strong></span>
+                        {match.candidate?.caste && <span>🏛️ <strong>{match.candidate.caste}</strong></span>}
+                        {match.candidate?.education && <span>🎓 <strong>{match.candidate.education}</strong></span>}
+                        {match.candidate?.height && <span>📏 <strong>{match.candidate.height}ft</strong></span>}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-center">
+                      <div className={`text-5xl font-black ${getScoreColor(score)}`}>{score}</div>
+                      <div className="text-gray-400 text-xs mt-0.5">/100 pts</div>
+                      <div className={`text-xs font-bold mt-1 ${getScoreColor(score)}`}>{getQuality(score)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Score breakdown toggle */}
+                {match.scoreBreakdown && (
+                  <div className="border-t border-gray-100 bg-gray-50">
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : cardId)}
+                      className="w-full px-6 py-3 text-left flex items-center gap-2 text-green-700 font-medium text-sm hover:bg-gray-100 transition-colors"
+                    >
+                      <span className="text-xs">{isExpanded ? '▼' : '▶'}</span>
+                      <span>Compatibility Breakdown — 100-point scoring</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-6 pb-6">
+                        <ScoreBreakdownPanel scoreBreakdown={match.scoreBreakdown} />
                       </div>
                     )}
-
-                    {/* Details */}
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        {match.candidate?.name || 'Profile'}
-                      </h3>
-                      <div className="text-gray-600 text-sm space-y-1 mt-2">
-                        <p>
-                          📅 Age: <strong>{match.candidate?.age}</strong>
-                        </p>
-                        <p>
-                          📍 City: <strong>{match.candidate?.city}</strong>
-                        </p>
-                        <p>
-                          💼 Profession: <strong>{match.candidate?.profession}</strong>
-                        </p>
-                      </div>
-                    </div>
                   </div>
+                )}
 
-                  {/* Score Badge */}
-                  <div className="text-center">
-                    <div
-                      className={`text-4xl font-bold ${
-                        match.score >= 75
-                          ? 'text-green-600'
-                          : match.score >= 60
-                          ? 'text-orange-600'
-                          : 'text-red-600'
-                      }`}
-                    >
-                      {match.score}
-                    </div>
-                    <p className="text-gray-600 text-sm">Match Score</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Score Breakdown */}
-              {match.scoreBreakdown && (
-                <div className="p-6 bg-gray-50">
+                {/* Actions */}
+                <div className="px-6 py-4 bg-white border-t border-gray-100 flex gap-3">
                   <button
-                    onClick={() =>
-                      setExpandedMatch(
-                        expandedMatch === match._id ? null : match._id
-                      )
-                    }
-                    className="flex items-center gap-2 text-green-600 font-medium hover:text-green-700 mb-4"
+                    onClick={() => setLocation(`/app/match-detail/${match.candidateId}`)}
+                    className="flex-1 py-2.5 bg-green-600 text-white rounded-xl hover:bg-green-700 font-medium text-sm"
                   >
-                    <span>
-                      {expandedMatch === match._id
-                        ? '▼ Hide Score Breakdown'
-                        : '▶ View Score Breakdown'}
-                    </span>
+                    View Full Profile
                   </button>
-
-                  {expandedMatch === match._id && (
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      {Object.entries(match.scoreBreakdown).map(([key, value]) => (
-                        <div key={key} className="flex items-center justify-between rounded-md bg-white px-3 py-2">
-                          <span className="capitalize text-gray-600">{key}</span>
-                          <strong>{value}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <button
+                    onClick={() => setLocation(`/app/send-proposal/${match.candidateId}`)}
+                    className="flex-1 py-2.5 border-2 border-green-600 text-green-700 rounded-xl hover:bg-green-50 font-medium text-sm"
+                  >
+                    Send Proposal
+                  </button>
                 </div>
-              )}
-
-              {/* Actions */}
-              <div className="p-6 bg-white border-t border-gray-200 flex gap-4">
-                <button
-                  onClick={() =>
-                    setLocation(`/app/match-detail/${match.candidateId}`)
-                  }
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-                >
-                  View Full Profile
-                </button>
-                <button
-                  onClick={() =>
-                    setLocation(`/app/send-proposal/${match.candidateId}`)
-                  }
-                  className="flex-1 px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 font-medium"
-                >
-                  Send Proposal
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-
-        {/* Refresh Button */}
-        {matches.length > 0 && (
-          <div className="mt-8 text-center">
-            <button
-              onClick={loadMatches}
-              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-            >
-              Refresh Matches
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
