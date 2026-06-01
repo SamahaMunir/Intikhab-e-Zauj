@@ -78,7 +78,8 @@ router.post(
             reference: reference || '',
             referenceRelation: referenceRelation || '',
             acceptMarriedPerson: acceptMarriedPerson || null,
-            gender: gender || 'male',
+            // Only update gender if wizard explicitly sent a valid value
+            ...(gender === 'male' || gender === 'female' ? { gender } : {}),
             profileCompletion: 100,
             profileStatus: 'pending',
           },
