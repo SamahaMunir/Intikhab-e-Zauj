@@ -54,7 +54,10 @@ export default function ProfileWizard() {
 
   const storedUser = localStorage.getItem('user');
   const user = storedUser ? JSON.parse(storedUser) : null;
-  const userGender = user?.gender || 'male';
+  // Never silently default gender — missing gender must be set explicitly in Step 1
+  const userGender: 'male' | 'female' = (user?.gender === 'male' || user?.gender === 'female')
+    ? user.gender
+    : 'male'; // fallback only if localStorage has valid gender; Step 1 forces explicit selection
 
   const [formData, setFormData] = useState<ProfileFormData>({
     name: user?.name || '',
@@ -106,20 +109,24 @@ export default function ProfileWizard() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Guard: parseInt('') = NaN — fallback to 0, never store NaN in state
   const handleNumberChange = (name: string, value: number) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
+    setFormData((prev) => ({ ...prev, [name]: safe }));
   };
 
   const calculateAge = (dob: string) => {
     if (!dob) return 0;
-    const today = new Date();
     const birthDate = new Date(dob);
+    // Guard: invalid date string produces NaN timestamp
+    if (isNaN(birthDate.getTime())) return 0;
+    const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    return age;
+    return Math.max(0, age);
   };
 
   const handleDOBChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,6 +182,20 @@ export default function ProfileWizard() {
         <label className="block text-sm font-medium text-gray-700">Name *</label>
         <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" placeholder="Your full name" />
       </div>
+      {/* Gender — explicit required field, never inferred silently */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Gender *</label>
+        <select
+          name="gender"
+          value={formData.gender}
+          onChange={handleInputChange}
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+        >
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">This determines who you are matched with. Male users see female profiles; female users see male profiles.</p>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Date of Birth *</label>
@@ -182,7 +203,7 @@ export default function ProfileWizard() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Age (Auto)</label>
-          <input type="number" value={formData.age} disabled className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg" />
+          <input type="number" value={Number.isFinite(formData.age) && formData.age > 0 ? formData.age : ''} disabled className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -349,21 +370,21 @@ export default function ProfileWizard() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Total Brothers</label>
-            <input type="number" min="0" value={formData.numBrothers} onChange={(e) => handleNumberChange('numBrothers', parseInt(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            <input type="number" min="0" value={formData.numBrothers} onChange={(e) => handleNumberChange('numBrothers', parseInt(e.target.value) || 0)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Married Brothers</label>
-            <input type="number" min="0" value={formData.numMarriedBrothers} onChange={(e) => handleNumberChange('numMarriedBrothers', parseInt(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            <input type="number" min="0" value={formData.numMarriedBrothers} onChange={(e) => handleNumberChange('numMarriedBrothers', parseInt(e.target.value) || 0)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 mt-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Total Sisters</label>
-            <input type="number" min="0" value={formData.numSisters} onChange={(e) => handleNumberChange('numSisters', parseInt(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            <input type="number" min="0" value={formData.numSisters} onChange={(e) => handleNumberChange('numSisters', parseInt(e.target.value) || 0)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Married Sisters</label>
-            <input type="number" min="0" value={formData.numMarriedSisters} onChange={(e) => handleNumberChange('numMarriedSisters', parseInt(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            <input type="number" min="0" value={formData.numMarriedSisters} onChange={(e) => handleNumberChange('numMarriedSisters', parseInt(e.target.value) || 0)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
         </div>
         <div className="mt-4">
@@ -397,7 +418,7 @@ export default function ProfileWizard() {
         </div>
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700">Area Value</label>
-          <input type="number" name="areaValue" value={formData.areaValue} onChange={(e) => handleNumberChange('areaValue', parseInt(e.target.value))} placeholder="e.g., 2500" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <input type="number" name="areaValue" value={formData.areaValue || ''} onChange={(e) => handleNumberChange('areaValue', parseInt(e.target.value) || 0)} placeholder="e.g., 2500" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
         </div>
       </div>
       <div className="border-t pt-4">
