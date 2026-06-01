@@ -16,7 +16,9 @@ export const DEFAULT_HARD_FILTER_CONFIG: HardFilterConfig = {
   enableCasteFilter: true,
   strictCasteFilter: false,
   enableRequiredFieldsFilter: true,
-  locationRadius: 200,
+
+  locationRadius: 200, // ✅ ADD THIS
+
   requiredFields: [
     "name",
     "gender",
@@ -26,8 +28,8 @@ export const DEFAULT_HARD_FILTER_CONFIG: HardFilterConfig = {
     "education",
     "occupation",
     "bio",
-    "maritalStatus"
-  ]
+    "maritalStatus",
+  ],
 };
 
 function ageFromDob(dob: string) {
