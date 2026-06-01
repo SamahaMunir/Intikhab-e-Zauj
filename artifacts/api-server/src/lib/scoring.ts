@@ -9,152 +9,136 @@ export interface ScoreBreakdown {
   total: number;
 }
 
+function getAge(profile: any): number {
+  if (profile.age && Number(profile.age) > 0) return Number(profile.age);
+  if (profile.dob) {
+    const dob = new Date(profile.dob);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    return age > 0 ? age : 0;
+  }
+  return 0;
+}
+
 export function calculateScore(user: any, candidate: any): ScoreBreakdown {
-  let breakdown: ScoreBreakdown = {
-    caste: 0,
-    profession: 0,
-    ageGap: 0,
-    city: 0,
-    height: 0,
-    houseStatus: 0,
-    houseArea: 0,
-    total: 0,
+  const breakdown: ScoreBreakdown = {
+    caste: 0, profession: 0, ageGap: 0, city: 0,
+    height: 0, houseStatus: 0, houseArea: 0, total: 0,
   };
 
-  // 1. CASTE MATCH (25 points max)
+  // ── 1. CASTE (25 pts) ──────────────────────────────────────────────────────
+  // Both present → score properly. One missing → neutral 10. Neither → 0.
   if (user.caste && candidate.caste) {
-    if (user.caste.toLowerCase() === candidate.caste.toLowerCase()) {
-      breakdown.caste = 25; // Perfect match
-    } else {
-      breakdown.caste = 5; // Some alignment
-    }
+    breakdown.caste = user.caste.toLowerCase() === candidate.caste.toLowerCase() ? 25 : 5;
+  } else if (user.caste || candidate.caste) {
+    breakdown.caste = 10; // partial data → neutral
   }
 
-  // 2. PROFESSION MATCH (15 points max)
+  // ── 2. PROFESSION (15 pts) ─────────────────────────────────────────────────
   if (user.profession && candidate.profession) {
-    const userProf = user.profession.toLowerCase();
-    const candProf = candidate.profession.toLowerCase();
-    
-    if (userProf === candProf) {
-      breakdown.profession = 15;
-    } else if (userProf.includes('engineer') && candProf.includes('engineer')) {
-      breakdown.profession = 12;
-    } else if (userProf.includes('doctor') && candProf.includes('health')) {
-      breakdown.profession = 10;
-    } else if (userProf.includes('business') || candProf.includes('business')) {
-      breakdown.profession = 8;
-    } else {
-      breakdown.profession = 3;
-    }
+    const up = user.profession.toLowerCase();
+    const cp = candidate.profession.toLowerCase();
+    if (up === cp) breakdown.profession = 15;
+    else if (up.includes('engineer') && cp.includes('engineer')) breakdown.profession = 12;
+    else if (
+      (up.includes('doctor') || up.includes('medical')) &&
+      (cp.includes('doctor') || cp.includes('medical') || cp.includes('health'))
+    ) breakdown.profession = 12;
+    else if (up.includes('teacher') && cp.includes('teacher')) breakdown.profession = 12;
+    else if (up.includes('business') || cp.includes('business') ||
+             up.includes('businessman') || cp.includes('businessman')) breakdown.profession = 8;
+    else breakdown.profession = 3;
+  } else if (user.profession || candidate.profession) {
+    breakdown.profession = 8; // one side missing → neutral
   }
 
-  // 3. AGE GAP (15 points max)
-  if (user.age && candidate.age) {
-    const ageDiff = Math.abs(user.age - candidate.age);
-    
-    if (ageDiff <= 2) {
-      breakdown.ageGap = 15; // Ideal
-    } else if (ageDiff <= 5) {
-      breakdown.ageGap = 12; // Good
-    } else if (ageDiff <= 8) {
-      breakdown.ageGap = 8; // Acceptable
-    } else if (ageDiff <= 12) {
-      breakdown.ageGap = 4; // Stretched
-    } else {
-      breakdown.ageGap = 0; // Too far
-    }
+  // ── 3. AGE GAP (15 pts) ────────────────────────────────────────────────────
+  // Compute age from dob if stored age is 0 or missing
+  const userAge = getAge(user);
+  const candAge = getAge(candidate);
+
+  if (userAge > 0 && candAge > 0) {
+    const ageDiff = Math.abs(userAge - candAge);
+    if (ageDiff <= 2) breakdown.ageGap = 15;
+    else if (ageDiff <= 5) breakdown.ageGap = 12;
+    else if (ageDiff <= 8) breakdown.ageGap = 8;
+    else if (ageDiff <= 12) breakdown.ageGap = 4;
+    else breakdown.ageGap = 0;
+  } else {
+    breakdown.ageGap = 8; // age unknown → neutral
   }
 
-  // 4. CITY MATCH (15 points max)
+  // ── 4. CITY (15 pts) ───────────────────────────────────────────────────────
   if (user.city && candidate.city) {
-    const userCity = user.city.toLowerCase().trim();
-    const candCity = candidate.city.toLowerCase().trim();
-    
-    if (userCity === candCity) {
-      breakdown.city = 15; // Same city
+    const uc = user.city.toLowerCase().trim();
+    const cc = candidate.city.toLowerCase().trim();
+    if (uc === cc) {
+      breakdown.city = 15;
     } else {
-      // Check if nearby cities (simplified)
-      const lahoreVariants = ['lahore', 'lahore city', 'cantonment lahore'];
-      const karachiVariants = ['karachi', 'karachi city'];
-      
-      if (lahoreVariants.some(v => userCity.includes(v)) && lahoreVariants.some(v => candCity.includes(v))) {
-        breakdown.city = 12;
-      } else if (karachiVariants.some(v => userCity.includes(v)) && karachiVariants.some(v => candCity.includes(v))) {
-        breakdown.city = 12;
-      } else {
-        breakdown.city = 5; // Different cities
-      }
+      const groups = [
+        ['lahore', 'lahore city', 'cantonment lahore', 'lahore cantt'],
+        ['karachi', 'karachi city', 'karachi west', 'karachi east'],
+        ['islamabad', 'rawalpindi', 'pindi'],
+        ['faisalabad', 'lyallpur'],
+        ['multan', 'multan city'],
+        ['peshawar', 'peshwar'],
+      ];
+      const inSameGroup = groups.some(g => g.some(v => uc.includes(v)) && g.some(v => cc.includes(v)));
+      breakdown.city = inSameGroup ? 12 : 5;
     }
+  } else if (user.city || candidate.city) {
+    breakdown.city = 8;
   }
 
-  // 5. HEIGHT PREFERENCE (10 points max)
-  // Assume height is stored as "5.9" (feet.inches format)
+  // ── 5. HEIGHT (10 pts) ─────────────────────────────────────────────────────
   if (user.height && candidate.height) {
-    const userHeight = parseFloat(user.height);
-    const candHeight = parseFloat(candidate.height);
-    
-    const heightDiff = Math.abs(userHeight - candHeight);
-    
-    if (heightDiff <= 0.2) {
-      breakdown.height = 10;
-    } else if (heightDiff <= 0.5) {
-      breakdown.height = 8;
-    } else if (heightDiff <= 0.8) {
+    const uh = parseFloat(user.height);
+    const ch = parseFloat(candidate.height);
+    if (!isNaN(uh) && !isNaN(ch)) {
+      const diff = Math.abs(uh - ch);
+      if (diff <= 0.2) breakdown.height = 10;
+      else if (diff <= 0.5) breakdown.height = 8;
+      else if (diff <= 0.8) breakdown.height = 5;
+      else if (diff <= 1.2) breakdown.height = 2;
+      else breakdown.height = 0;
+    } else {
       breakdown.height = 5;
-    } else if (heightDiff <= 1.2) {
-      breakdown.height = 2;
-    } else {
-      breakdown.height = 0;
     }
+  } else {
+    breakdown.height = 5; // missing → neutral
   }
 
-  // 6. HOUSE STATUS (10 points max)
+  // ── 6. HOUSE STATUS (10 pts) ───────────────────────────────────────────────
   if (user.houseStatus && candidate.houseStatus) {
-    const userStatus = user.houseStatus.toLowerCase();
-    const candStatus = candidate.houseStatus.toLowerCase();
-    
-    if (userStatus === candStatus) {
-      breakdown.houseStatus = 10; // Same
-    } else if ((userStatus.includes('own') && candStatus.includes('own')) || 
-               (userStatus.includes('rent') && candStatus.includes('rent'))) {
-      breakdown.houseStatus = 10;
-    } else {
-      breakdown.houseStatus = 5; // Different status
-    }
+    const us = user.houseStatus.toLowerCase();
+    const cs = candidate.houseStatus.toLowerCase();
+    const bothOwn = us.includes('own') && cs.includes('own');
+    const bothRent = us.includes('rent') && cs.includes('rent');
+    breakdown.houseStatus = (us === cs || bothOwn || bothRent) ? 10 : 5;
+  } else {
+    breakdown.houseStatus = 5; // missing → neutral
   }
 
-  // 7. HOUSE AREA (10 points max)
-  // Assume area is stored as a number (e.g., 2500 sqft)
-  if (user.houseArea && candidate.houseArea) {
-    const userArea = parseInt(user.houseArea) || 0;
-    const candArea = parseInt(candidate.houseArea) || 0;
-    
-    if (userArea > 0 && candArea > 0) {
-      const areaDiff = Math.abs(userArea - candArea);
-      const maxArea = Math.max(userArea, candArea);
-      const percentDiff = (areaDiff / maxArea) * 100;
-      
-      if (percentDiff <= 10) {
-        breakdown.houseArea = 10;
-      } else if (percentDiff <= 25) {
-        breakdown.houseArea = 8;
-      } else if (percentDiff <= 50) {
-        breakdown.houseArea = 5;
-      } else {
-        breakdown.houseArea = 2;
-      }
-    }
+  // ── 7. HOUSE AREA (10 pts) ─────────────────────────────────────────────────
+  const ua = parseInt(String(user.houseArea || '0')) || 0;
+  const ca = parseInt(String(candidate.houseArea || '0')) || 0;
+  if (ua > 0 && ca > 0) {
+    const pct = (Math.abs(ua - ca) / Math.max(ua, ca)) * 100;
+    if (pct <= 10) breakdown.houseArea = 10;
+    else if (pct <= 25) breakdown.houseArea = 8;
+    else if (pct <= 50) breakdown.houseArea = 5;
+    else breakdown.houseArea = 2;
+  } else if (ua > 0 || ca > 0) {
+    breakdown.houseArea = 5; // one side missing → neutral
+  } else {
+    breakdown.houseArea = 5; // both missing → neutral
   }
 
-  // Calculate total
   breakdown.total = Math.round(
-    breakdown.caste +
-    breakdown.profession +
-    breakdown.ageGap +
-    breakdown.city +
-    breakdown.height +
-    breakdown.houseStatus +
-    breakdown.houseArea
+    breakdown.caste + breakdown.profession + breakdown.ageGap +
+    breakdown.city + breakdown.height + breakdown.houseStatus + breakdown.houseArea
   );
 
   return breakdown;
