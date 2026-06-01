@@ -109,18 +109,44 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
       return;
     }
 
-    console.log(`✅ Found user: ${user.name}`);
+    console.log(`✅ Found user: ${user.name} | gender=${user.gender} | city=${user.city} | caste=${user.caste}`);
 
+    // Guard: user must have gender set — without it hard-filter cannot work
+    if (!user.gender) {
+      res.status(400).json({
+        success: false,
+        error: 'Profile incomplete: gender not set. Complete the profile wizard first.',
+      });
+      return;
+    }
+
+    // Clear ALL existing match records for this user (both ObjectId and string userId)
     await db.collection('matches').deleteMany({ $or: [{ userId: oid }, { userId: userIdStr }] });
-const candidates = await db.collection('profiles')
-  .find({ _id: { $ne: user._id }, profileStatus: 'approved', paymentStatus: 'completed' })
-  .toArray();
 
-console.log(`🔍 Found ${candidates.length} candidates, filtering...`);
-for (const c of candidates) {
-  const result = applyHardFilters(user, c);
-  console.log(`  ${c.name || c.email}: ${result.passes ? '✅ PASS' : '❌ ' + result.rejections.map(r => r.reason).join(', ')}`);
-}
+    // Fetch ALL approved+completed profiles — no hardcoded source filter
+    // This includes seed profiles AND real user-created profiles approved by staff
+    const candidates = await db.collection('profiles')
+      .find({
+        _id: { $ne: user._id },
+        profileStatus: 'approved',
+        paymentStatus: 'completed',
+        gender: { $exists: true, $ne: '' }, // only profiles with gender set
+      })
+      .toArray();
+
+    console.log(`🔍 ${candidates.length} candidates found (seed + real users). Applying hard filters...`);
+    let passed = 0;
+    let rejected = 0;
+    for (const c of candidates) {
+      const result = applyHardFilters(user, c);
+      if (result.passes) {
+        passed++;
+      } else {
+        rejected++;
+        console.log(`  ❌ ${c.name || c.email}: ${result.rejections.map(r => r.reason).join(', ')}`);
+      }
+    }
+    console.log(`  ✅ ${passed} pass | ❌ ${rejected} rejected by hard filters`);
 
     const records: any[] = [];
     for (const c of candidates) {
