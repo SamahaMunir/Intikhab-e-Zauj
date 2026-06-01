@@ -6,6 +6,93 @@ import { logAudit } from '../db/auditLogs';
 
 const router = Router();
 
+router.post(
+  '/complete',
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const {
+        name, dateOfBirth, age, height, caste, motherTongue, disability,
+        religion, sect, prayerRegularity, cnic, education, institution,
+        profession, jobType, designation, monthlyIncome, officeAddress,
+        city, address, fatherName, fatherOccupation, motherName, motherOccupation,
+        fatherMobile, motherMobile, siblingsMobile, numBrothers, numMarriedBrothers,
+        numSisters, numMarriedSisters, employedSiblingsDetails, siblingDisability,
+        homeOwnership, homeSize, areaValue, matchCriteria, desiredMatchDetails,
+        reference, referenceRelation, acceptMarriedPerson, gender,
+      } = req.body;
+
+      if (!name || !caste || !city || !profession) {
+        res.status(400).json({ error: 'Name, caste, city, and profession are required' });
+        return;
+      }
+
+      const db = await getDatabase();
+      await db.collection('profiles').updateOne(
+        { _id: new ObjectId(req.user.id) },
+        {
+          $set: {
+            name,
+            dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+            age: Number(age) || 0,
+            height: height || '',
+            caste,
+            motherTongue: motherTongue || '',
+            disability: disability || 'No',
+            religion: religion || 'Islam',
+            sect: sect || '',
+            prayerRegularity: prayerRegularity || 'Regular',
+            cnic: cnic || '',
+            education: education || '',
+            institution: institution || '',
+            profession,
+            jobType: jobType || '',
+            designation: designation || '',
+            monthlyIncome: monthlyIncome || '',
+            officeAddress: officeAddress || '',
+            city,
+            address: address || '',
+            fatherName: fatherName || '',
+            fatherOccupation: fatherOccupation || '',
+            motherName: motherName || '',
+            motherOccupation: motherOccupation || '',
+            fatherMobile: fatherMobile || '',
+            motherMobile: motherMobile || '',
+            siblingsMobile: siblingsMobile || '',
+            numBrothers: numBrothers || 0,
+            numMarriedBrothers: numMarriedBrothers || 0,
+            numSisters: numSisters || 0,
+            numMarriedSisters: numMarriedSisters || 0,
+            employedSiblingsDetails: employedSiblingsDetails || '',
+            siblingDisability: siblingDisability || 'No',
+            homeOwnership: homeOwnership || 'owned',
+            homeSize: homeSize || 'kanal',
+            areaValue: areaValue || 0,
+            houseStatus: homeOwnership || 'owned',
+            houseArea: areaValue && Number(areaValue) > 0 ? String(areaValue) : '',
+            matchCriteria: matchCriteria || '',
+            desiredMatchDetails: desiredMatchDetails || '',
+            reference: reference || '',
+            referenceRelation: referenceRelation || '',
+            acceptMarriedPerson: acceptMarriedPerson || null,
+            gender: gender || 'male',
+            profileCompletion: 100,
+            profileStatus: 'pending',
+          },
+        }
+      );
+
+      res.json({ success: true, message: 'Profile saved. Awaiting staff approval.', profileCompletion: 100 });
+    } catch (error) {
+      console.error('Profile complete error:', error);
+      res.status(500).json({ error: 'Failed to save profile', message: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+);
+
 /**
  * POST /api/profile/complete-step
  * Save profile completion step (1-4)
@@ -28,7 +115,7 @@ router.post(
       }
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      const usersCollection = db.collection('profiles');
 
       // ✅ STEP 1: Basic Info (Name, Phone, Gender)
       if (step === 1) {
@@ -148,7 +235,7 @@ router.get(
       }
 
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
+      const usersCollection = db.collection('profiles');
 
       const user = await usersCollection.findOne({
         _id: new ObjectId(req.user.id),
