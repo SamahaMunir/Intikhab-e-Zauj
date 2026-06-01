@@ -41,18 +41,30 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
     const db = await getDatabase();
 
     // Query matches by BOTH ObjectId and string (covers either storage type)
-    const matches = await db.collection('matches')
+    const rawMatches = await db.collection('matches')
       .find({ userId: { $in: [oid, userIdStr] }, status: 'suggested' })
       .sort({ score: -1 })
       .toArray();
 
-    console.log(`✅ Found ${matches.length} matches`);
+    // Deduplicate at query level: keep only the highest-score record per candidateId
+    const bestByCandidate = new Map<string, any>();
+    for (const m of rawMatches) {
+      const cid = m.candidateId?.toString();
+      if (!cid) continue;
+      const existing = bestByCandidate.get(cid);
+      if (!existing || m.score > existing.score) {
+        bestByCandidate.set(cid, m);
+      }
+    }
+    const matches = Array.from(bestByCandidate.values()).sort((a, b) => b.score - a.score);
+
+    console.log(`✅ Found ${rawMatches.length} raw → ${matches.length} deduplicated matches`);
 
     const enriched = await Promise.all(
       matches.map(async (m) => {
         const candidate = await db.collection('profiles').findOne(
           { _id: m.candidateId },
-          { projection: { name: 1, age: 1, city: 1, education: 1, photo: 1 } }
+          { projection: { name: 1, age: 1, dob: 1, city: 1, profession: 1, caste: 1, gender: 1, education: 1, photo: 1, height: 1, houseStatus: 1 } }
         );
         return { ...m, candidate };
       })
@@ -99,7 +111,7 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
 
     console.log(`✅ Found user: ${user.name}`);
 
-    await db.collection('matches').deleteMany({ userId: oid });
+    await db.collection('matches').deleteMany({ $or: [{ userId: oid }, { userId: userIdStr }] });
 const candidates = await db.collection('profiles')
   .find({ _id: { $ne: user._id }, profileStatus: 'approved', paymentStatus: 'completed' })
   .toArray();
@@ -178,6 +190,67 @@ router.get('/debug/:userId', authMiddleware, async (req: Request, res: Response)
 
     res.json(results);
   } catch (error) {
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
+  }
+});
+
+// GET /api/matches/all — staff sees every match across all users
+router.get('/all', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const db = await getDatabase();
+    const matches = await db.collection('matches')
+      .find({ status: { $in: ['suggested', 'approved', 'rejected'] } })
+      .sort({ score: -1 })
+      .limit(200)
+      .toArray();
+
+    const enriched = await Promise.all(
+      matches.map(async (m) => {
+        const user = await db.collection('profiles').findOne(
+          { _id: m.userId },
+          { projection: { name: 1, age: 1, city: 1, gender: 1, caste: 1 } }
+        );
+        const candidate = await db.collection('profiles').findOne(
+          { _id: m.candidateId },
+          { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1 } }
+        );
+        return { ...m, user, candidate };
+      })
+    );
+
+    res.json({ success: true, total: enriched.length, matches: enriched });
+  } catch (error) {
+    console.error('❌ Get all matches error:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
+  }
+});
+
+// PATCH /api/matches/:matchId/status — staff approves or rejects a match
+router.patch('/:matchId/status', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const matchIdStr = getId(req.params.matchId as string | string[] | undefined);
+    const { status } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+      res.status(400).json({ success: false, error: 'Status must be approved or rejected' });
+      return;
+    }
+
+    const oid = toObjectId(matchIdStr || '');
+    if (!oid) {
+      res.status(400).json({ success: false, error: 'Invalid matchId' });
+      return;
+    }
+
+    const db = await getDatabase();
+    await db.collection('matches').updateOne(
+      { _id: oid },
+      { $set: { status, updatedAt: new Date() } }
+    );
+
+    res.json({ success: true, message: `Match ${status}` });
+  } catch (error) {
+    console.error('❌ Update match status error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
   }
 });
