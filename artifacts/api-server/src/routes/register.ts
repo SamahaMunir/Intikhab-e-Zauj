@@ -212,6 +212,7 @@ router.post('/verify-email', async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        gender: user.gender || '',   // ← required for wizard + matching
       },
       expiresIn: '7d',
     });
