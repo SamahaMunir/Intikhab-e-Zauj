@@ -117,6 +117,7 @@ if (!verifyPassword(password, profile.password)) {
         email: profile.email,
         name: profile.name,
         role: profile.role || 'applicant',
+        gender: profile.gender || '',          // ← required for wizard + matching
         profileCompletion: profile.profileCompletion || 0,
         paymentStatus: profile.paymentStatus || 'pending',
         profileStatus: profile.profileStatus || 'pending',
