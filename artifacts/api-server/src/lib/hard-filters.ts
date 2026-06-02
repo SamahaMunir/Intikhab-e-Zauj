@@ -88,15 +88,31 @@ export function applyHardFilters(user: any, candidate: any): HardFilterResult {
     }
   }
 
-  // ── Rule 5: Location — no long distance (Phase 1) ────────────────────────
-  // Reject if user and candidate are in clearly different province/metro groups
+  // ── Rule 5: Location — no extreme long distance (Phase 1) ────────────────
+  // Groups (from LOCATION_GROUPS): 0=Lahore-belt, 1=Faisalabad, 2=RWP/ISB,
+  // 3=Multan, 4=Karachi/Sindh, 5=KPK, 6=Balochistan.
+  // Hard-reject only TRUE cross-province: Sindh ↔ Punjab, KPK ↔ Sindh, etc.
+  // Within-province matches (Lahore ↔ Faisalabad) are ALLOWED — distance is
+  // handled by scoring (city match worth 15 pts), not hard rejection.
   if (user.city && candidate.city) {
     const ug = cityGroup(user.city);
     const cg = cityGroup(candidate.city);
     if (ug !== -1 && cg !== -1 && ug !== cg) {
-      rejections.push({
-        reason: `Long distance: ${user.city} and ${candidate.city} are in different regions (Phase 1 restricts to same region)`,
-      });
+      const sindh  = (g: number) => g === 4;
+      const kpk    = (g: number) => g === 5;
+      const baloch = (g: number) => g === 6;
+      // Cross-province: one in Sindh and other not, or KPK ↔ Sindh/Baloch, etc.
+      const cross =
+        (sindh(ug) !== sindh(cg) && (sindh(ug) || sindh(cg))) ||
+        (kpk(ug)   && (sindh(cg) || baloch(cg)))               ||
+        (kpk(cg)   && (sindh(ug) || baloch(ug)))               ||
+        (baloch(ug) && !baloch(cg) && (sindh(cg) || kpk(cg)))  ||
+        (baloch(cg) && !baloch(ug) && (sindh(ug) || kpk(ug)));
+      if (cross) {
+        rejections.push({
+          reason: `Cross-province distance: ${user.city} ↔ ${candidate.city}`,
+        });
+      }
     }
   }
 
