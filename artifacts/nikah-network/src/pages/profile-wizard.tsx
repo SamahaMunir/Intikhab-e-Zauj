@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
+import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
 
 interface ProfileFormData {
   name: string;
@@ -44,6 +45,7 @@ interface ProfileFormData {
   referenceRelation: string;
   acceptMarriedPerson?: string;
   gender: 'male' | 'female';
+  photo: string;
 }
 
 export default function ProfileWizard() {
@@ -51,6 +53,7 @@ export default function ProfileWizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { uploadFile, uploading, error: uploadError, progress } = useCloudinaryUpload();
 
   const storedUser = localStorage.getItem('user');
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -102,6 +105,7 @@ export default function ProfileWizard() {
     referenceRelation: '',
     acceptMarriedPerson: userGender === 'female' ? 'No' : undefined,
     gender: userGender as 'male' | 'female',
+    photo: '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -135,13 +139,45 @@ export default function ProfileWizard() {
     setFormData((prev) => ({ ...prev, dateOfBirth: dob, age }));
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Client-side validation before hitting Cloudinary
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Invalid file type. Only JPEG, PNG, and WebP images allowed.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image too large. Maximum 5MB allowed.');
+      return;
+    }
+
+    setError(null);
+    const result = await uploadFile(file, 'profiles');
+    if (result?.url) {
+      setFormData((prev) => ({ ...prev, photo: result.url }));
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       setLoading(true);
       setError(null);
 
       if (!formData.name || !formData.caste || !formData.city || !formData.profession) {
-        setError('Please fill all required fields');
+        setError('Please fill all required fields: name, caste, city, profession.');
+        return;
+      }
+      if (!formData.photo) {
+        setError('Profile photo is required. Please upload a photo in Step 1.');
+        setStep(1);
+        return;
+      }
+      if (!formData.gender) {
+        setError('Gender is required. Please select your gender in Step 1.');
+        setStep(1);
         return;
       }
 
@@ -166,6 +202,17 @@ export default function ProfileWizard() {
 
       const result = await response.json();
       console.log('✅ Profile saved:', result);
+
+      // Update localStorage so matches page sees profileCompletion=100 immediately
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        u.profileCompletion = 100;
+        u.profileStatus = 'pending';
+        if (formData.gender) u.gender = formData.gender;
+        localStorage.setItem('user', JSON.stringify(u));
+      }
+
       setLocation('/app/matches');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error saving profile');
@@ -194,7 +241,58 @@ export default function ProfileWizard() {
           <option value="male">Male</option>
           <option value="female">Female</option>
         </select>
-        <p className="text-xs text-gray-500 mt-1">This determines who you are matched with. Male users see female profiles; female users see male profiles.</p>
+        <p className="text-xs text-gray-500 mt-1">Determines who you are matched with. Male → sees females. Female → sees males.</p>
+      </div>
+
+      {/* Profile Photo — required for matching */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Profile Photo *</label>
+        <p className="text-xs text-gray-500 mb-2">Required. JPEG/PNG/WebP only, max 5MB. Only appropriate, family-friendly photos allowed.</p>
+
+        <div className="flex items-start gap-4">
+          {/* Preview */}
+          <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
+            {formData.photo ? (
+              <img src={formData.photo} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-gray-400 text-xs text-center px-1">No photo</span>
+            )}
+          </div>
+
+          <div className="flex-1">
+            <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              uploading
+                ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                : 'bg-white text-green-700 border-green-300 hover:bg-green-50'
+            }`}>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePhotoUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+              {uploading ? `Uploading ${progress}%…` : formData.photo ? 'Change Photo' : 'Upload Photo'}
+            </label>
+
+            {/* Progress bar */}
+            {uploading && (
+              <div className="mt-2 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
+              </div>
+            )}
+
+            {/* Upload error */}
+            {uploadError && (
+              <p className="mt-1 text-xs text-red-600">{uploadError}</p>
+            )}
+
+            {/* Success */}
+            {formData.photo && !uploading && (
+              <p className="mt-1 text-xs text-green-600">✓ Photo uploaded successfully</p>
+            )}
+          </div>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
