@@ -20,12 +20,20 @@ class MatchingService {
    * Generate matches for a user
    */
   async generateMatches(userId: string): Promise<{ generated: number; matches: Match[] }> {
+    // Send gender from localStorage so backend can repair corrupted DB profile
+    const storedUser = localStorage.getItem('user');
+    const localUser = storedUser ? JSON.parse(storedUser) : null;
+    const genderHint = (localUser?.gender === 'male' || localUser?.gender === 'female')
+      ? localUser.gender
+      : null;
+
     const response = await fetch(`${API_BASE}/api/matches/generate/${userId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
       },
+      body: JSON.stringify({ genderHint }),
     });
 
     if (!response.ok) throw new Error('Failed to generate matches');
