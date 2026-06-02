@@ -40,6 +40,16 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
 
     const db = await getDatabase();
 
+    // Profile completion gate — incomplete profiles cannot retrieve matches
+    const requestingUser = await db.collection('profiles').findOne(
+      { _id: oid },
+      { projection: { profileCompletion: 1, gender: 1 } }
+    );
+    if (requestingUser && (requestingUser.profileCompletion || 0) < 100) {
+      res.json({ success: true, total: 0, matches: [], locked: true, reason: 'profile_incomplete' });
+      return;
+    }
+
     // Query matches by BOTH ObjectId and string (covers either storage type)
     const rawMatches = await db.collection('matches')
       .find({ userId: { $in: [oid, userIdStr] }, status: 'suggested' })
@@ -109,28 +119,62 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
       return;
     }
 
-    console.log(`✅ Found user: ${user.name} | gender=${user.gender} | city=${user.city} | caste=${user.caste}`);
+    const { genderHint } = req.body as { genderHint?: string };
 
-    // Guard: user must have gender set — without it hard-filter cannot work
-    if (!user.gender) {
-      res.status(400).json({
+    // ── COMPLETION GATE ───────────────────────────────────────────────────────
+    // Matching is locked until profile is 100% complete (photo, all required fields)
+    if ((user.profileCompletion || 0) < 100) {
+      res.status(403).json({
         success: false,
-        error: 'Profile incomplete: gender not set. Complete the profile wizard first.',
+        error: 'profile_incomplete',
+        message: 'Complete your profile before accessing match recommendations.',
+        profileCompletion: user.profileCompletion || 0,
       });
       return;
     }
 
+    console.log(`✅ Found user: ${user.name} | DB gender=${user.gender} | genderHint=${genderHint || 'none'}`);
+
+    // ── GENDER REPAIR ─────────────────────────────────────────────────────────
+    // If DB gender is missing/invalid but frontend sent a valid hint, repair it.
+    // This fixes profiles corrupted by the old wizard bug (defaulted everything to 'male').
+    const validHint = genderHint === 'male' || genderHint === 'female';
+    const dbGenderValid = user.gender === 'male' || user.gender === 'female';
+
+    if (validHint && (!dbGenderValid || user.gender !== genderHint)) {
+      console.log(`🔧 Repairing gender: DB="${user.gender}" → correct="${genderHint}"`);
+      await db.collection('profiles').updateOne(
+        { _id: user._id },
+        { $set: { gender: genderHint, updatedAt: new Date() } }
+      );
+      user.gender = genderHint; // use repaired value for this request
+    }
+
+    // Guard: gender must be resolved before matching
+    if (user.gender !== 'male' && user.gender !== 'female') {
+      res.status(400).json({
+        success: false,
+        error: 'Gender not set on profile. Complete the profile wizard (Step 1) and select your gender.',
+      });
+      return;
+    }
+
+    console.log(`🎯 Matching as: ${user.gender} — will find ${user.gender === 'male' ? 'female' : 'male'} candidates`);
+
     // Clear ALL existing match records for this user (both ObjectId and string userId)
     await db.collection('matches').deleteMany({ $or: [{ userId: oid }, { userId: userIdStr }] });
 
-    // Fetch ALL approved+completed profiles — no hardcoded source filter
-    // This includes seed profiles AND real user-created profiles approved by staff
+    // Fetch opposite-gender approved profiles only — DB-level filter, not just hard-filter
+    // Includes all sources: seed profiles + staff-created + user-registered (once approved)
+    const oppositeGender = user.gender === 'male' ? 'female' : 'male';
+    console.log(`🔍 Querying candidates: gender=${oppositeGender}, profileStatus=approved, paymentStatus=completed`);
+
     const candidates = await db.collection('profiles')
       .find({
         _id: { $ne: user._id },
+        gender: oppositeGender,               // ← DB-level gender filter, not just hard-filter
         profileStatus: 'approved',
         paymentStatus: 'completed',
-        gender: { $exists: true, $ne: '' }, // only profiles with gender set
       })
       .toArray();
 
