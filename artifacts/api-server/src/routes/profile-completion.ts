@@ -1,8 +1,7 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
 import { authMiddleware, type AuthRequest } from '../middleware/auth';
-import { logAudit } from '../db/auditLogs';
 
 const router = Router();
 
@@ -95,6 +94,72 @@ router.post(
     } catch (error) {
       console.error('Profile complete error:', error);
       res.status(500).json({ error: 'Failed to save profile', message: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+);
+
+/**
+ * GET /api/profile/me
+ * Return the authenticated user's full profile — used by wizard to pre-populate
+ */
+router.get(
+  '/me',
+  authMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const db = await getDatabase();
+      const profile = await db.collection('profiles').findOne(
+        { _id: new ObjectId(req.user.id) },
+        {
+          projection: {
+            password: 0,
+            verificationToken: 0,
+            verificationTokenExpiry: 0,
+          },
+        }
+      );
+      if (!profile) {
+        res.status(404).json({ error: 'Profile not found' });
+        return;
+      }
+      res.json({ success: true, profile });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to load profile' });
+    }
+  }
+);
+
+/**
+ * PATCH /api/profile/me/update
+ * Quick-edit a subset of profile fields from the profile page (bio, city, preferences)
+ */
+router.patch(
+  '/me/update',
+  authMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
+      const { bio, city, matchCriteria, desiredMatchDetails } = req.body;
+      const db = await getDatabase();
+      await db.collection('profiles').updateOne(
+        { _id: new ObjectId(req.user.id) },
+        {
+          $set: {
+            ...(bio                 !== undefined ? { bio }                 : {}),
+            ...(city                !== undefined ? { city }                : {}),
+            ...(matchCriteria       !== undefined ? { matchCriteria }       : {}),
+            ...(desiredMatchDetails !== undefined ? { desiredMatchDetails } : {}),
+            updatedAt: new Date(),
+          },
+        }
+      );
+      res.json({ success: true, message: 'Profile updated' });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update profile' });
     }
   }
 );
