@@ -1,6 +1,69 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
+import SearchableSelect from '@/components/SearchableSelect';
+import PhoneInput from '@/components/PhoneInput';
+import {
+  LANGUAGES, RELIGIONS, SECTS, CASTES, CITIES, PROFESSIONS,
+  OCCUPATIONS, EDUCATION_LEVELS, PAKISTANI_UNIVERSITIES,
+  INCOME_RANGES, DESIGNATIONS_BY_PROFESSION, GENERIC_DESIGNATIONS,
+  ALL_PK_AREAS,
+} from '@/lib/profile-options';
+
+const DRAFT_KEY = 'profile_wizard_draft';
+const API = 'http://localhost:5000';
+
+// ── Validation helpers ────────────────────────────────────────────────────────
+
+function validateCNIC(raw: string): string | null {
+  if (!raw) return null; // optional field
+  const digits = raw.replace(/[-\s]/g, '');
+  if (!/^\d{13}$/.test(digits)) return 'CNIC must be 13 digits (format: 12345-1234567-1)';
+  return null;
+}
+
+function validatePakistaniPhone(phone: string): string | null {
+  if (!phone) return null; // optional
+  const digits = phone.replace(/[-\s+]/g, '');
+  // Accept: 03XXXXXXXXX (11 digits) or 923XXXXXXXXX (12 digits)
+  if (!/^(0|92)?3\d{9}$/.test(digits)) {
+    return 'Enter a valid Pakistani mobile number (e.g. 03001234567)';
+  }
+  return null;
+}
+
+function validateAge(dob: string): string | null {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return 'Invalid date of birth';
+  const today = new Date();
+  const age = today.getFullYear() - birth.getFullYear() -
+    (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
+  if (age < 18) return 'Minimum age for registration is 18 years';
+  if (age > 60) return 'Maximum age for registration is 60 years';
+  return null;
+}
+
+function validateHeight(h: string): string | null {
+  if (!h) return null;
+  const v = parseFloat(h);
+  if (isNaN(v)) return 'Height must be a number (e.g. 5.9)';
+  if (v < 4.0 || v > 7.5) return 'Height must be between 4.0 and 7.5 feet';
+  return null;
+}
+
+function validateHouseArea(area: number): string | null {
+  if (!area || area === 0) return null; // optional
+  if (area < 1 || area > 50000) return 'House area must be between 1 and 50,000';
+  return null;
+}
+
+function formatCNIC(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 13);
+  if (digits.length <= 5) return digits;
+  if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+}
 
 interface ProfileFormData {
   name: string;
@@ -48,75 +111,164 @@ interface ProfileFormData {
   photo: string;
 }
 
+const EMPTY_FORM = (gender: 'male' | 'female', name: string): ProfileFormData => ({
+  name,
+  dateOfBirth: '', age: 0, height: '', caste: '', motherTongue: '', disability: 'No',
+  religion: 'Islam', sect: '', prayerRegularity: 'Regular', cnic: '', education: '',
+  institution: '', profession: '', jobType: '', designation: '', monthlyIncome: '',
+  officeAddress: '', city: '', address: '', fatherName: '', fatherOccupation: '',
+  motherName: '', motherOccupation: '', fatherMobile: '', motherMobile: '',
+  siblingsMobile: '', numBrothers: 0, numMarriedBrothers: 0, numSisters: 0,
+  numMarriedSisters: 0, employedSiblingsDetails: '', siblingDisability: 'No',
+  homeOwnership: 'owned', homeSize: 'kanal', areaValue: 0, matchCriteria: '',
+  desiredMatchDetails: '', reference: '', referenceRelation: '',
+  acceptMarriedPerson: gender === 'female' ? 'No' : undefined, gender, photo: '',
+});
+
 export default function ProfileWizard() {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { uploadFile, uploading, error: uploadError, progress } = useCloudinaryUpload();
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const {
+    uploadProfilePhoto, uploading, checking, error: uploadError, progress,
+    isFaceDetectionSupported,
+  } = useCloudinaryUpload();
+  const formRef = useRef<HTMLDivElement>(null);
+
+  const scrollToFirstError = () => {
+    setTimeout(() => {
+      const el = formRef.current?.querySelector('[data-error="true"]') as HTMLElement | null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
 
   const storedUser = localStorage.getItem('user');
   const user = storedUser ? JSON.parse(storedUser) : null;
-  // Never silently default gender — missing gender must be set explicitly in Step 1
-  const userGender: 'male' | 'female' = (user?.gender === 'male' || user?.gender === 'female')
-    ? user.gender
-    : 'male'; // fallback only if localStorage has valid gender; Step 1 forces explicit selection
+  const userGender: 'male' | 'female' =
+    user?.gender === 'male' || user?.gender === 'female' ? user.gender : 'male';
 
-  const [formData, setFormData] = useState<ProfileFormData>({
-    name: user?.name || '',
-    dateOfBirth: '',
-    age: 0,
-    height: '',
-    caste: '',
-    motherTongue: '',
-    disability: 'No',
-    religion: 'Islam',
-    sect: '',
-    prayerRegularity: 'Regular',
-    cnic: '',
-    education: '',
-    institution: '',
-    profession: '',
-    jobType: '',
-    designation: '',
-    monthlyIncome: '',
-    officeAddress: '',
-    city: '',
-    address: '',
-    fatherName: '',
-    fatherOccupation: '',
-    motherName: '',
-    motherOccupation: '',
-    fatherMobile: '',
-    motherMobile: '',
-    siblingsMobile: '',
-    numBrothers: 0,
-    numMarriedBrothers: 0,
-    numSisters: 0,
-    numMarriedSisters: 0,
-    employedSiblingsDetails: '',
-    siblingDisability: 'No',
-    homeOwnership: 'owned',
-    homeSize: 'kanal',
-    areaValue: 0,
-    matchCriteria: '',
-    desiredMatchDetails: '',
-    reference: '',
-    referenceRelation: '',
-    acceptMarriedPerson: userGender === 'female' ? 'No' : undefined,
-    gender: userGender as 'male' | 'female',
-    photo: '',
-  });
+  const [formData, setFormData] = useState<ProfileFormData>(
+    EMPTY_FORM(userGender, user?.name || '')
+  );
+
+  // ── Load saved profile on mount ───────────────────────────────────────────
+  // Priority: API (DB) > localStorage draft > empty defaults
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token || !user?._id) {
+      // Try draft
+      const draft = localStorage.getItem(DRAFT_KEY);
+      if (draft) {
+        try { setFormData(JSON.parse(draft)); } catch {}
+      }
+      setProfileLoading(false);
+      return;
+    }
+
+    fetch(`${API}/api/profile/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data?.profile) {
+          const p = data.profile;
+          // Map DB fields → form fields
+          const merged: ProfileFormData = {
+            name: p.name || user?.name || '',
+            dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth).toISOString().split('T')[0] : '',
+            age: p.age || 0,
+            height: p.height || '',
+            caste: p.caste || '',
+            motherTongue: p.motherTongue || '',
+            disability: p.disability || 'No',
+            religion: p.religion || 'Islam',
+            sect: p.sect || '',
+            prayerRegularity: p.prayerRegularity || 'Regular',
+            cnic: p.cnic || '',
+            education: p.education || '',
+            institution: p.institution || '',
+            profession: p.profession || '',
+            jobType: p.jobType || '',
+            designation: p.designation || '',
+            monthlyIncome: p.monthlyIncome || '',
+            officeAddress: p.officeAddress || '',
+            city: p.city || '',
+            address: p.address || '',
+            fatherName: p.fatherName || '',
+            fatherOccupation: p.fatherOccupation || '',
+            motherName: p.motherName || '',
+            motherOccupation: p.motherOccupation || '',
+            fatherMobile: p.fatherMobile || '',
+            motherMobile: p.motherMobile || '',
+            siblingsMobile: p.siblingsMobile || '',
+            numBrothers: p.numBrothers || 0,
+            numMarriedBrothers: p.numMarriedBrothers || 0,
+            numSisters: p.numSisters || 0,
+            numMarriedSisters: p.numMarriedSisters || 0,
+            employedSiblingsDetails: p.employedSiblingsDetails || '',
+            siblingDisability: p.siblingDisability || 'No',
+            homeOwnership: p.homeOwnership || 'owned',
+            homeSize: p.homeSize || 'kanal',
+            areaValue: p.areaValue || 0,
+            matchCriteria: p.matchCriteria || '',
+            desiredMatchDetails: p.desiredMatchDetails || '',
+            reference: p.reference || '',
+            referenceRelation: p.referenceRelation || '',
+            acceptMarriedPerson: p.acceptMarriedPerson || (p.gender === 'female' ? 'No' : undefined),
+            gender: (p.gender === 'male' || p.gender === 'female') ? p.gender : userGender,
+            photo: p.photo || '',
+          };
+          setFormData(merged);
+          // Clear draft once DB data is loaded
+          localStorage.removeItem(DRAFT_KEY);
+        } else {
+          // Fall back to draft if no DB data yet
+          const draft = localStorage.getItem(DRAFT_KEY);
+          if (draft) {
+            try { setFormData(JSON.parse(draft)); } catch {}
+          }
+        }
+      })
+      .catch(() => {
+        // Network error — try draft
+        const draft = localStorage.getItem(DRAFT_KEY);
+        if (draft) {
+          try { setFormData(JSON.parse(draft)); } catch {}
+        }
+      })
+      .finally(() => setProfileLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-save draft to localStorage on every formData change ──────────────
+  // Prevents data loss on accidental refresh
+  const saveDraft = useCallback((data: ProfileFormData) => {
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch {}
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Auto-format CNIC as user types
+    const formatted = name === 'cnic' ? formatCNIC(value) : value;
+    setFormData((prev) => {
+      const next = { ...prev, [name]: formatted };
+      saveDraft(next);
+      return next;
+    });
+    // Clear field error on change
+    if (fieldErrors[name]) setFieldErrors(prev => { const n = { ...prev }; delete n[name]; return n; });
   };
 
   // Guard: parseInt('') = NaN — fallback to 0, never store NaN in state
   const handleNumberChange = (name: string, value: number) => {
     const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
-    setFormData((prev) => ({ ...prev, [name]: safe }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: safe };
+      saveDraft(next);
+      return next;
+    });
   };
 
   const calculateAge = (dob: string) => {
@@ -136,7 +288,22 @@ export default function ProfileWizard() {
   const handleDOBChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dob = e.target.value;
     const age = calculateAge(dob);
-    setFormData((prev) => ({ ...prev, dateOfBirth: dob, age }));
+    const ageErr = validateAge(dob);
+    if (ageErr) setFieldErrors(prev => ({ ...prev, dateOfBirth: ageErr }));
+    else setFieldErrors(prev => { const n = { ...prev }; delete n.dateOfBirth; return n; });
+    setFormData((prev) => {
+      const next = { ...prev, dateOfBirth: dob, age };
+      saveDraft(next);
+      return next;
+    });
+  };
+
+  const handleDeletePhoto = () => {
+    setFormData((prev) => {
+      const next = { ...prev, photo: '' };
+      saveDraft(next);
+      return next;
+    });
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,9 +322,15 @@ export default function ProfileWizard() {
     }
 
     setError(null);
-    const result = await uploadFile(file, 'profiles');
+    const result = await uploadProfilePhoto(file);
     if (result?.url) {
-      setFormData((prev) => ({ ...prev, photo: result.url }));
+      setFormData((prev) => {
+        const next = { ...prev, photo: result.url };
+        saveDraft(next);
+        return next;
+      });
+      // Clear photo field error on success
+      setFieldErrors(prev => { const n = { ...prev }; delete n.photo; return n; });
     }
   };
 
@@ -181,6 +354,7 @@ export default function ProfileWizard() {
         return;
       }
 
+      // Phone fields are already stored as +CC digits (set by PhoneInput onChange)
       const payload = {
         ...formData,
         _id: user._id,
@@ -213,6 +387,9 @@ export default function ProfileWizard() {
         localStorage.setItem('user', JSON.stringify(u));
       }
 
+      // Draft no longer needed — profile is saved to DB
+      localStorage.removeItem(DRAFT_KEY);
+
       setLocation('/app/matches');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error saving profile');
@@ -226,8 +403,12 @@ export default function ProfileWizard() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">Personal Details</h2>
       <div>
-        <label className="block text-sm font-medium text-gray-700">Name *</label>
-        <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" placeholder="Your full name" />
+        <label className="block text-sm font-medium text-gray-700">Full Name <span className="text-red-500">*</span></label>
+        <input type="text" name="name" value={formData.name} onChange={handleInputChange}
+          data-error={fieldErrors.name ? 'true' : undefined}
+          className={`mt-1 block w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 ${fieldErrors.name ? 'border-red-400' : 'border-gray-300'}`}
+          placeholder="Your full name (e.g. Ahmad Ali)" />
+        {fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
       </div>
       {/* Gender — explicit required field, never inferred silently */}
       <div>
@@ -245,9 +426,13 @@ export default function ProfileWizard() {
       </div>
 
       {/* Profile Photo — required for matching */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Profile Photo *</label>
-        <p className="text-xs text-gray-500 mb-2">Required. JPEG/PNG/WebP only, max 5MB. Only appropriate, family-friendly photos allowed.</p>
+      <div data-error={fieldErrors.photo ? 'true' : undefined}>
+        <label className="block text-sm font-medium text-gray-700">Profile Photo <span className="text-red-500">*</span></label>
+        <p className="text-xs text-gray-500 mb-2">
+          Required. JPEG/PNG/WebP, max 5 MB, min 200×200 px.
+          Must show a real human face — logos, animals, landscapes, and screenshots are rejected.
+        </p>
+        {fieldErrors.photo && <p className="text-xs text-red-600 mb-2 font-medium">{fieldErrors.photo}</p>}
 
         <div className="flex items-start gap-4">
           {/* Preview */}
@@ -272,8 +457,25 @@ export default function ProfileWizard() {
                 disabled={uploading}
                 className="hidden"
               />
-              {uploading ? `Uploading ${progress}%…` : formData.photo ? 'Change Photo' : 'Upload Photo'}
+              {checking
+                ? '🔍 Verifying photo…'
+                : uploading
+                ? `Uploading ${progress}%…`
+                : formData.photo
+                ? 'Change Photo'
+                : 'Upload Photo'}
             </label>
+
+            {/* Delete photo button — only shown when photo exists */}
+            {formData.photo && !uploading && (
+              <button
+                type="button"
+                onClick={handleDeletePhoto}
+                className="ml-2 px-3 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                Remove
+              </button>
+            )}
 
             {/* Progress bar */}
             {uploading && (
@@ -297,7 +499,9 @@ export default function ProfileWizard() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Date of Birth *</label>
-          <input type="date" value={formData.dateOfBirth} onChange={handleDOBChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <input type="date" value={formData.dateOfBirth} onChange={handleDOBChange}
+            className={`mt-1 block w-full px-3 py-2 border rounded-lg ${fieldErrors.dateOfBirth ? 'border-red-400' : 'border-gray-300'}`} />
+          {fieldErrors.dateOfBirth && <p className="text-xs text-red-600 mt-1">{fieldErrors.dateOfBirth}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Age (Auto)</label>
@@ -307,17 +511,28 @@ export default function ProfileWizard() {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Height (ft.in) *</label>
-          <input type="text" name="height" value={formData.height} onChange={handleInputChange} placeholder="e.g., 5.9" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <input type="text" name="height" value={formData.height} onChange={handleInputChange} placeholder="e.g., 5.9" className={`mt-1 block w-full px-3 py-2 border rounded-lg ${fieldErrors.height ? 'border-red-400' : 'border-gray-300'}`} />
+          {fieldErrors.height && <p className="text-xs text-red-600 mt-1">{fieldErrors.height}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Caste *</label>
-          <input type="text" name="caste" value={formData.caste} onChange={handleInputChange} placeholder="e.g., Sheikh, Syed, Awan" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <SearchableSelect
+            label="Caste *" name="caste" value={formData.caste}
+            options={CASTES} allowCustom
+            onChange={v => { setFormData(p => { const n = { ...p, caste: v }; saveDraft(n); return n; }); }}
+            placeholder="Search caste…" required error={fieldErrors.caste}
+            helperText="Type to search. If not found, type and press Enter."
+          />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Mother Tongue</label>
-          <input type="text" name="motherTongue" value={formData.motherTongue} onChange={handleInputChange} placeholder="e.g., Urdu, Punjabi" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <SearchableSelect
+            label="Mother Tongue" name="motherTongue" value={formData.motherTongue}
+            options={LANGUAGES} allowCustom
+            onChange={v => { setFormData(p => { const n = { ...p, motherTongue: v }; saveDraft(n); return n; }); }}
+            placeholder="e.g., Urdu, Punjabi…"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Physical Disability</label>
@@ -329,15 +544,19 @@ export default function ProfileWizard() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Religion</label>
-          <select name="religion" value={formData.religion} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg">
-            <option value="Islam">Islam</option>
-            <option value="Other">Other</option>
-          </select>
+          <SearchableSelect
+            label="Religion" name="religion" value={formData.religion}
+            options={RELIGIONS}
+            onChange={v => { setFormData(p => { const n = { ...p, religion: v }; saveDraft(n); return n; }); }}
+          />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">School of Thought / Sect</label>
-          <input type="text" name="sect" value={formData.sect} onChange={handleInputChange} placeholder="e.g., Sunni, Shia" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <SearchableSelect
+            label="School of Thought / Sect" name="sect" value={formData.sect}
+            options={SECTS} allowCustom
+            onChange={v => { setFormData(p => { const n = { ...p, sect: v }; saveDraft(n); return n; }); }}
+            placeholder="Search sect…"
+          />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -351,91 +570,122 @@ export default function ProfileWizard() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">CNIC Number</label>
-          <input type="text" name="cnic" value={formData.cnic} onChange={handleInputChange} placeholder="e.g., 12345-1234567-1" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <input type="text" name="cnic" value={formData.cnic} onChange={handleInputChange} placeholder="e.g., 12345-1234567-1" maxLength={15}
+            className={`mt-1 block w-full px-3 py-2 border rounded-lg ${fieldErrors.cnic ? 'border-red-400' : 'border-gray-300'}`} />
+          {fieldErrors.cnic && <p className="text-xs text-red-600 mt-1">{fieldErrors.cnic}</p>}
         </div>
       </div>
     </div>
   );
 
-  const renderStep2 = () => (
+  const renderStep2 = () => {
+    const designationSuggestions = formData.profession
+      ? (DESIGNATIONS_BY_PROFESSION[formData.profession] ?? GENERIC_DESIGNATIONS)
+      : GENERIC_DESIGNATIONS;
+
+    return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">Education & Employment</h2>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Educational Qualification *</label>
-        <select name="education" value={formData.education} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg">
-          <option value="">Select Education</option>
-          <option value="Matric">Matric</option>
-          <option value="Intermediate">Intermediate</option>
-          <option value="Bachelors">Bachelors</option>
-          <option value="Masters">Masters</option>
-          <option value="PhD">PhD</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">College/University</label>
-        <input type="text" name="institution" value={formData.institution} onChange={handleInputChange} placeholder="Name of institution" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Profession/Occupation *</label>
-        <select name="profession" value={formData.profession} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg">
-          <option value="">Select Profession</option>
-          <option value="Engineer">Engineer</option>
-          <option value="Doctor">Doctor</option>
-          <option value="Teacher">Teacher</option>
-          <option value="Businessman">Businessman</option>
-          <option value="Accountant">Accountant</option>
-          <option value="Lawyer">Lawyer</option>
-          <option value="IT Professional">IT Professional</option>
-          <option value="Housewife">Housewife</option>
-          <option value="Student">Student</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
+
+      <SearchableSelect
+        label="Educational Qualification *" name="education" value={formData.education}
+        options={EDUCATION_LEVELS} required
+        onChange={v => { setFormData(p => { const n = { ...p, education: v }; saveDraft(n); return n; }); }}
+        placeholder="Select education level…"
+        error={fieldErrors.education}
+      />
+
+      <SearchableSelect
+        label="College / University / Institution" name="institution" value={formData.institution}
+        options={PAKISTANI_UNIVERSITIES} allowCustom
+        onChange={v => { setFormData(p => { const n = { ...p, institution: v }; saveDraft(n); return n; }); }}
+        placeholder="Search institution…"
+        helperText="Start typing to search. Select 'Other / Not Listed' if not found."
+      />
+
+      <SearchableSelect
+        label="Profession / Occupation *" name="profession" value={formData.profession}
+        options={PROFESSIONS} required
+        onChange={v => { setFormData(p => { const n = { ...p, profession: v, designation: '' }; saveDraft(n); return n; }); }}
+        placeholder="Search profession…" error={fieldErrors.profession}
+      />
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Job Type</label>
-          <select name="jobType" value={formData.jobType} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg">
+          <select name="jobType" value={formData.jobType} onChange={handleInputChange}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             <option value="">Select</option>
             <option value="Full-time">Full-time</option>
             <option value="Part-time">Part-time</option>
             <option value="Self-employed">Self-employed</option>
             <option value="Business">Business</option>
+            <option value="Freelance">Freelance</option>
+            <option value="Government">Government</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Designation</label>
-          <input type="text" name="designation" value={formData.designation} onChange={handleInputChange} placeholder="Job title" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <SearchableSelect
+            label="Designation" name="designation" value={formData.designation}
+            options={designationSuggestions} allowCustom
+            onChange={v => { setFormData(p => { const n = { ...p, designation: v }; saveDraft(n); return n; }); }}
+            placeholder="e.g., Software Engineer"
+            helperText="Suggestions based on profession"
+          />
         </div>
       </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700">Monthly Income Range</label>
-        <select name="monthlyIncome" value={formData.monthlyIncome} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg">
+        <select name="monthlyIncome" value={formData.monthlyIncome} onChange={handleInputChange}
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
           <option value="">Select Range</option>
-          <option value="30000-50000">30,000 - 50,000</option>
-          <option value="50000-100000">50,000 - 100,000</option>
-          <option value="100000-200000">100,000 - 200,000</option>
-          <option value="200000-500000">200,000 - 500,000</option>
-          <option value="500000+">500,000+</option>
+          {INCOME_RANGES.map(r => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
         </select>
+        <p className="text-xs text-gray-500 mt-1">Used for compatibility assessment. Not shown publicly.</p>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Office/Institution Address</label>
-        <textarea name="officeAddress" value={formData.officeAddress} onChange={handleInputChange} rows={3} placeholder="Office location details" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
-      </div>
+
+      <SearchableSelect
+        label="Office / Institution Address" name="officeAddress" value={formData.officeAddress}
+        options={[
+          'Arfa Software Technology Park, Ferozepur Road, Lahore',
+          'NUST, Islamabad', 'LUMS, DHA, Lahore', 'UET, G.T Road, Lahore',
+          'Government Hospital, Lahore', 'Shaukat Khanum Memorial Cancer Hospital, Lahore',
+          'Services Hospital, Lahore', 'Pakistan Institute of Medical Sciences, Islamabad',
+          'National Database and Registration Authority (NADRA), Islamabad',
+          'Securities and Exchange Commission of Pakistan (SECP), Islamabad',
+          'State Bank of Pakistan, Karachi', 'Habib Bank (HBL), Karachi',
+          ...ALL_PK_AREAS.map(a => `Office, ${a}`),
+        ]} allowCustom
+        onChange={v => { setFormData(p => { const n = { ...p, officeAddress: v }; saveDraft(n); return n; }); }}
+        placeholder="e.g., Arfa Software Park, Ferozepur Road, Lahore"
+        helperText="Start typing office name or area. Leave blank if not applicable."
+      />
     </div>
   );
+  };
 
   const renderStep3 = () => (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">Family & Residence</h2>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">City/Country *</label>
-        <input type="text" name="city" value={formData.city} onChange={handleInputChange} placeholder="e.g., Lahore, Karachi" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Residential Address</label>
-        <textarea name="address" value={formData.address} onChange={handleInputChange} rows={3} placeholder="Full address" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
-      </div>
+
+      <SearchableSelect
+        label="City *" name="city" value={formData.city}
+        options={CITIES} allowCustom required
+        onChange={v => { setFormData(p => { const n = { ...p, city: v }; saveDraft(n); return n; }); }}
+        placeholder="Search city…" error={fieldErrors.city}
+        helperText="Select your current city of residence."
+      />
+
+      <SearchableSelect
+        label="Residential Area" name="address" value={formData.address}
+        options={ALL_PK_AREAS} allowCustom
+        onChange={v => { setFormData(p => { const n = { ...p, address: v }; saveDraft(n); return n; }); }}
+        placeholder="e.g., DHA Phase 5, Lahore…"
+        helperText="Select your area or type your full address (e.g. House 12, Block C, Johar Town, Lahore)"
+      />
       <div className="border-t pt-4">
         <h3 className="font-semibold text-gray-900 mb-4">Parents Information</h3>
         <div className="grid grid-cols-2 gap-4">
@@ -444,8 +694,12 @@ export default function ProfileWizard() {
             <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Father's Occupation</label>
-            <input type="text" name="fatherOccupation" value={formData.fatherOccupation} onChange={handleInputChange} placeholder="Job or business" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            <SearchableSelect
+              label="Father's Occupation" name="fatherOccupation" value={formData.fatherOccupation}
+              options={OCCUPATIONS} allowCustom
+              onChange={v => { setFormData(p => { const n = { ...p, fatherOccupation: v }; saveDraft(n); return n; }); }}
+              placeholder="e.g., Businessman, Retired…"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 mt-4">
@@ -454,13 +708,27 @@ export default function ProfileWizard() {
             <input type="text" name="motherName" value={formData.motherName} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Mother's Occupation</label>
-            <input type="text" name="motherOccupation" value={formData.motherOccupation} onChange={handleInputChange} placeholder="Job, business or housewife" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+            <SearchableSelect
+              label="Mother's Occupation" name="motherOccupation" value={formData.motherOccupation}
+              options={OCCUPATIONS} allowCustom
+              onChange={v => { setFormData(p => { const n = { ...p, motherOccupation: v }; saveDraft(n); return n; }); }}
+              placeholder="e.g., Housewife, Teacher…"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 mt-4">
-          <input type="tel" name="fatherMobile" value={formData.fatherMobile} onChange={handleInputChange} placeholder="Father's Mobile" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
-          <input type="tel" name="motherMobile" value={formData.motherMobile} onChange={handleInputChange} placeholder="Mother's Mobile" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <PhoneInput
+            label="Father's Mobile"
+            value={formData.fatherMobile}
+            onChange={(normalized) => { setFormData(p => { const n = { ...p, fatherMobile: normalized }; saveDraft(n); return n; }); }}
+            error={fieldErrors.fatherMobile}
+          />
+          <PhoneInput
+            label="Mother's Mobile"
+            value={formData.motherMobile}
+            onChange={(normalized) => { setFormData(p => { const n = { ...p, motherMobile: normalized }; saveDraft(n); return n; }); }}
+            error={fieldErrors.motherMobile}
+          />
         </div>
       </div>
       <div className="border-t pt-4">
@@ -485,9 +753,19 @@ export default function ProfileWizard() {
             <input type="number" min="0" value={formData.numMarriedSisters} onChange={(e) => handleNumberChange('numMarriedSisters', parseInt(e.target.value) || 0)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
           </div>
         </div>
-        <div className="mt-4">
-          <input type="tel" name="siblingsMobile" value={formData.siblingsMobile} onChange={handleInputChange} placeholder="Sibling's Mobile Number" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
-        </div>
+        {/* Sibling contact — only shown (and required) when siblings > 0 */}
+        {(formData.numBrothers > 0 || formData.numSisters > 0) && (
+          <div className="mt-4" data-error={fieldErrors.siblingsMobile ? 'true' : undefined}>
+            <PhoneInput
+              label="Sibling's Mobile"
+              value={formData.siblingsMobile}
+              required
+              onChange={(normalized) => { setFormData(p => { const n = { ...p, siblingsMobile: normalized }; saveDraft(n); return n; }); }}
+              error={fieldErrors.siblingsMobile}
+              helperText="Required when you have brothers or sisters"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -516,7 +794,9 @@ export default function ProfileWizard() {
         </div>
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700">Area Value</label>
-          <input type="number" name="areaValue" value={formData.areaValue || ''} onChange={(e) => handleNumberChange('areaValue', parseInt(e.target.value) || 0)} placeholder="e.g., 2500" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg" />
+          <input type="number" name="areaValue" value={formData.areaValue || ''} onChange={(e) => handleNumberChange('areaValue', parseInt(e.target.value) || 0)} placeholder="e.g., 2500"
+            className={`mt-1 block w-full px-3 py-2 border rounded-lg ${fieldErrors.areaValue ? 'border-red-400' : 'border-gray-300'}`} />
+          {fieldErrors.areaValue && <p className="text-xs text-red-600 mt-1">{fieldErrors.areaValue}</p>}
         </div>
       </div>
       <div className="border-t pt-4">
@@ -553,7 +833,83 @@ export default function ProfileWizard() {
     </div>
   );
 
+  // ── Per-step validation before advancing ──────────────────────────────────
+  const validateStep = (s: number): boolean => {
+    const errs: Record<string, string> = {};
+
+    if (s === 1) {
+      if (!formData.name.trim() || formData.name.trim().length < 2)
+        errs.name = 'Full name is required (min 2 characters)';
+      if (!formData.gender)
+        errs.gender = 'Please select your gender';
+      if (!formData.photo)
+        errs.photo = 'Profile photo is required before proceeding';
+      if (!formData.dateOfBirth) {
+        errs.dateOfBirth = 'Date of birth is required';
+      } else {
+        const ageErr = validateAge(formData.dateOfBirth);
+        if (ageErr) errs.dateOfBirth = ageErr;
+      }
+      const heightErr = validateHeight(formData.height);
+      if (heightErr) errs.height = heightErr;
+      const cnicErr = validateCNIC(formData.cnic);
+      if (cnicErr) errs.cnic = cnicErr;
+    }
+
+    if (s === 2) {
+      if (!formData.education)
+        errs.education = 'Education level is required';
+      if (!formData.profession)
+        errs.profession = 'Profession is required';
+    }
+
+    if (s === 3) {
+      if (!formData.city.trim())
+        errs.city = 'City is required';
+      if (!formData.caste.trim())
+        errs.caste = 'Caste is required';
+      // Conditional: siblings mobile required only if there are siblings
+      const hasSiblings = formData.numBrothers > 0 || formData.numSisters > 0;
+      if (hasSiblings && !formData.siblingsMobile) {
+        errs.siblingsMobile = 'Please provide a sibling contact number';
+      }
+      // Married counts must not exceed total counts
+      if (formData.numMarriedBrothers > formData.numBrothers)
+        errs.numMarriedBrothers = `Cannot exceed total brothers (${formData.numBrothers})`;
+      if (formData.numMarriedSisters > formData.numSisters)
+        errs.numMarriedSisters = `Cannot exceed total sisters (${formData.numSisters})`;
+    }
+
+    if (s === 4) {
+      const areaErr = validateHouseArea(formData.areaValue);
+      if (areaErr) errs.areaValue = areaErr;
+    }
+
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      scrollToFirstError();
+      return false;
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep(step)) setStep(s => Math.min(totalSteps, s + 1));
+  };
+
   const totalSteps = 4;
+
+  // Show spinner while loading saved profile data
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-10 w-10 border-4 border-gray-200 border-t-green-600 rounded-full mx-auto mb-3" />
+          <p className="text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -566,11 +922,11 @@ export default function ProfileWizard() {
           <div className="h-full bg-green-600 transition-all" style={{ width: `${(step / totalSteps) * 100}%` }} />
         </div>
         {error && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">{error}</div>}
-        <div className="bg-white p-8 rounded-lg shadow-md">{step === 1 && renderStep1()}{step === 2 && renderStep2()}{step === 3 && renderStep3()}{step === 4 && renderStep4()}</div>
+        <div ref={formRef} className="bg-white p-8 rounded-lg shadow-md">{step === 1 && renderStep1()}{step === 2 && renderStep2()}{step === 3 && renderStep3()}{step === 4 && renderStep4()}</div>
         <div className="mt-8 flex justify-between gap-4">
           <button onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50">Previous</button>
           {step < totalSteps ? (
-            <button onClick={() => setStep(step + 1)} className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Next</button>
+            <button onClick={handleNext} className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Next</button>
           ) : (
             <button onClick={handleSubmit} disabled={loading} className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">{loading ? 'Saving...' : 'Complete Profile'}</button>
           )}
