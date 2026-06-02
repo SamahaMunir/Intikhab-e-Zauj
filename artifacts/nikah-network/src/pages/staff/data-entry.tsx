@@ -97,6 +97,7 @@ export default function StaffDataEntry() {
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`, // ✅ USE TOKEN VARIABLE
+          
         },
         body: JSON.stringify({
           name: formData.name,
