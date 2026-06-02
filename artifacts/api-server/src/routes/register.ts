@@ -41,13 +41,28 @@ if (password.length < 6) {
     const db = await getDatabase();
     const profilesCollection = db.collection('profiles');
 
-    // ✅ CHECK DUPLICATE EMAIL & PHONE
+    // Normalize phone to +92XXXXXXXXXX so comparison is format-agnostic
+    const normalizePhone = (raw: string): string => {
+      const digits = raw.replace(/\D/g, '');
+      if (digits.startsWith('92') && digits.length === 12) return `+${digits}`;
+      if (digits.startsWith('0')  && digits.length === 11) return `+92${digits.slice(1)}`;
+      if (digits.length === 10)                            return `+92${digits}`;
+      return raw;
+    };
+    const normalizedPhone = normalizePhone(phone);
+
+    // CHECK DUPLICATE EMAIL & PHONE — compare normalized forms
     const existingUser = await profilesCollection.findOne({
-  $or: [
-    { email: { $regex: `^${email}$`, $options: 'i' } },
-    { phone },
-  ],
-});
+      $or: [
+        { email: { $regex: `^${email.trim()}$`, $options: 'i' } },
+        // Match stored in any of the common formats
+        { phone: { $in: [
+          phone,
+          normalizedPhone,
+          normalizePhone(phone),
+        ]}},
+      ],
+    });
 
     if (existingUser) {
       return res.status(409).json({
@@ -106,7 +121,7 @@ emailVerified: true,  // ✅ Skip verification for now
     };
 
     // ✅ INSERT ONCE - NO DUPLICATION
-    const result = await profilesCollection.insertOne(newUser);
+    await profilesCollection.insertOne(newUser);
     console.log(`✅ User profile created: ${email}`);
 
     // ✅ SEND VERIFICATION EMAIL
