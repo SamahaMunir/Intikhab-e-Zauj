@@ -22,11 +22,15 @@ router.post(
         fatherMobile, motherMobile, siblingsMobile, numBrothers, numMarriedBrothers,
         numSisters, numMarriedSisters, employedSiblingsDetails, siblingDisability,
         homeOwnership, homeSize, areaValue, matchCriteria, desiredMatchDetails,
-        reference, referenceRelation, acceptMarriedPerson, gender,
+        reference, referenceRelation, acceptMarriedPerson, gender, photo,
       } = req.body;
 
       if (!name || !caste || !city || !profession) {
         res.status(400).json({ error: 'Name, caste, city, and profession are required' });
+        return;
+      }
+      if (!photo) {
+        res.status(400).json({ error: 'Profile photo is required' });
         return;
       }
 
@@ -80,6 +84,7 @@ router.post(
             acceptMarriedPerson: acceptMarriedPerson || null,
             // Only update gender if wizard explicitly sent a valid value
             ...(gender === 'male' || gender === 'female' ? { gender } : {}),
+            photo: photo || '',       // Cloudinary URL
             profileCompletion: 100,
             profileStatus: 'pending',
           },
