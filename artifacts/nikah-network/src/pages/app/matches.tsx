@@ -46,25 +46,35 @@ const Matches: React.FC = () => {
   const user = storedUser ? JSON.parse(storedUser) : null;
   const userId = user?._id;
 
+  const profileCompletion = user?.profileCompletion ?? 0;
+  const profileComplete = profileCompletion >= 100;
+
   useEffect(() => {
     if (!userId) {
       setError('Please log in to view matches.');
       setIsLoading(false);
       return;
     }
+    if (!profileComplete) {
+      // Don't call API — profile not complete
+      setIsLoading(false);
+      return;
+    }
     loadMatches();
-  }, [userId]);
+  }, [userId, profileComplete]);
 
   const loadMatches = async () => {
     try {
       setIsLoading(true);
       setError(null);
+
+      // Always regenerate on first load — ensures gender-correct matches
+      // (repairs any DB corruption, clears stale records from prev session)
+      console.log(`🔄 Regenerating matches for user ${userId} (gender: ${user?.gender || 'unknown'})`);
+      await matchingService.generateMatches(userId);
+
       const res = await matchingService.getMatches(userId);
-      if (!res.matches || res.total === 0) {
-        await generateMatches();
-        return;
-      }
-      setMatches(dedup(res.matches));
+      setMatches(dedup(res.matches || []));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load matches');
     } finally {
@@ -99,6 +109,44 @@ const Matches: React.FC = () => {
     s >= 75 ? 'border-l-green-500' : s >= 60 ? 'border-l-orange-400' : s >= 40 ? 'border-l-yellow-400' : 'border-l-red-400';
   const getBgColor = (s: number) =>
     s >= 75 ? 'bg-green-50' : s >= 60 ? 'bg-orange-50' : s >= 40 ? 'bg-yellow-50' : 'bg-gray-50';
+
+  // ── PROFILE INCOMPLETE GATE ───────────────────────────────────────────────
+  if (!profileComplete) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-md max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">🔒</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Matchmaking Locked</h2>
+          <p className="text-gray-600 mb-4">
+            Complete your profile to unlock matchmaking and view potential matches.
+          </p>
+          <div className="bg-gray-100 rounded-lg p-3 mb-6">
+            <div className="flex justify-between text-sm text-gray-700 mb-1">
+              <span>Profile completion</span>
+              <span className="font-bold">{profileCompletion}%</span>
+            </div>
+            <div className="h-2 bg-gray-300 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-500 rounded-full transition-all"
+                style={{ width: `${profileCompletion}%` }}
+              />
+            </div>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">
+            Required: profile photo, name, gender, caste, city, and profession.
+          </p>
+          <a
+            href="/profile-wizard"
+            className="block w-full py-3 px-6 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+          >
+            Complete My Profile
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || isGenerating) {
     return (
