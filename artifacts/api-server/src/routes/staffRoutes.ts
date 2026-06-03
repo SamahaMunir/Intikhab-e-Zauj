@@ -310,22 +310,18 @@ router.post(
   async (req: AuthRequest, res: Response): Promise<any> => {
     try {
       const {
-        name,
-        email,
-        phone,
-        gender,
-        dob,
-        city,
-        education,
-        profession,
-        income,
-        caste,
-        height,
-        houseStatus,
-        bio,
-        photo,
-        source,
-        notes,
+        name, email, phone, gender, dob, city, education, profession,
+        income, monthlyIncome, caste, height, houseStatus, homeOwnership,
+        homeSize, areaValue, bio, photo, source, notes,
+        institution, jobType, designation, officeAddress, address,
+        motherTongue, disability, religion, sect, prayerRegularity, cnic,
+        fatherName, fatherOccupation, motherName, motherOccupation,
+        fatherMobile, motherMobile, siblingsMobile,
+        numBrothers, numMarriedBrothers, numSisters, numMarriedSisters,
+        employedSiblingsDetails, siblingDisability,
+        matchCriteria, desiredMatchDetails, acceptMarriedPerson,
+        reference, referenceRelation,
+        enteredBy, enteredAt,
       } = req.body;
 
       // Validate required fields
@@ -351,46 +347,82 @@ router.post(
         return;
       }
 
-      // Create new profile with ALL required fields for matching
+      const resolvedIncome = monthlyIncome || income || '';
+      const resolvedHouseStatus = homeOwnership || houseStatus || 'owned';
+
       const newProfile = {
         _id: new ObjectId(),
-        
-        // IDENTITY
+        // Identity
         name,
         email: email || `${phone}@intikhab-pending.pk`,
         phone,
         gender,
         dob: new Date(dob),
-        
-        // ROLE & STATUS
+        // Role & status
         role: 'applicant',
         profileStatus: 'pending',
         active: true,
-        
-        // PROFILE DATA - ✅ ALL FIELDS REQUIRED FOR MATCHING
+        // Personal
         city,
-        education: education || 'Not specified',
-        profession: profession || 'Not specified',
-        income: income || 'Not specified',
-        caste: caste || 'Not specified',
-        height: height || 'Not specified',
-        houseStatus: houseStatus || 'Not specified',
-        bio: bio || '',
+        caste:            caste            || '',
+        height:           height           || '',
+        motherTongue:     motherTongue     || '',
+        disability:       disability       || 'No',
+        religion:         religion         || 'Islam',
+        sect:             sect             || '',
+        prayerRegularity: prayerRegularity || 'Regular',
+        cnic:             cnic             || '',
+        bio:              bio              || '',
+        // Career
+        education:    education    || '',
+        institution:  institution  || '',
+        profession:   profession   || '',
+        jobType:      jobType      || '',
+        designation:  designation  || '',
+        monthlyIncome: resolvedIncome,
+        income:        resolvedIncome,
+        officeAddress: officeAddress || '',
+        // Location & home
+        address:      address      || '',
+        homeOwnership: resolvedHouseStatus,
+        houseStatus:   resolvedHouseStatus,
+        homeSize:      homeSize    || 'kanal',
+        areaValue:     Number(areaValue) || 0,
+        houseArea:     String(areaValue || ''),
+        // Family
+        fatherName:            fatherName            || '',
+        fatherOccupation:      fatherOccupation      || '',
+        motherName:            motherName            || '',
+        motherOccupation:      motherOccupation      || '',
+        fatherMobile:          fatherMobile          || '',
+        motherMobile:          motherMobile          || '',
+        siblingsMobile:        siblingsMobile        || '',
+        numBrothers:           Number(numBrothers)   || 0,
+        numMarriedBrothers:    Number(numMarriedBrothers) || 0,
+        numSisters:            Number(numSisters)    || 0,
+        numMarriedSisters:     Number(numMarriedSisters)  || 0,
+        employedSiblingsDetails: employedSiblingsDetails || '',
+        siblingDisability:     siblingDisability     || 'No',
+        // Preferences
+        matchCriteria:       matchCriteria       || '',
+        desiredMatchDetails: desiredMatchDetails || '',
+        acceptMarriedPerson: acceptMarriedPerson || null,
+        reference:           reference           || '',
+        referenceRelation:   referenceRelation   || '',
+        // Photo
         photo: photo || null,
-        
-        // COMPLETION & PAYMENT
-        profileCompletion: 60,
-        paymentStatus: 'pending',
-        emailVerified: false,
-        
-        // TIMESTAMPS & METADATA
-        source: source || 'staff_entry',
-        notes: notes || '',
-        enteredBy: req.user!.email,
+        // Completion & payment
+        profileCompletion: 75,
+        paymentStatus:     'pending',
+        emailVerified:     false,
+        // Staff metadata
+        source:        source        || 'staff_entry',
+        notes:         notes         || '',
+        enteredBy:     enteredBy     || req.user!.email,
         enteredByName: req.user!.name || 'Unknown',
-        enteredAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        enteredAt:     enteredAt ? new Date(enteredAt) : new Date(),
+        createdAt:     new Date(),
+        updatedAt:     new Date(),
       };
 
       // Insert profile
