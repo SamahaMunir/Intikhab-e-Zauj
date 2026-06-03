@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
-import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
+import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
 
 const API = 'http://localhost:5000';
 
@@ -110,15 +110,22 @@ interface SectionEditorProps {
 function SectionEditor({ section, profile, onSave, onClose }: SectionEditorProps) {
   const [draft, setDraft] = useState<Partial<Profile>>({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const set = (k: keyof Profile, v: string | number) => setDraft(d => ({ ...d, [k]: v }));
   const get = (k: keyof Profile): string => (String((draft as any)[k] ?? (profile as any)[k] ?? ''));
   const getN = (k: keyof Profile): number => Number((draft as any)[k] ?? (profile as any)[k] ?? 0);
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(draft);
-    setSaving(false);
-    onClose();
+    setSaveError(null);
+    try {
+      await onSave(draft);
+      onClose();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500';
@@ -244,6 +251,11 @@ function SectionEditor({ section, profile, onSave, onClose }: SectionEditorProps
           </>}
         </div>
 
+        {saveError && (
+          <div className="mx-5 mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {saveError}
+          </div>
+        )}
         <div className="flex justify-end gap-3 p-5 border-t border-gray-100">
           <button onClick={onClose} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
           <button onClick={handleSave} disabled={saving || Object.keys(draft).length === 0}
@@ -268,27 +280,86 @@ export default function AppProfile() {
   const [photoLoading, setPhotoLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { uploadProfilePhoto, checking, isFaceDetectionSupported } = useCloudinaryUpload();
-  const token = localStorage.getItem('token');
+  const { uploadProfilePhoto, checking, error: uploadErr } = useCloudinaryUpload();
+  // Token read fresh on each save — avoids stale closure from render time
 
   // ── Load profile ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!token) { setLocation('/login'); return; }
-    fetch(`${API}/api/profile/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => { if (r.status === 401) { setLocation('/login'); return null; } return r.json(); })
-      .then(d => { if (d?.profile) setProfile({ ...EMPTY, ...d.profile }); })
-      .catch(() => setError('Failed to load profile. Please refresh.'))
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) {
+      console.warn('[Profile] No token found → redirect to login');
+      setLocation('/login');
+      return;
+    }
+
+    console.log('[Profile] Fetching /api/profile/me…');
+    fetch(`${API}/api/profile/me`, {
+      headers: {
+        Authorization: `Bearer ${storedToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+      .then(r => {
+        console.log(`[Profile] /api/profile/me → ${r.status}`);
+        if (r.status === 401) {
+          // Token expired or invalid → clear and redirect
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setLocation('/login');
+          return null;
+        }
+        return r.json();
+      })
+      .then(d => {
+        if (!d) return;
+        if (d.profile) {
+          setProfile({ ...EMPTY, ...d.profile });
+        } else if (d.error) {
+          setError(d.error);
+        }
+      })
+      .catch(err => {
+        console.error('[Profile] Fetch error:', err);
+        setError('Failed to load profile. Please refresh the page.');
+      })
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Save section ────────────────────────────────────────────────────────────
   const handleSaveSection = async (fields: Partial<Profile>) => {
-    const res = await fetch(`${API}/api/profile/me/update`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(fields),
-    });
-    if (!res.ok) throw new Error('Save failed');
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      localStorage.removeItem('user');
+      setLocation('/login');
+      throw new Error('Session expired. Please log in again.');
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(`${API}/api/profile/me/update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentToken}` },
+        body: JSON.stringify(fields),
+      });
+    } catch (networkErr) {
+      console.error('[Profile] Network error on save:', networkErr);
+      throw new Error('Network error — check your connection and try again.');
+    }
+
+    console.log(`[Profile] PATCH /api/profile/me/update → ${res.status}`);
+
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setLocation('/login');
+      throw new Error('Session expired. Please log in again.');
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error((body as any).error || `Save failed (${res.status})`);
+    }
+
     setProfile(p => ({ ...p, ...fields }));
   };
 
@@ -296,23 +367,25 @@ export default function AppProfile() {
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (fileRef.current) fileRef.current.value = ''; // allow re-select same file
     setPhotoError(null);
     setPhotoLoading(true);
+    resetFaceDetection(); // Allow fresh model-load attempt on each file pick
 
     const result = await uploadProfilePhoto(file);
     setPhotoLoading(false);
 
     if (result?.url) {
-      await handleSaveSection({ photo: result.url });
+      try {
+        await handleSaveSection({ photo: result.url });
+        setPhotoError(null);
+      } catch (err) {
+        setPhotoError(err instanceof Error ? err.message : 'Failed to save photo. Please try again.');
+      }
     } else {
-      // error is already in useCloudinaryUpload hook but we show it here too
-      const msg = checking
-        ? 'Photo verification failed.'
-        : 'Upload failed. Please try again.';
-      setPhotoError(msg);
+      // Error from hook: face detection rejection, size/type error, network error, etc.
+      setPhotoError(uploadErr ?? 'Upload failed. Please try again.');
     }
-    // Clear input so same file can be re-selected
-    if (fileRef.current) fileRef.current.value = '';
   };
 
   // ── Derived display values ──────────────────────────────────────────────────
@@ -351,7 +424,8 @@ export default function AppProfile() {
             <div className="relative shrink-0">
               <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-gray-100 flex items-center justify-center">
                 {profile.photo ? (
-                  <img src={profile.photo} alt={profile.name} className="w-full h-full object-cover"
+                  <img src={profile.photo} alt={profile.name} crossOrigin="anonymous"
+                    className="w-full h-full object-cover"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
                   <span className="text-4xl text-gray-300">👤</span>
@@ -361,11 +435,11 @@ export default function AppProfile() {
               {/* Change photo button */}
               <button
                 onClick={() => fileRef.current?.click()}
-                disabled={photoLoading}
-                className="absolute -bottom-1 -right-1 w-7 h-7 bg-green-600 text-white rounded-full flex items-center justify-center shadow hover:bg-green-700 transition-colors text-xs"
-                title="Change profile photo"
+                disabled={photoLoading || checking}
+                className="absolute -bottom-1 -right-1 w-7 h-7 bg-green-600 text-white rounded-full flex items-center justify-center shadow hover:bg-green-700 transition-colors text-xs disabled:opacity-60"
+                title={checking ? 'Verifying face…' : 'Change profile photo'}
               >
-                {photoLoading ? '…' : '✎'}
+                {checking ? '🔍' : photoLoading ? '…' : '✎'}
               </button>
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
                 className="hidden" onChange={handlePhotoChange} />
@@ -405,11 +479,7 @@ export default function AppProfile() {
             </div>
           )}
 
-          {!isFaceDetectionSupported && (
-            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-              ⚠ Profile photo upload requires Chrome or Edge for face verification. Other browsers cannot upload photos.
-            </div>
-          )}
+          {/* face-api.js works in all browsers — no restriction */}
 
           {/* Completion bar */}
           <div className="mt-5">
