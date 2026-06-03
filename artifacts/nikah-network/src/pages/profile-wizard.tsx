@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
-import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
+import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
 import SearchableSelect from '@/components/SearchableSelect';
 import PhoneInput from '@/components/PhoneInput';
 import {
@@ -168,11 +168,32 @@ export default function ProfileWizard() {
       return;
     }
 
+    console.log('[Wizard] Fetching saved profile from API…');
+
     fetch(`${API}/api/profile/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
     })
-      .then(r => r.json())
+      .then(r => {
+        console.log(`[Wizard] /api/profile/me → ${r.status}`);
+        if (r.status === 401) {
+          // Token invalid or expired — clear session and continue without pre-fill
+          console.warn('[Wizard] Token rejected (401). User may need to re-login.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          // Don't redirect here — let user complete the wizard, they can log in again after
+          // Fall through to draft loading
+          const draft = localStorage.getItem(DRAFT_KEY);
+          if (draft) { try { setFormData(JSON.parse(draft)); } catch {} }
+          setProfileLoading(false);
+          return null;
+        }
+        return r.json();
+      })
       .then(data => {
+        if (!data) return;
         if (data?.profile) {
           const p = data.profile;
           // Map DB fields → form fields
@@ -309,19 +330,12 @@ export default function ProfileWizard() {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Client-side validation before hitting Cloudinary
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      setError('Invalid file type. Only JPEG, PNG, and WebP images allowed.');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image too large. Maximum 5MB allowed.');
-      return;
-    }
-
+    // Reset input so same file can be re-tried after error
+    e.target.value = '';
     setError(null);
+    // Allow fresh model-load attempt on each file pick (handles transient CDN failures)
+    resetFaceDetection();
+
     const result = await uploadProfilePhoto(file);
     if (result?.url) {
       setFormData((prev) => {
@@ -329,9 +343,9 @@ export default function ProfileWizard() {
         saveDraft(next);
         return next;
       });
-      // Clear photo field error on success
       setFieldErrors(prev => { const n = { ...prev }; delete n.photo; return n; });
     }
+    // uploadError from the hook is displayed directly in the photo section
   };
 
   const handleSubmit = async () => {
@@ -427,26 +441,40 @@ export default function ProfileWizard() {
 
       {/* Profile Photo — required for matching */}
       <div data-error={fieldErrors.photo ? 'true' : undefined}>
-        <label className="block text-sm font-medium text-gray-700">Profile Photo <span className="text-red-500">*</span></label>
+        <label className="block text-sm font-medium text-gray-700">
+          Profile Photo <span className="text-red-500">*</span>
+        </label>
         <p className="text-xs text-gray-500 mb-2">
-          Required. JPEG/PNG/WebP, max 5 MB, min 200×200 px.
-          Must show a real human face — logos, animals, landscapes, and screenshots are rejected.
+          Required. JPEG/PNG/WebP · max 5 MB · min 200×200 px.
+          Must show a real human face. Certificates, logos, screenshots, and objects are rejected.
         </p>
-        {fieldErrors.photo && <p className="text-xs text-red-600 mb-2 font-medium">{fieldErrors.photo}</p>}
+
+        {/* face-api.js works in all browsers — no browser restriction */}
+
+        {fieldErrors.photo && (
+          <p className="text-xs text-red-600 mb-2 font-medium" data-error="true">{fieldErrors.photo}</p>
+        )}
 
         <div className="flex items-start gap-4">
           {/* Preview */}
           <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
             {formData.photo ? (
-              <img src={formData.photo} alt="Profile" className="w-full h-full object-cover" />
+              <img
+                src={formData.photo}
+                alt="Profile preview"
+                crossOrigin="anonymous"
+                className="w-full h-full object-cover"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
             ) : (
               <span className="text-gray-400 text-xs text-center px-1">No photo</span>
             )}
           </div>
 
           <div className="flex-1">
+            {/* Upload button — disabled when browser unsupported or uploading */}
             <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-              uploading
+              uploading || checking
                 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                 : 'bg-white text-green-700 border-green-300 hover:bg-green-50'
             }`}>
@@ -454,20 +482,20 @@ export default function ProfileWizard() {
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 onChange={handlePhotoUpload}
-                disabled={uploading}
+                disabled={uploading || checking}
                 className="hidden"
               />
               {checking
-                ? '🔍 Verifying photo…'
+                ? '🔍 Verifying face…'
                 : uploading
-                ? `Uploading ${progress}%…`
+                ? `⬆ Uploading ${progress}%…`
                 : formData.photo
                 ? 'Change Photo'
                 : 'Upload Photo'}
             </label>
 
-            {/* Delete photo button — only shown when photo exists */}
-            {formData.photo && !uploading && (
+            {/* Remove button */}
+            {formData.photo && !uploading && !checking && (
               <button
                 type="button"
                 onClick={handleDeletePhoto}
@@ -478,20 +506,23 @@ export default function ProfileWizard() {
             )}
 
             {/* Progress bar */}
-            {uploading && (
+            {(uploading || checking) && (
               <div className="mt-2 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                <div
+                  className={`h-full rounded-full transition-all ${checking ? 'bg-blue-400 animate-pulse' : 'bg-green-500'}`}
+                  style={{ width: checking ? '100%' : `${progress}%` }}
+                />
               </div>
             )}
 
-            {/* Upload error */}
+            {/* Upload/check error from hook */}
             {uploadError && (
-              <p className="mt-1 text-xs text-red-600">{uploadError}</p>
+              <p className="mt-2 text-xs text-red-600 whitespace-pre-line leading-relaxed">{uploadError}</p>
             )}
 
             {/* Success */}
-            {formData.photo && !uploading && (
-              <p className="mt-1 text-xs text-green-600">✓ Photo uploaded successfully</p>
+            {formData.photo && !uploading && !checking && !uploadError && (
+              <p className="mt-1 text-xs text-green-600 font-medium">✓ Photo verified and uploaded</p>
             )}
           </div>
         </div>
