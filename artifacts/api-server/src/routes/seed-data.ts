@@ -5,13 +5,12 @@ import { hashPassword } from '../utils/password';
 
 const router = Router();
 
-// Gender-coded UI avatars — unambiguous, no third-party face photos
-function maleAvatar(name: string) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=ffffff&size=150&bold=true`;
-}
-function femaleAvatar(name: string) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=ec4899&color=ffffff&size=150&bold=true`;
-}
+// randomuser.me portrait photos — real human faces, gender-locked by URL path.
+// /portraits/women/{n}.jpg → always female. /portraits/men/{n}.jpg → always male.
+const FEMALE_PORTRAITS = [1,2,3,4,5,6,7,8].map(n => `https://randomuser.me/api/portraits/women/${n}.jpg`);
+const MALE_PORTRAITS   = [1,2,3,4,5,6,7].map(n => `https://randomuser.me/api/portraits/men/${n}.jpg`);
+function femaleAvatar(idx: number): string { return FEMALE_PORTRAITS[idx % FEMALE_PORTRAITS.length]; }
+function maleAvatar(idx: number): string   { return MALE_PORTRAITS[idx   % MALE_PORTRAITS.length]; }
 
 // Birth year from age (assumes current year 2026)
 function dobFromAge(age: number, month = 6, day = 15): Date {
@@ -63,10 +62,10 @@ router.post('/seed', async (_req: Request, res: Response) => {
     // Validate every profile before any DB write
     for (const p of [...females, ...males]) validateGender(p.name, p.gender);
 
+    let fi = 0, mi = 0;
     const docs = [...females, ...males].map(p => ({
       _id: new ObjectId(),
       ...p,
-      // Proper DOB derived from age (not new Date() which gives today)
       dob: dobFromAge(p.age),
       income: '500000-1000000',
       role: 'applicant',
@@ -75,8 +74,7 @@ router.post('/seed', async (_req: Request, res: Response) => {
       password: hashPassword('password123'),
       emailVerified: true,
       bio: 'Looking for a compatible life partner.',
-      // Gender-coded avatar — no ambiguity
-      photo: p.gender === 'female' ? femaleAvatar(p.name) : maleAvatar(p.name),
+      photo: p.gender === 'female' ? femaleAvatar(fi++) : maleAvatar(mi++),
       profileCompletion: 100,
       paymentStatus: 'completed',
       createdAt: new Date(),
