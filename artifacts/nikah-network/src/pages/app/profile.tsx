@@ -143,6 +143,14 @@ function SectionEditor({ section, profile, onSave, onClose }: SectionEditorProps
 
         <div className="p-5 space-y-4">
           {section === 'personal' && <>
+            <div><label className={labelClass}>Full Name</label>
+              <input value={get('name')} onChange={e => set('name', e.target.value)} className={inputClass} placeholder="Your full name" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={labelClass}>Date of Birth</label>
+                <input type="date" value={get('dateOfBirth')} onChange={e => set('dateOfBirth', e.target.value)} className={inputClass} /></div>
+              <div><label className={labelClass}>Caste</label>
+                <input value={get('caste')} onChange={e => set('caste', e.target.value)} className={inputClass} placeholder="e.g. Arain, Sheikh…" /></div>
+            </div>
             <div><label className={labelClass}>Bio</label>
               <textarea value={get('bio')} onChange={e => set('bio', e.target.value)}
                 rows={3} className={inputClass} placeholder="A few sentences about yourself…" /></div>
@@ -158,11 +166,19 @@ function SectionEditor({ section, profile, onSave, onClose }: SectionEditorProps
               <div><label className={labelClass}>Sect</label>
                 <input value={get('sect')} onChange={e => set('sect', e.target.value)} className={inputClass} /></div>
             </div>
-            <div><label className={labelClass}>Prayer Regularity</label>
-              <select value={get('prayerRegularity')} onChange={e => set('prayerRegularity', e.target.value)} className={inputClass}>
-                <option value="">Select</option>
-                <option>Regular</option><option>Sometimes</option><option>Occasional</option>
-              </select></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={labelClass}>Prayer Regularity</label>
+                <select value={get('prayerRegularity')} onChange={e => set('prayerRegularity', e.target.value)} className={inputClass}>
+                  <option value="">Select</option>
+                  <option>Regular</option><option>Sometimes</option><option>Occasional</option>
+                </select></div>
+              <div><label className={labelClass}>Physical Disability</label>
+                <select value={get('disability')} onChange={e => set('disability', e.target.value)} className={inputClass}>
+                  <option value="No">No</option><option value="Yes">Yes</option>
+                </select></div>
+            </div>
+            <div><label className={labelClass}>CNIC</label>
+              <input value={get('cnic')} onChange={e => set('cnic', e.target.value)} className={inputClass} placeholder="e.g. 12345-1234567-1" maxLength={15} /></div>
           </>}
 
           {section === 'career' && <>
