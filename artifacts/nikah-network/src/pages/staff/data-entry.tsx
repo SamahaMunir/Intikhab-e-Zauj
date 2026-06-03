@@ -45,18 +45,21 @@ export default function StaffDataEntry() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const { uploadFile, uploading: photoUploading } = useCloudinaryUpload();
+  const { uploadCertificate, uploading: photoUploading, error: photoUploadError } = useCloudinaryUpload();
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Show local preview immediately
     const reader = new FileReader();
-    reader.onload = (e) => setPhotoPreview(e.target?.result as string);
+    reader.onload = ev => setPhotoPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
 
-    const result = await uploadFile(file, 'documents');
-    if (result && typeof result === 'object' && 'url' in result) {
+    // Upload as certificate/document — no face detection (staff-entered profiles
+    // go through manual approval anyway; staff can see the photo in the approval queue)
+    const result = await uploadCertificate(file);
+    if (result?.url) {
       setFormData(prev => ({ ...prev, photoUrl: result.url }));
       setErrors(prev => ({ ...prev, photoUrl: '' }));
     }
@@ -235,6 +238,15 @@ export default function StaffDataEntry() {
                   </label>
                 )}
               </div>
+              {photoUploadError && (
+                <p className="text-xs text-red-600 mt-1">{photoUploadError}</p>
+              )}
+              {photoUploading && (
+                <p className="text-xs text-gray-500 mt-1">Uploading photo…</p>
+              )}
+              {formData.photoUrl && !photoUploading && (
+                <p className="text-xs text-green-600 mt-1">✓ Photo uploaded</p>
+              )}
             </div>
 
             {/* Basic Info */}
