@@ -160,7 +160,7 @@ router.get(
 
 /**
  * PATCH /api/profile/me/update
- * Quick-edit a subset of profile fields from the profile page (bio, city, preferences)
+ * Update any editable profile field from the profile edit UI.
  */
 router.patch(
   '/me/update',
@@ -168,22 +168,75 @@ router.patch(
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!req.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
-      const { bio, city, matchCriteria, desiredMatchDetails } = req.body;
-      const db = await getDatabase();
-      await db.collection('profiles').updateOne(
-        { _id: new ObjectId(req.user.id) },
-        {
-          $set: {
-            ...(bio                 !== undefined ? { bio }                 : {}),
-            ...(city                !== undefined ? { city }                : {}),
-            ...(matchCriteria       !== undefined ? { matchCriteria }       : {}),
-            ...(desiredMatchDetails !== undefined ? { desiredMatchDetails } : {}),
-            updatedAt: new Date(),
-          },
+
+      const EDITABLE = [
+        'name', 'height', 'caste', 'motherTongue', 'disability',
+        'religion', 'sect', 'prayerRegularity', 'cnic', 'bio',
+        'education', 'institution', 'profession', 'jobType', 'designation',
+        'monthlyIncome', 'officeAddress',
+        'city', 'address', 'homeOwnership', 'homeSize', 'areaValue',
+        'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation',
+        'fatherMobile', 'motherMobile', 'siblingsMobile',
+        'numBrothers', 'numMarriedBrothers', 'numSisters', 'numMarriedSisters',
+        'employedSiblingsDetails', 'siblingDisability',
+        'matchCriteria', 'desiredMatchDetails', 'acceptMarriedPerson',
+        'reference', 'referenceRelation', 'photo',
+      ] as const;
+
+      const updates: Record<string, unknown> = {};
+      for (const field of EDITABLE) {
+        if (req.body[field] !== undefined) updates[field] = req.body[field];
+      }
+
+      // Validate photo if present
+      if (updates.photo) {
+        const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
+        const url = String(updates.photo);
+        const valid =
+          url.startsWith('https://') &&
+          (
+            (url.includes(`res.cloudinary.com/${CLOUD_NAME}/`) && url.includes('/profiles/')) ||
+            url.includes('randomuser.me')
+          );
+        if (!valid) {
+          res.status(400).json({ error: 'Invalid photo URL' });
+          return;
         }
+      }
+
+      // Sync derived fields
+      if (updates.homeOwnership !== undefined) updates.houseStatus = updates.homeOwnership;
+      if (updates.areaValue    !== undefined) updates.houseArea   = String(updates.areaValue);
+
+      // Handle dateOfBirth → derive age
+      if (req.body.dateOfBirth) {
+        const dob = new Date(req.body.dateOfBirth);
+        if (!isNaN(dob.getTime())) {
+          updates.dateOfBirth = dob;
+          updates.dob         = dob;
+          const now = new Date();
+          let age = now.getFullYear() - dob.getFullYear();
+          if (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate())) age--;
+          updates.age = Math.max(0, age);
+        }
+      }
+
+      updates.updatedAt = new Date();
+
+      const db = await getDatabase();
+      // Try profiles collection first, fall back to users
+      const r = await db.collection('profiles').updateOne(
+        { _id: new ObjectId(req.user.id) }, { $set: updates }
       );
+      if (r.matchedCount === 0) {
+        await db.collection('users').updateOne(
+          { _id: new ObjectId(req.user.id) }, { $set: updates }
+        );
+      }
+
       res.json({ success: true, message: 'Profile updated' });
     } catch (error) {
+      console.error('[PATCH /profile/me/update]', error);
       res.status(500).json({ error: 'Failed to update profile' });
     }
   }
