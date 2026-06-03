@@ -1,96 +1,53 @@
 import { Router, Request, Response } from 'express';
-import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
-import { hashPassword } from '../utils/password';
+import {
+  generateFemaleProfiles,
+  generateMaleProfiles,
+  generateMixedDataset,
+  validateSeedProfile,
+} from '../lib/seedGenerator';
 
 const router = Router();
 
-// randomuser.me portrait photos — real human faces, gender-locked by URL path.
-// /portraits/women/{n}.jpg → always female. /portraits/men/{n}.jpg → always male.
-const FEMALE_PORTRAITS = [1,2,3,4,5,6,7,8].map(n => `https://randomuser.me/api/portraits/women/${n}.jpg`);
-const MALE_PORTRAITS   = [1,2,3,4,5,6,7].map(n => `https://randomuser.me/api/portraits/men/${n}.jpg`);
-function femaleAvatar(idx: number): string { return FEMALE_PORTRAITS[idx % FEMALE_PORTRAITS.length]; }
-function maleAvatar(idx: number): string   { return MALE_PORTRAITS[idx   % MALE_PORTRAITS.length]; }
-
-// Birth year from age (assumes current year 2026)
-function dobFromAge(age: number, month = 6, day = 15): Date {
-  return new Date(2026 - age, month - 1, day);
-}
-
-// Guard: throws on name/gender mismatch before any insert
-const FEMALE_FIRST = new Set(['fatima','ayesha','zainab','hira','maryam','nida','aisha','sara','amina','bushra','sana','rabia','rukhsana','sadia','asma','naila','fozia','kiran','afshan','mehwish','iqra','sobia','razia','nazish']);
-const MALE_FIRST   = new Set(['ahmed','ali','hassan','imran','fahad','faisal','bilal','usman','usama','omar','adnan','tariq','kamran','shahid','asif','zubair','naveed','waheed','umer','umar','hamza','saad','talha','sohail']);
-
-function validateGender(name: string, gender: string) {
-  const first = name.split(' ')[0].toLowerCase();
-  if (gender === 'male'   && FEMALE_FIRST.has(first)) throw new Error(`"${name}" looks female but gender=male`);
-  if (gender === 'female' && MALE_FIRST.has(first))   throw new Error(`"${name}" looks male but gender=female`);
-}
-
-router.post('/seed', async (_req: Request, res: Response) => {
+/**
+ * POST /api/seed
+ * Wipes applicant profiles and inserts fresh seed data.
+ * Staff accounts are never touched.
+ */
+router.post('/', async (_req: Request, res: Response) => {
   try {
-    const db = await getDatabase();
+    const db  = await getDatabase();
     const col = db.collection('profiles');
 
-    // Safe delete: applicants only, staff/admin untouched
-    await col.deleteMany({ role: 'applicant' });
+    // Safe delete: applicants only, staff/admin preserved
+    const deleted = await col.deleteMany({ role: 'applicant' });
 
-    // ── 8 FEMALE profiles ──────────────────────────────────────────────────────
-    // Consistent: female name + gender=female + femaleAvatar + proper dob
-    const females = [
-      { name: 'Fatima Khan',    gender: 'female', age: 25, city: 'Lahore',      education: 'Bachelors', profession: 'Engineer',          caste: 'Arain',  height: '5.4', houseStatus: 'owned',  houseArea: '2500' },
-      { name: 'Ayesha Ali',     gender: 'female', age: 24, city: 'Lahore',      education: 'Masters',   profession: 'Doctor',            caste: 'Sheikh', height: '5.3', houseStatus: 'owned',  houseArea: '3000' },
-      { name: 'Zainab Hassan',  gender: 'female', age: 28, city: 'Islamabad',   education: 'Bachelors', profession: 'Teacher',           caste: 'Malik',  height: '5.5', houseStatus: 'rented', houseArea: '1800' },
-      { name: 'Hira Ahmed',     gender: 'female', age: 25, city: 'Rawalpindi',  education: 'Bachelors', profession: 'Business Analyst',  caste: 'Syed',   height: '5.2', houseStatus: 'owned',  houseArea: '2200' },
-      { name: 'Maryam Khan',    gender: 'female', age: 27, city: 'Faisalabad',  education: 'Masters',   profession: 'Consultant',        caste: 'Rajput', height: '5.3', houseStatus: 'owned',  houseArea: '2800' },
-      { name: 'Nida Malik',     gender: 'female', age: 29, city: 'Lahore',      education: 'Masters',   profession: 'HR Manager',        caste: 'Malik',  height: '5.5', houseStatus: 'owned',  houseArea: '2700' },
-      { name: 'Sara Bibi',      gender: 'female', age: 25, city: 'Rawalpindi',  education: 'Bachelors', profession: 'Engineer',          caste: 'Syed',   height: '5.4', houseStatus: 'owned',  houseArea: '2200' },
-      { name: 'Amina Qureshi',  gender: 'female', age: 26, city: 'Faisalabad',  education: 'Masters',   profession: 'Businesswoman',     caste: 'Rajput', height: '5.3', houseStatus: 'owned',  houseArea: '2800' },
-    ];
+    // Generate 8 female + 7 male profiles (15 total)
+    const females = generateFemaleProfiles(8, 0);
+    const males   = generateMaleProfiles(7, 0);
+    const all     = [...females, ...males];
 
-    // ── 7 MALE profiles ────────────────────────────────────────────────────────
-    const males = [
-      { name: 'Ahmed Hassan',   gender: 'male', age: 28, city: 'Lahore',       education: 'Masters',   profession: 'Software Engineer', caste: 'Sheikh', height: '5.9',  houseStatus: 'owned',  houseArea: '2500' },
-      { name: 'Ali Khan',       gender: 'male', age: 26, city: 'Lahore',       education: 'Bachelors', profession: 'Accountant',        caste: 'Malik',  height: '5.8',  houseStatus: 'rented', houseArea: '2600' },
-      { name: 'Hassan Ahmed',   gender: 'male', age: 30, city: 'Islamabad',    education: 'Masters',   profession: 'Project Manager',   caste: 'Arain',  height: '5.10', houseStatus: 'owned',  houseArea: '3200' },
-      { name: 'Imran Ali',      gender: 'male', age: 27, city: 'Rawalpindi',   education: 'Bachelors', profession: 'Engineer',          caste: 'Syed',   height: '5.9',  houseStatus: 'owned',  houseArea: '2100' },
-      { name: 'Fahad Khan',     gender: 'male', age: 28, city: 'Faisalabad',   education: 'Masters',   profession: 'Businessman',       caste: 'Rajput', height: '5.8',  houseStatus: 'owned',  houseArea: '2900' },
-      { name: 'Faisal Ahmed',   gender: 'male', age: 32, city: 'Lahore',       education: 'MBA',       profession: 'Business Analyst',  caste: 'Malik',  height: '5.9',  houseStatus: 'owned',  houseArea: '2400' },
-      { name: 'Bilal Raza',     gender: 'male', age: 27, city: 'Rawalpindi',   education: 'Bachelors', profession: 'Engineer',          caste: 'Arain',  height: '5.10', houseStatus: 'owned',  houseArea: '2300' },
-    ];
+    // Validate all before any insert — fail fast
+    const validationErrors: string[] = [];
+    for (const p of all) {
+      const errs = validateSeedProfile(p);
+      if (errs.length > 0) validationErrors.push(`"${p.name}": ${errs.join('; ')}`);
+    }
+    if (validationErrors.length > 0) {
+      res.status(422).json({ error: 'Seed validation failed', details: validationErrors });
+      return;
+    }
 
-    // Validate every profile before any DB write
-    for (const p of [...females, ...males]) validateGender(p.name, p.gender);
-
-    let fi = 0, mi = 0;
-    const docs = [...females, ...males].map(p => ({
-      _id: new ObjectId(),
-      ...p,
-      dob: dobFromAge(p.age),
-      income: '500000-1000000',
-      role: 'applicant',
-      profileStatus: 'approved',
-      active: true,
-      password: hashPassword('password123'),
-      emailVerified: true,
-      bio: 'Looking for a compatible life partner.',
-      photo: p.gender === 'female' ? femaleAvatar(fi++) : maleAvatar(mi++),
-      profileCompletion: 100,
-      paymentStatus: 'completed',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
-
-    await col.insertMany(docs);
+    await col.insertMany(all);
 
     res.json({
       success: true,
-      message: `Seeded ${docs.length} applicant profiles (staff accounts preserved)`,
+      message: `Deleted ${deleted.deletedCount} old profiles. Inserted ${all.length} fresh seed profiles.`,
       breakdown: {
         female: females.length,
-        male: males.length,
-        total: docs.length,
-        note: 'All profiles gender-validated. Avatars are gender-coded (pink=female, blue=male).',
+        male:   males.length,
+        total:  all.length,
+        photos: 'randomuser.me — real human faces, gender-locked by URL path',
       },
     });
   } catch (err) {
@@ -98,5 +55,48 @@ router.post('/seed', async (_req: Request, res: Response) => {
     res.status(500).json({ error: 'Seed failed', message: err instanceof Error ? err.message : 'Unknown' });
   }
 });
+
+/**
+ * POST /api/seed/female?count=N  — generate only female profiles
+ * POST /api/seed/male?count=N    — generate only male profiles
+ * POST /api/seed/mixed?count=N   — generate balanced mix
+ */
+router.post('/female', async (req: Request, res: Response) => {
+  await insertGenerated(req, res, count => generateFemaleProfiles(count));
+});
+router.post('/male', async (req: Request, res: Response) => {
+  await insertGenerated(req, res, count => generateMaleProfiles(count));
+});
+router.post('/mixed', async (req: Request, res: Response) => {
+  await insertGenerated(req, res, count => generateMixedDataset(count));
+});
+
+async function insertGenerated(
+  req: Request,
+  res: Response,
+  generator: (count: number) => ReturnType<typeof generateFemaleProfiles>
+) {
+  try {
+    const count = Math.min(50, Math.max(1, parseInt(String(req.query.count)) || 10));
+    const db  = await getDatabase();
+    const col = db.collection('profiles');
+    const profiles = generator(count);
+
+    const errors: string[] = [];
+    for (const p of profiles) {
+      const errs = validateSeedProfile(p);
+      if (errs.length > 0) errors.push(`"${p.name}": ${errs.join('; ')}`);
+    }
+    if (errors.length > 0) {
+      res.status(422).json({ error: 'Validation failed', details: errors });
+      return;
+    }
+
+    await col.insertMany(profiles);
+    res.json({ success: true, inserted: profiles.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Seed failed', message: err instanceof Error ? err.message : 'Unknown' });
+  }
+}
 
 export default router;
