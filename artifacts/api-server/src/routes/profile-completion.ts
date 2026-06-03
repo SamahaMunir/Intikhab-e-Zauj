@@ -33,6 +33,30 @@ router.post(
         return;
       }
 
+      // Backend safety: only accept Cloudinary URLs from our own cloud account.
+      // This prevents frontend bypass — even if someone calls the API directly
+      // with a random URL, it will be rejected.
+      const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
+      const isValidPhotoUrl =
+        typeof photo === 'string' &&
+        photo.startsWith('https://') &&
+        (
+          // Must be from our Cloudinary account AND in the profiles/ folder
+          (photo.includes(`res.cloudinary.com/${CLOUD_NAME}/`) && photo.includes('/profiles/')) ||
+          // Allow UI-avatars for seed/staff-created profiles
+          photo.includes('ui-avatars.com') ||
+          // Allow pravatar for existing seed data during transition
+          photo.includes('pravatar.cc')
+        );
+
+      if (!isValidPhotoUrl) {
+        res.status(400).json({
+          error: 'Invalid profile photo URL',
+          message: 'Photo must be uploaded via the platform upload system.',
+        });
+        return;
+      }
+
       const db = await getDatabase();
       await db.collection('profiles').updateOne(
         { _id: new ObjectId(req.user.id) },
@@ -111,21 +135,22 @@ router.get(
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
-      const db = await getDatabase();
-      const profile = await db.collection('profiles').findOne(
-        { _id: new ObjectId(req.user.id) },
-        {
-          projection: {
-            password: 0,
-            verificationToken: 0,
-            verificationTokenExpiry: 0,
-          },
-        }
-      );
+      const db   = await getDatabase();
+      const proj = { projection: { password: 0, verificationToken: 0, verificationTokenExpiry: 0 } };
+      const oid  = new ObjectId(req.user.id);
+
+      // Try 'profiles' first (main registration flow), then 'users' (simple-register flow)
+      let profile = await db.collection('profiles').findOne({ _id: oid }, proj);
       if (!profile) {
-        res.status(404).json({ error: 'Profile not found' });
+        profile = await db.collection('users').findOne({ _id: oid }, proj);
+      }
+
+      if (!profile) {
+        console.warn(`[profile/me] No profile found for id=${req.user.id} in profiles OR users collections`);
+        res.status(404).json({ error: 'Profile not found. Please complete registration.' });
         return;
       }
+
       res.json({ success: true, profile });
     } catch (error) {
       res.status(500).json({ error: 'Failed to load profile' });
@@ -237,6 +262,22 @@ router.post(
         const { profilePhoto } = data;
         if (!profilePhoto) {
           res.status(400).json({ error: 'Photo required' });
+          return;
+        }
+
+        // Backend safety: must be a Cloudinary URL from our account in the profiles/ folder
+        const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
+        const isValidPhotoUrl =
+          typeof profilePhoto === 'string' &&
+          profilePhoto.startsWith('https://') &&
+          profilePhoto.includes(`res.cloudinary.com/${CLOUD_NAME}/`) &&
+          profilePhoto.includes('/profiles/');
+
+        if (!isValidPhotoUrl) {
+          res.status(400).json({
+            error: 'Invalid profile photo URL',
+            message: 'Photo must be uploaded via the platform upload system.',
+          });
           return;
         }
 
