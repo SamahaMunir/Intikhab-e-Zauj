@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { ProfileView } from '@/components/ProfileView';
 
 interface PendingProfile {
   _id: string;
@@ -13,10 +13,28 @@ interface PendingProfile {
   gender: string;
   dob: string;
   city: string;
+  caste?: string;
   education: string;
   profession: string;
-  profilePhoto?: string;
+  designation?: string;
+  monthlyIncome?: string;
+  height?: string;
+  religion?: string;
+  sect?: string;
+  cnic?: string;
+  bio?: string;
+  fatherName?: string;
+  fatherOccupation?: string;
+  motherName?: string;
+  motherOccupation?: string;
+  numBrothers?: number;
+  numSisters?: number;
+  houseStatus?: string;
+  houseArea?: string;
+  matchCriteria?: string;
+  photo?: string;
   notes?: string;
+  source?: string;
   enteredBy?: string;
   enteredAt?: string;
   createdAt: string;
@@ -200,139 +218,73 @@ export default function ProfileApproval() {
   }
 
   const profile = profiles[currentIndex];
-  const age = new Date().getFullYear() - new Date(profile.dob).getFullYear();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
+      {/* Progress header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-serif font-bold">Profile Review</h1>
-          <p className="text-muted-foreground mt-1">
-            {currentIndex + 1} of {profiles.length} profiles
+          <h1 className="text-2xl font-bold text-gray-900">Profile Review</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {currentIndex + 1} of {profiles.length} pending profiles
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm text-muted-foreground">Progress</p>
-          <p className="text-2xl font-bold text-primary">
+          <p className="text-sm text-gray-400">Progress</p>
+          <p className="text-2xl font-bold text-green-600">
             {Math.round(((currentIndex + 1) / profiles.length) * 100)}%
           </p>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Photo */}
-            <div className="md:col-span-1">
-              {profile.profilePhoto ? (
-                <img
-                  src={profile.profilePhoto}
-                  alt={profile.name}
-                  className="w-full rounded-lg object-cover aspect-square"
+      {/* Full profile — identical layout to user-facing /app/profile */}
+      <ProfileView
+        profile={profile}
+        maskCnic={false}
+        footer={
+          <div className="space-y-4 mt-2">
+            {/* Rejection reason */}
+            <Card className="border-red-200">
+              <CardHeader>
+                <CardTitle className="text-sm text-red-700">Rejection Reason</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Required when rejecting — will be emailed to applicant"
+                  rows={3}
                 />
-              ) : (
-                <div className="w-full aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
-                  <span className="text-gray-500">No photo</span>
-                </div>
-              )}
-              {profile.enteredBy && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Entered by: <strong>{profile.enteredBy}</strong>
-                </p>
-              )}
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Info */}
-            <div className="md:col-span-2 space-y-4">
-              <div>
-                <h2 className="text-2xl font-bold">{profile.name}</h2>
-                <p className="text-muted-foreground">{age} years old</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Phone</p>
-                  <p className="font-semibold">{profile.phone}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Email</p>
-                  <p className="font-semibold text-sm">{profile.email}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Gender</p>
-                  <p className="font-semibold capitalize">{profile.gender}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">City</p>
-                  <p className="font-semibold">{profile.city}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Education</p>
-                  <p className="font-semibold">{profile.education}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Profession</p>
-                  <p className="font-semibold">{profile.profession}</p>
-                </div>
-              </div>
-
-              {profile.notes && (
-                <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                  <p className="text-xs font-semibold text-blue-900 mb-1">Staff Notes:</p>
-                  <p className="text-sm text-blue-800">{profile.notes}</p>
-                </div>
-              )}
+            {/* Approve / Reject actions */}
+            <div className="flex gap-4 justify-between">
+              <Button
+                variant="destructive"
+                onClick={handleReject}
+                disabled={actionLoading || !rejectionReason.trim()}
+                size="lg"
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Reject Profile
+              </Button>
+              <Button
+                onClick={handleApprove}
+                disabled={actionLoading}
+                size="lg"
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {actionLoading ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
+                ) : (
+                  <><CheckCircle2 className="w-4 h-4 mr-2" />Approve Profile</>
+                )}
+              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Rejection Reason */}
-      <Card className="border-red-200">
-        <CardHeader>
-          <CardTitle className="text-sm">Rejection Reason (if applicable)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-            placeholder="Enter reason for rejection (will be sent to applicant)"
-            rows={3}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Actions */}
-      <div className="flex gap-4 justify-between">
-        <Button
-          variant="destructive"
-          onClick={handleReject}
-          disabled={actionLoading || !rejectionReason.trim()}
-          size="lg"
-        >
-          <XCircle className="w-4 h-4 mr-2" />
-          Reject Profile
-        </Button>
-
-        <Button
-          onClick={handleApprove}
-          disabled={actionLoading}
-          size="lg"
-          className="bg-green-600 hover:bg-green-700"
-        >
-          {actionLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Approve Profile
-            </>
-          )}
-        </Button>
-      </div>
+        }
+      />
     </div>
   );
 }
