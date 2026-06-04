@@ -11,16 +11,27 @@
 import { ObjectId } from 'mongodb';
 import { hashPassword } from '../utils/password.js';
 
-// ── Photo helpers — gender-locked, globally accessible ───────────────────────
-// avatar.iran.liara.app: explicit gender param, deterministic by username seed,
-// HTTPS + CORS, no rate-limit issues. Works globally including Pakistan networks.
-// randomuser.me was blocked (ERR_CONNECTION_CLOSED) on some ISPs.
-function femalePhoto(seed: string): string {
-  return `https://avatar.iran.liara.app/public/girl?username=${encodeURIComponent(seed)}`;
+// ── SVG avatar generator — zero network dependency ───────────────────────────
+// Embedded as data URIs directly in the DB document.
+// No CDN, no CORS, no external requests. Works offline, works everywhere.
+// Gender-coded: female = rose, male = blue. Initials from name.
+function generateSeedPhoto(name: string, gender: 'male' | 'female'): string {
+  const parts    = name.trim().split(/\s+/);
+  const initials = parts.slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  const bg       = gender === 'female' ? '#BE185D' : '#1D4ED8'; // rose-700 / blue-700
+  const ring     = gender === 'female' ? '#F9A8D4' : '#93C5FD'; // pink-300 / blue-300
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">',
+    `<circle cx="60" cy="60" r="60" fill="${bg}"/>`,
+    `<circle cx="60" cy="60" r="56" fill="none" stroke="${ring}" stroke-width="2" opacity="0.4"/>`,
+    `<text x="60" y="76" text-anchor="middle" font-size="40" font-family="Arial,Helvetica,sans-serif"`,
+    ` font-weight="700" fill="white" letter-spacing="2">${initials}</text>`,
+    '</svg>',
+  ].join('');
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }
-function malePhoto(seed: string): string {
-  return `https://avatar.iran.liara.app/public/boy?username=${encodeURIComponent(seed)}`;
-}
+function femalePhoto(seed: string): string { return generateSeedPhoto(seed, 'female'); }
+function malePhoto(seed: string): string   { return generateSeedPhoto(seed, 'male'); }
 
 // ── Name pools — culturally accurate, no overlap between genders ──────────────
 const FEMALE_FIRST = [
@@ -161,7 +172,7 @@ export function generateFemaleProfiles(count: number, startIdx = 0): SeedProfile
       bio: `Sincere and family-oriented, looking for a compatible life partner.`,
       fatherOccupation: pick(FATHER_OCCUPATIONS, idx + 2),
       motherOccupation: pick(MOTHER_OCCUPATIONS, idx),
-      photo: femalePhoto(`${firstName}${lastName}${idx}`),  // gender-locked
+      photo: femalePhoto(`${firstName} ${lastName}`),  // SVG avatar, no network
       phone: `0300${String(3000000 + idx).padStart(7, '0')}`,
       houseStatus: idx % 3 === 0 ? 'rented' : 'owned',
       houseArea: String(1500 + (idx % 10) * 200),
@@ -224,7 +235,7 @@ export function generateMaleProfiles(count: number, startIdx = 0): SeedProfile[]
       bio: `Hardworking and sincere, looking for a pious and compatible life partner.`,
       fatherOccupation: pick(FATHER_OCCUPATIONS, idx),
       motherOccupation: pick(MOTHER_OCCUPATIONS, idx + 1),
-      photo: malePhoto(`${firstName}${lastName}${idx}`),      // gender-locked
+      photo: malePhoto(`${firstName} ${lastName}`),      // SVG avatar, no network
       phone: `0300${String(4000000 + idx).padStart(7, '0')}`,
       houseStatus: idx % 4 === 0 ? 'rented' : 'owned',
       houseArea: String(1800 + (idx % 10) * 250),
@@ -266,12 +277,11 @@ export function validateSeedProfile(p: SeedProfile): string[] {
     }
   }
   if (p.age < 18 || p.age > 65)      errors.push(`Age out of range: ${p.age}`);
-  if (!p.photo.startsWith('https://')) errors.push('Photo URL must be https');
-  // avatar.iran.liara.app gender check via URL segment
-  if (p.gender === 'female' && p.photo.includes('/boy'))
-    errors.push('Female profile has male portrait URL');
-  if (p.gender === 'male' && p.photo.includes('/girl'))
-    errors.push('Male profile has female portrait URL');
+  if (!p.photo.startsWith('https://') && !p.photo.startsWith('data:image/'))
+    errors.push('Photo must be https URL or data URI');
+  // For Cloudinary URLs (user-uploaded), check folder
+  if (p.photo.includes('cloudinary.com') && !p.photo.includes('/profiles/'))
+    errors.push('Cloudinary photo must be in /profiles/ folder');
   try { assertGenderNameMatch(p.name, p.gender); }
   catch (e) { errors.push((e as Error).message); }
   return errors;
