@@ -1,159 +1,193 @@
-import { useState } from 'react';
+/**
+ * Staff Data Entry — mirrors Profile Wizard exactly.
+ *
+ * Shared with wizard:
+ *  - ProfileFormData interface (lib/profile-validation.ts)
+ *  - All validation functions (lib/profile-validation.ts)
+ *  - All dropdown options (lib/profile-options.ts)
+ *  - SearchableSelect + PhoneInput components
+ *  - Gender-conditional logic (acceptMarriedPerson, siblingsMobile)
+ *  - Face detection for profile photo
+ *
+ * Staff-only additions:
+ *  - Step 0: data source, internal notes
+ *  - Submit to POST /api/staff/create-user
+ *  - profileStatus starts as 'pending' (requires approval)
+ */
+
+import { useState, useRef } from 'react';
 import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
+import SearchableSelect from '@/components/SearchableSelect';
+import PhoneInput from '@/components/PhoneInput';
+import {
+  LANGUAGES, RELIGIONS, SECTS, CASTES, CITIES, PROFESSIONS,
+  OCCUPATIONS, EDUCATION_LEVELS, PAKISTANI_UNIVERSITIES,
+  INCOME_RANGES, DESIGNATIONS_BY_PROFESSION, GENERIC_DESIGNATIONS,
+  ALL_PK_AREAS,
+} from '@/lib/profile-options';
+import {
+  validateCNIC, validatePakistaniPhone, validateAge,
+  validateHeight, validateHouseArea, formatCNIC, calculateAge,
+  type ProfileFormData, EMPTY_PROFILE_FORM,
+} from '@/lib/profile-validation';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const INCOME_RANGES = [
-  { value: 'below-30000',    label: 'Below PKR 30,000' },
-  { value: '30000-50000',    label: 'PKR 30,000 – 50,000' },
-  { value: '50000-100000',   label: 'PKR 50,000 – 100,000' },
-  { value: '100000-200000',  label: 'PKR 100,000 – 200,000' },
-  { value: '200000-500000',  label: 'PKR 200,000 – 500,000' },
-  { value: '500000-1000000', label: 'PKR 500,000 – 1,000,000' },
-  { value: 'above-1000000',  label: 'Above PKR 1,000,000' },
-];
+// ── Staff-specific meta ───────────────────────────────────────────────────────
 
-interface FormData {
-  // Staff-specific
+interface StaffMeta {
   source: string;
   notes: string;
-  // Personal
-  name: string;
-  email: string;
-  phone: string;
-  gender: 'male' | 'female' | '';
-  dateOfBirth: string;
-  height: string;
-  caste: string;
-  motherTongue: string;
-  disability: string;
-  religion: string;
-  sect: string;
-  prayerRegularity: string;
-  cnic: string;
-  // Career
-  education: string;
-  institution: string;
-  profession: string;
-  jobType: string;
-  designation: string;
-  monthlyIncome: string;
-  officeAddress: string;
-  // Family
-  city: string;
-  address: string;
-  fatherName: string;
-  fatherOccupation: string;
-  motherName: string;
-  motherOccupation: string;
-  fatherMobile: string;
-  motherMobile: string;
-  siblingsMobile: string;
-  numBrothers: number;
-  numMarriedBrothers: number;
-  numSisters: number;
-  numMarriedSisters: number;
-  employedSiblingsDetails: string;
-  siblingDisability: string;
-  // Residence
-  homeOwnership: string;
-  homeSize: string;
-  areaValue: number;
-  // Preferences
-  matchCriteria: string;
-  desiredMatchDetails: string;
-  acceptMarriedPerson: string;
-  reference: string;
-  referenceRelation: string;
-  // Photo
-  photo: string;
 }
 
-const EMPTY: FormData = {
-  source: '', notes: '',
-  name: '', email: '', phone: '', gender: '', dateOfBirth: '',
-  height: '', caste: '', motherTongue: '', disability: 'No',
-  religion: 'Islam', sect: '', prayerRegularity: 'Regular', cnic: '',
-  education: '', institution: '', profession: '', jobType: '',
-  designation: '', monthlyIncome: '', officeAddress: '',
-  city: '', address: '', fatherName: '', fatherOccupation: '',
-  motherName: '', motherOccupation: '', fatherMobile: '', motherMobile: '',
-  siblingsMobile: '', numBrothers: 0, numMarriedBrothers: 0,
-  numSisters: 0, numMarriedSisters: 0, employedSiblingsDetails: '',
-  siblingDisability: 'No', homeOwnership: 'owned', homeSize: 'kanal',
-  areaValue: 0, matchCriteria: '', desiredMatchDetails: '',
-  acceptMarriedPerson: 'No', reference: '', referenceRelation: '', photo: '',
-};
+const EMPTY_META: StaffMeta = { source: '', notes: '' };
 
-const cls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500';
-const lbl = 'block text-xs font-medium text-gray-600 mb-1';
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function StaffDataEntry() {
-  const [step, setStep]       = useState(1);
-  const [form, setForm]       = useState<FormData>(EMPTY);
-  const [errors, setErrors]   = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [step, setStep]               = useState(0);           // 0 = staff meta, 1-4 = wizard steps
+  const [meta, setMeta]               = useState<StaffMeta>(EMPTY_META);
+  const [phone, setPhone]             = useState('');           // applicant's own phone (required by backend)
+  const [formData, setFormData]       = useState<ProfileFormData>(EMPTY_PROFILE_FORM('male'));
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading]         = useState(false);
+  const [success, setSuccess]         = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
-  const { uploadProfilePhoto, uploading: photoUploading, checking: photoChecking, error: photoUploadError } = useCloudinaryUpload();
+  const {
+    uploadProfilePhoto, uploading, checking, error: uploadError, progress,
+  } = useCloudinaryUpload();
 
-  const set = (k: keyof FormData, v: string | number) =>
-    setForm(p => ({ ...p, [k]: v }));
+  const TOTAL_STEPS = 4; // wizard steps (1-4); step 0 is staff meta
 
-  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── Scroll to first error ────────────────────────────────────────────────────
+  const scrollToFirstError = () => {
+    setTimeout(() => {
+      const el = formRef.current?.querySelector('[data-error="true"]') as HTMLElement | null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+
+  // ── Form helpers ─────────────────────────────────────────────────────────────
+  const set = (name: keyof ProfileFormData, value: string | number) =>
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target as { name: keyof ProfileFormData; value: string };
+    const formatted = name === 'cnic' ? formatCNIC(value) : value;
+    setFormData(prev => ({ ...prev, [name]: formatted }));
+    if (fieldErrors[name]) setFieldErrors(p => { const n = { ...p }; delete n[name]; return n; });
+  };
+
+  const handleNumberChange = (name: keyof ProfileFormData, value: number) => {
+    const safe = Number.isFinite(value) ? Math.max(0, value) : 0;
+    setFormData(prev => ({ ...prev, [name]: safe }));
+  };
+
+  const handleDOBChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dob = e.target.value;
+    const age = calculateAge(dob);
+    const ageErr = validateAge(dob);
+    if (ageErr) setFieldErrors(p => ({ ...p, dateOfBirth: ageErr }));
+    else setFieldErrors(p => { const n = { ...p }; delete n.dateOfBirth; return n; });
+    setFormData(prev => ({ ...prev, dateOfBirth: dob, age }));
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
     resetFaceDetection();
     const result = await uploadProfilePhoto(file);
-    if (result?.url) set('photo', result.url);
+    if (result?.url) {
+      setFormData(prev => ({ ...prev, photo: result.url }));
+      setFieldErrors(p => { const n = { ...p }; delete n.photo; return n; });
+    }
   };
 
+  const handleDeletePhoto = () => setFormData(prev => ({ ...prev, photo: '' }));
+
+  // ── Validation ───────────────────────────────────────────────────────────────
   const validateStep = (s: number): boolean => {
     const errs: Record<string, string> = {};
-    // Step 1 UI: source, notes, photo
+
+    if (s === 0) {
+      if (!meta.source) errs.source = 'Data source is required';
+    }
+
     if (s === 1) {
-      if (!form.source) errs.source = 'Source required';
+      if (!formData.name.trim() || formData.name.trim().length < 2)
+        errs.name = 'Full name required (min 2 characters)';
+      const phoneErr = validatePakistaniPhone(phone);
+      if (!phone) errs.phone = 'Applicant phone number required';
+      else if (phoneErr) errs.phone = phoneErr;
+      if (!formData.gender)
+        errs.gender = 'Gender required';
+      if (!formData.photo)
+        errs.photo = 'Profile photo required (must show a real face)';
+      if (!formData.dateOfBirth) {
+        errs.dateOfBirth = 'Date of birth required';
+      } else {
+        const ageErr = validateAge(formData.dateOfBirth);
+        if (ageErr) errs.dateOfBirth = ageErr;
+      }
+      const heightErr = validateHeight(formData.height);
+      if (heightErr) errs.height = heightErr;
+      const cnicErr = validateCNIC(formData.cnic);
+      if (cnicErr) errs.cnic = cnicErr;
     }
-    // Step 2 UI: name, email, phone, gender, dob, height, caste, religion, sect, etc.
+
     if (s === 2) {
-      if (!form.name.trim())                        errs.name        = 'Name required';
-      if (!form.phone.match(/^\+?\d[\d\s\-]{8,}/)) errs.phone       = 'Valid phone required';
-      if (!form.gender)                             errs.gender      = 'Gender required';
-      if (!form.dateOfBirth)                        errs.dateOfBirth = 'Date of birth required';
-      if (!form.caste.trim())                       errs.caste       = 'Caste required';
+      if (!formData.education)  errs.education  = 'Education level required';
+      if (!formData.profession) errs.profession = 'Profession required';
     }
-    // Step 3 UI: education, institution, profession, etc.
+
     if (s === 3) {
-      if (!form.education)  errs.education  = 'Education required';
-      if (!form.profession) errs.profession = 'Profession required';
+      if (!formData.city.trim())  errs.city  = 'City required';
+      if (!formData.caste.trim()) errs.caste = 'Caste required';
+      const hasSiblings = formData.numBrothers > 0 || formData.numSisters > 0;
+      if (hasSiblings && !formData.siblingsMobile)
+        errs.siblingsMobile = 'Sibling contact required when siblings > 0';
+      if (formData.numMarriedBrothers > formData.numBrothers)
+        errs.numMarriedBrothers = `Cannot exceed total brothers (${formData.numBrothers})`;
+      if (formData.numMarriedSisters > formData.numSisters)
+        errs.numMarriedSisters = `Cannot exceed total sisters (${formData.numSisters})`;
     }
-    // Step 4 UI: city, address, family, home
+
     if (s === 4) {
-      if (!form.city.trim()) errs.city = 'City required';
+      const areaErr = validateHouseArea(formData.areaValue);
+      if (areaErr) errs.areaValue = areaErr;
     }
-    // Step 5 UI: preferences — no required fields
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) { scrollToFirstError(); return false; }
+    return true;
   };
 
-  const handleNext = () => { if (validateStep(step)) setStep(s => Math.min(5, s + 1)); };
+  const handleNext = () => { if (validateStep(step)) setStep(s => Math.min(TOTAL_STEPS, s + 1)); };
 
+  // ── Submit ────────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!validateStep(5)) return; // step 5 has no required fields
+    if (!validateStep(4)) return;
     const token = localStorage.getItem('token');
     if (!token) { setSubmitError('Not authenticated. Please log in.'); return; }
 
     setLoading(true);
     setSubmitError(null);
     try {
-      const body = {
-        ...form,
-        email: form.email || `${form.phone}@intikhab-offline.pk`,
-        dob: form.dateOfBirth,
-        income: form.monthlyIncome,
-        enteredBy: JSON.parse(localStorage.getItem('user') || '{}').email,
+      const staffUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const payload = {
+        ...formData,
+        // Map field names to match backend create-user endpoint
+        phone,
+        dob: formData.dateOfBirth,
+        income: formData.monthlyIncome,
+        email: `${formData.name.toLowerCase().replace(/\s+/g, '.')}@intikhab-offline.pk`,
+        // Staff meta
+        source:    meta.source,
+        notes:     meta.notes,
+        enteredBy: staffUser.email || 'staff',
         enteredAt: new Date().toISOString(),
         profileStatus: 'pending',
         profileCompletion: 75,
@@ -162,7 +196,7 @@ export default function StaffDataEntry() {
       const res = await fetch(`${API}/api/staff/create-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -171,9 +205,11 @@ export default function StaffDataEntry() {
       }
 
       setSuccess(true);
-      setForm(EMPTY);
-      setStep(1);
-      setTimeout(() => setSuccess(false), 4000);
+      setMeta(EMPTY_META);
+      setPhone('');
+      setFormData(EMPTY_PROFILE_FORM('male'));
+      setStep(0);
+      setTimeout(() => setSuccess(false), 5000);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to create profile');
     } finally {
@@ -181,9 +217,19 @@ export default function StaffDataEntry() {
     }
   };
 
-  const TOTAL = 5;
-  const stepTitles = ['Staff Info', 'Personal', 'Career', 'Family & Residence', 'Preferences'];
+  // ── UI helpers ────────────────────────────────────────────────────────────────
+  const ic = (err?: string) =>
+    `mt-1 block w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 text-sm ${err ? 'border-red-400' : 'border-gray-300'}`;
+  const lc = 'block text-sm font-medium text-gray-700';
+  const errEl = (msg?: string) => msg ? <p className="text-xs text-red-600 mt-1">{msg}</p> : null;
 
+  const designationSuggestions = formData.profession
+    ? (DESIGNATIONS_BY_PROFESSION[formData.profession] ?? GENERIC_DESIGNATIONS)
+    : GENERIC_DESIGNATIONS;
+
+  const stepTitle = ['Staff Info', 'Personal Details', 'Education & Employment', 'Family & Residence', 'Home & Requirements'];
+
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <div className="mb-6">
@@ -194,372 +240,466 @@ export default function StaffDataEntry() {
       {/* Progress */}
       <div className="mb-6">
         <div className="flex justify-between text-xs text-gray-500 mb-1">
-          <span>Step {step} of {TOTAL}: {stepTitles[step - 1]}</span>
-          <span>{Math.round((step / TOTAL) * 100)}%</span>
+          <span>Step {step} of {TOTAL_STEPS}: {stepTitle[step]}</span>
+          <span>{Math.round((step / TOTAL_STEPS) * 100)}%</span>
         </div>
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full bg-green-600 transition-all" style={{ width: `${(step / TOTAL) * 100}%` }} />
+          <div className="h-full bg-green-600 transition-all" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
         </div>
       </div>
 
       {success && (
         <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-medium">
-          ✓ Profile created successfully. Pending staff approval.
+          ✓ Profile created successfully — pending approval.
         </div>
       )}
       {submitError && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-          {submitError}
-        </div>
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">{submitError}</div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-5">
+      <div ref={formRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-6">
 
-        {/* ── STEP 1: Staff Info ──────────────────────────────────────────── */}
-        {step === 1 && <>
-          <h2 className="font-semibold text-gray-900 text-lg mb-4">Staff & Source Info</h2>
+        {/* ── STEP 0: Staff Meta ────────────────────────────────────────────── */}
+        {step === 0 && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">Staff Information</h2>
 
-          <div>
-            <label className={lbl}>Data Source *</label>
-            <select value={form.source} onChange={e => set('source', e.target.value)} className={`${cls} ${errors.source ? 'border-red-400' : ''}`}>
-              <option value="">Select source</option>
-              <option value="paper">Paper Form</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="walkin">Walk-In</option>
-              <option value="referral">Referral</option>
-              <option value="phone">Phone Call</option>
-            </select>
-            {errors.source && <p className="text-xs text-red-600 mt-1">{errors.source}</p>}
-          </div>
-
-          <div>
-            <label className={lbl}>Internal Notes (staff only — not shown to applicant)</label>
-            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={3} className={cls}
-              placeholder="Any relevant notes about this applicant or submission…" />
-          </div>
-
-          <div>
-            <label className={lbl}>Profile Photo (optional — can be added later)</label>
-            <div className="flex items-center gap-4">
-              {form.photo && (
-                <img src={form.photo} alt="Preview" crossOrigin="anonymous" className="w-20 h-20 rounded-lg object-cover border" />
-              )}
-              <label className={`cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${(photoUploading || photoChecking) ? 'bg-gray-100 text-gray-400' : 'bg-white text-green-700 border-green-300 hover:bg-green-50'}`}>
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoSelect} disabled={photoUploading || photoChecking} className="hidden" />
-                {photoChecking ? '🔍 Verifying face…' : photoUploading ? 'Uploading…' : form.photo ? 'Change Photo' : 'Upload Photo'}
-              </label>
+            <div data-error={fieldErrors.source ? 'true' : undefined}>
+              <label className={lc}>Data Source <span className="text-red-500">*</span></label>
+              <select
+                value={meta.source}
+                onChange={e => setMeta(p => ({ ...p, source: e.target.value }))}
+                className={ic(fieldErrors.source)}
+              >
+                <option value="">Select source</option>
+                <option value="paper">Paper Form</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="walkin">Walk-In</option>
+                <option value="referral">Referral</option>
+                <option value="phone">Phone Call</option>
+              </select>
+              {errEl(fieldErrors.source)}
             </div>
-            {photoUploadError && <p className="text-xs text-red-600 mt-1 whitespace-pre-line">{photoUploadError}</p>}
-            <p className="text-xs text-gray-400 mt-1">Photo must show a real human face — same rules as user registration.</p>
-          </div>
-        </>}
 
-        {/* ── STEP 2: Personal Info ───────────────────────────────────────── */}
-        {step === 2 && <>
-          <h2 className="font-semibold text-gray-900 text-lg mb-4">Personal Details</h2>
-
-          <div>
-            <label className={lbl}>Full Name *</label>
-            <input value={form.name} onChange={e => set('name', e.target.value)} className={`${cls} ${errors.name ? 'border-red-400' : ''}`} placeholder="Applicant's full name" />
-            {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={lbl}>Gender *</label>
-              <select value={form.gender} onChange={e => set('gender', e.target.value)} className={`${cls} ${errors.gender ? 'border-red-400' : ''}`}>
-                <option value="">Select</option>
+              <label className={lc}>Internal Notes (not shown to applicant)</label>
+              <textarea
+                value={meta.notes}
+                onChange={e => setMeta(p => ({ ...p, notes: e.target.value }))}
+                rows={3}
+                className={ic()}
+                placeholder="Any relevant context about this submission…"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 1: Personal Details (same as wizard step 1) ─────────────── */}
+        {step === 1 && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">Personal Details</h2>
+
+            {/* Name */}
+            <div data-error={fieldErrors.name ? 'true' : undefined}>
+              <label className={lc}>Full Name <span className="text-red-500">*</span></label>
+              <input type="text" name="name" value={formData.name} onChange={handleInputChange}
+                className={ic(fieldErrors.name)} placeholder="Applicant's full name" />
+              {errEl(fieldErrors.name)}
+            </div>
+
+            {/* Phone */}
+            <div data-error={fieldErrors.phone ? 'true' : undefined}>
+              <PhoneInput
+                label="Applicant's Mobile Number *"
+                value={phone}
+                required
+                onChange={v => {
+                  setPhone(v);
+                  if (fieldErrors.phone) setFieldErrors(p => { const n = { ...p }; delete n.phone; return n; });
+                }}
+                error={fieldErrors.phone}
+                helperText="The applicant's own mobile number"
+              />
+            </div>
+
+            {/* Gender */}
+            <div data-error={fieldErrors.gender ? 'true' : undefined}>
+              <label className={lc}>Gender *</label>
+              <select name="gender" value={formData.gender}
+                onChange={e => {
+                  const g = e.target.value as 'male' | 'female';
+                  setFormData(p => ({
+                    ...p, gender: g,
+                    acceptMarriedPerson: g === 'female' ? (p.acceptMarriedPerson ?? 'No') : undefined,
+                  }));
+                }}
+                className={ic(fieldErrors.gender)}
+              >
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
-              {errors.gender && <p className="text-xs text-red-600 mt-1">{errors.gender}</p>}
+              <p className="text-xs text-gray-500 mt-1">Determines who this applicant is matched with.</p>
+              {errEl(fieldErrors.gender)}
             </div>
-            <div>
-              <label className={lbl}>Date of Birth *</label>
-              <input type="date" value={form.dateOfBirth} onChange={e => set('dateOfBirth', e.target.value)} className={`${cls} ${errors.dateOfBirth ? 'border-red-400' : ''}`} />
-              {errors.dateOfBirth && <p className="text-xs text-red-600 mt-1">{errors.dateOfBirth}</p>}
+
+            {/* Profile Photo */}
+            <div data-error={fieldErrors.photo ? 'true' : undefined}>
+              <label className={lc}>Profile Photo <span className="text-red-500">*</span></label>
+              <p className="text-xs text-gray-500 mb-2">
+                JPEG/PNG/WebP · max 5 MB · min 200×200 px. Must show a real human face.
+              </p>
+              {errEl(fieldErrors.photo)}
+
+              <div className="flex items-start gap-4">
+                <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
+                  {formData.photo ? (
+                    <img src={formData.photo} alt="Preview" className="w-full h-full object-cover"
+                      crossOrigin={formData.photo.includes('cloudinary.com') ? 'anonymous' : undefined} />
+                  ) : (
+                    <span className="text-gray-400 text-xs text-center px-1">No photo</span>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    (uploading || checking) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-green-700 border-green-300 hover:bg-green-50'
+                  }`}>
+                    <input type="file" accept="image/jpeg,image/png,image/webp"
+                      onChange={handlePhotoUpload} disabled={uploading || checking} className="hidden" />
+                    {checking ? '🔍 Verifying face…' : uploading ? `⬆ ${progress}%…` : formData.photo ? 'Change Photo' : 'Upload Photo'}
+                  </label>
+                  {formData.photo && !uploading && !checking && (
+                    <button type="button" onClick={handleDeletePhoto}
+                      className="ml-2 px-3 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50">
+                      Remove
+                    </button>
+                  )}
+                  {(uploading || checking) && (
+                    <div className="mt-2 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${checking ? 'bg-blue-400 animate-pulse' : 'bg-green-500'}`}
+                        style={{ width: checking ? '100%' : `${progress}%` }} />
+                    </div>
+                  )}
+                  {uploadError && <p className="mt-2 text-xs text-red-600 whitespace-pre-line">{uploadError}</p>}
+                  {formData.photo && !uploading && !checking && !uploadError && (
+                    <p className="mt-1 text-xs text-green-600 font-medium">✓ Photo verified and uploaded</p>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Phone *</label>
-              <input value={form.phone} onChange={e => set('phone', e.target.value)} className={`${cls} ${errors.phone ? 'border-red-400' : ''}`} placeholder="03001234567" />
-              {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone}</p>}
+            {/* DOB + Age */}
+            <div className="grid grid-cols-2 gap-4">
+              <div data-error={fieldErrors.dateOfBirth ? 'true' : undefined}>
+                <label className={lc}>Date of Birth *</label>
+                <input type="date" value={formData.dateOfBirth} onChange={handleDOBChange}
+                  className={ic(fieldErrors.dateOfBirth)} />
+                {errEl(fieldErrors.dateOfBirth)}
+              </div>
+              <div>
+                <label className={lc}>Age (auto-calculated)</label>
+                <input type="number" value={formData.age > 0 ? formData.age : ''} disabled
+                  className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm" />
+              </div>
             </div>
-            <div>
-              <label className={lbl}>Email</label>
-              <input type="email" value={form.email} onChange={e => set('email', e.target.value)} className={cls} placeholder="Optional" />
+
+            {/* Height + Caste */}
+            <div className="grid grid-cols-2 gap-4">
+              <div data-error={fieldErrors.height ? 'true' : undefined}>
+                <label className={lc}>Height (ft.in)</label>
+                <input type="text" name="height" value={formData.height} onChange={handleInputChange}
+                  placeholder="e.g., 5.9" className={ic(fieldErrors.height)} />
+                {errEl(fieldErrors.height)}
+              </div>
+              <SearchableSelect label="Caste *" name="caste" value={formData.caste}
+                options={CASTES} allowCustom required
+                onChange={v => { set('caste', v); if (fieldErrors.caste) setFieldErrors(p => { const n = { ...p }; delete n.caste; return n; }); }}
+                placeholder="Search caste…" error={fieldErrors.caste}
+                helperText="Type to search. Press Enter for custom value." />
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Height (ft) *</label>
-              <input value={form.height} onChange={e => set('height', e.target.value)} className={cls} placeholder="e.g. 5.9" />
+            {/* Mother Tongue + Disability */}
+            <div className="grid grid-cols-2 gap-4">
+              <SearchableSelect label="Mother Tongue" name="motherTongue" value={formData.motherTongue}
+                options={LANGUAGES} allowCustom
+                onChange={v => set('motherTongue', v)} placeholder="e.g., Urdu, Punjabi…" />
+              <div>
+                <label className={lc}>Physical Disability</label>
+                <select name="disability" value={formData.disability} onChange={handleInputChange} className={ic()}>
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className={lbl}>Caste *</label>
-              <input value={form.caste} onChange={e => set('caste', e.target.value)} className={`${cls} ${errors.caste ? 'border-red-400' : ''}`} placeholder="e.g. Arain, Sheikh…" />
-              {errors.caste && <p className="text-xs text-red-600 mt-1">{errors.caste}</p>}
+
+            {/* Religion + Sect */}
+            <div className="grid grid-cols-2 gap-4">
+              <SearchableSelect label="Religion" name="religion" value={formData.religion}
+                options={RELIGIONS} onChange={v => set('religion', v)} />
+              <SearchableSelect label="School of Thought / Sect" name="sect" value={formData.sect}
+                options={SECTS} allowCustom onChange={v => set('sect', v)} placeholder="Search sect…" />
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Religion</label>
-              <select value={form.religion} onChange={e => set('religion', e.target.value)} className={cls}>
-                <option>Islam</option><option>Christianity</option><option>Hinduism</option><option>Other</option>
-              </select>
-            </div>
-            <div>
-              <label className={lbl}>Sect</label>
-              <input value={form.sect} onChange={e => set('sect', e.target.value)} className={cls} placeholder="e.g. Sunni, Shia…" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Mother Tongue</label>
-              <input value={form.motherTongue} onChange={e => set('motherTongue', e.target.value)} className={cls} placeholder="e.g. Urdu, Punjabi" />
-            </div>
-            <div>
-              <label className={lbl}>Prayer Regularity</label>
-              <select value={form.prayerRegularity} onChange={e => set('prayerRegularity', e.target.value)} className={cls}>
-                <option>Regular</option><option>Sometimes</option><option>Occasional</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>CNIC</label>
-              <input value={form.cnic} onChange={e => set('cnic', e.target.value)} className={cls} placeholder="12345-1234567-1" maxLength={15} />
-            </div>
-            <div>
-              <label className={lbl}>Physical Disability</label>
-              <select value={form.disability} onChange={e => set('disability', e.target.value)} className={cls}>
-                <option value="No">No</option><option value="Yes">Yes</option>
-              </select>
-            </div>
-          </div>
-        </>}
-
-        {/* ── STEP 3: Career ──────────────────────────────────────────────── */}
-        {step === 3 && <>
-          <h2 className="font-semibold text-gray-900 text-lg mb-4">Education & Career</h2>
-
-          <div>
-            <label className={lbl}>Education Level *</label>
-            <select value={form.education} onChange={e => set('education', e.target.value)} className={`${cls} ${errors.education ? 'border-red-400' : ''}`}>
-              <option value="">Select</option>
-              {['Matric','Intermediate','Diploma','Bachelors','Masters','MBA','MBBS','PhD','Other'].map(v => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
-            {errors.education && <p className="text-xs text-red-600 mt-1">{errors.education}</p>}
-          </div>
-
-          <div>
-            <label className={lbl}>Institution / University</label>
-            <input value={form.institution} onChange={e => set('institution', e.target.value)} className={cls} placeholder="University or college name" />
-          </div>
-
-          <div>
-            <label className={lbl}>Profession / Occupation *</label>
-            <input value={form.profession} onChange={e => set('profession', e.target.value)} className={`${cls} ${errors.profession ? 'border-red-400' : ''}`} placeholder="e.g. Doctor, Engineer, Teacher…" />
-            {errors.profession && <p className="text-xs text-red-600 mt-1">{errors.profession}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={lbl}>Job Type</label>
-              <select value={form.jobType} onChange={e => set('jobType', e.target.value)} className={cls}>
-                <option value="">Select</option>
-                <option>Full-time</option><option>Part-time</option><option>Self-employed</option>
-                <option>Business</option><option>Government</option><option>Freelance</option>
-              </select>
-            </div>
-            <div>
-              <label className={lbl}>Designation / Title</label>
-              <input value={form.designation} onChange={e => set('designation', e.target.value)} className={cls} placeholder="e.g. Software Engineer" />
-            </div>
-          </div>
-
-          <div>
-            <label className={lbl}>Monthly Income Range</label>
-            <select value={form.monthlyIncome} onChange={e => set('monthlyIncome', e.target.value)} className={cls}>
-              <option value="">Select</option>
-              {INCOME_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className={lbl}>Office / Institution Address</label>
-            <input value={form.officeAddress} onChange={e => set('officeAddress', e.target.value)} className={cls} placeholder="Office or institution location" />
-          </div>
-        </>}
-
-        {/* ── STEP 4: Family & Residence ──────────────────────────────────── */}
-        {step === 4 && <>
-          <h2 className="font-semibold text-gray-900 text-lg mb-4">Family & Residence</h2>
-
-          <div>
-            <label className={lbl}>City *</label>
-            <input value={form.city} onChange={e => set('city', e.target.value)} className={`${cls} ${errors.city ? 'border-red-400' : ''}`} placeholder="e.g. Lahore" />
-            {errors.city && <p className="text-xs text-red-600 mt-1">{errors.city}</p>}
-          </div>
-
-          <div>
-            <label className={lbl}>Residential Area / Address</label>
-            <input value={form.address} onChange={e => set('address', e.target.value)} className={cls} placeholder="e.g. DHA Phase 5, Lahore" />
-          </div>
-
-          <div className="border-t pt-4">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Parents</p>
+            {/* Prayer + CNIC */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className={lbl}>Father's Name</label>
-                <input value={form.fatherName} onChange={e => set('fatherName', e.target.value)} className={cls} />
+                <label className={lc}>Prayer Regularity</label>
+                <select name="prayerRegularity" value={formData.prayerRegularity}
+                  onChange={handleInputChange} className={ic()}>
+                  <option value="Regular">Regular</option>
+                  <option value="Sometimes">Sometimes</option>
+                  <option value="Occasional">Occasional</option>
+                </select>
               </div>
-              <div>
-                <label className={lbl}>Father's Occupation</label>
-                <input value={form.fatherOccupation} onChange={e => set('fatherOccupation', e.target.value)} className={cls} placeholder="e.g. Businessman" />
-              </div>
-              <div>
-                <label className={lbl}>Mother's Name</label>
-                <input value={form.motherName} onChange={e => set('motherName', e.target.value)} className={cls} />
-              </div>
-              <div>
-                <label className={lbl}>Mother's Occupation</label>
-                <input value={form.motherOccupation} onChange={e => set('motherOccupation', e.target.value)} className={cls} placeholder="e.g. Housewife" />
-              </div>
-              <div>
-                <label className={lbl}>Father's Mobile</label>
-                <input value={form.fatherMobile} onChange={e => set('fatherMobile', e.target.value)} className={cls} placeholder="03001234567" />
-              </div>
-              <div>
-                <label className={lbl}>Mother's Mobile</label>
-                <input value={form.motherMobile} onChange={e => set('motherMobile', e.target.value)} className={cls} placeholder="03001234567" />
+              <div data-error={fieldErrors.cnic ? 'true' : undefined}>
+                <label className={lc}>CNIC Number</label>
+                <input type="text" name="cnic" value={formData.cnic} onChange={handleInputChange}
+                  placeholder="e.g., 12345-1234567-1" maxLength={15} className={ic(fieldErrors.cnic)} />
+                {errEl(fieldErrors.cnic)}
               </div>
             </div>
           </div>
+        )}
 
-          <div className="border-t pt-4">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Siblings</p>
+        {/* ── STEP 2: Education & Employment (same as wizard step 2) ────────── */}
+        {step === 2 && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">Education & Employment</h2>
+
+            <SearchableSelect label="Educational Qualification *" name="education"
+              value={formData.education} options={EDUCATION_LEVELS} required
+              onChange={v => { set('education', v); if (fieldErrors.education) setFieldErrors(p => { const n = { ...p }; delete n.education; return n; }); }}
+              placeholder="Select education level…" error={fieldErrors.education} />
+
+            <SearchableSelect label="College / University / Institution" name="institution"
+              value={formData.institution} options={PAKISTANI_UNIVERSITIES} allowCustom
+              onChange={v => set('institution', v)} placeholder="Search institution…"
+              helperText="Start typing to search. Select 'Other / Not Listed' if not found." />
+
+            <SearchableSelect label="Profession / Occupation *" name="profession"
+              value={formData.profession} options={PROFESSIONS} required
+              onChange={v => { set('profession', v); set('designation', ''); if (fieldErrors.profession) setFieldErrors(p => { const n = { ...p }; delete n.profession; return n; }); }}
+              placeholder="Search profession…" error={fieldErrors.profession} />
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className={lbl}>Brothers</label>
-                <input type="number" min={0} value={form.numBrothers} onChange={e => set('numBrothers', parseInt(e.target.value) || 0)} className={cls} />
+                <label className={lc}>Job Type</label>
+                <select name="jobType" value={formData.jobType} onChange={handleInputChange} className={ic()}>
+                  <option value="">Select</option>
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Self-employed">Self-employed</option>
+                  <option value="Business">Business</option>
+                  <option value="Freelance">Freelance</option>
+                  <option value="Government">Government</option>
+                </select>
               </div>
-              <div>
-                <label className={lbl}>Married Brothers</label>
-                <input type="number" min={0} value={form.numMarriedBrothers} onChange={e => set('numMarriedBrothers', parseInt(e.target.value) || 0)} className={cls} />
+              <SearchableSelect label="Designation" name="designation" value={formData.designation}
+                options={designationSuggestions} allowCustom onChange={v => set('designation', v)}
+                placeholder="e.g., Software Engineer" helperText="Suggestions based on profession" />
+            </div>
+
+            <div>
+              <label className={lc}>Monthly Income Range</label>
+              <select name="monthlyIncome" value={formData.monthlyIncome} onChange={handleInputChange} className={ic()}>
+                <option value="">Select Range</option>
+                {INCOME_RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Used for compatibility assessment. Not shown publicly.</p>
+            </div>
+
+            <SearchableSelect label="Office / Institution Address" name="officeAddress"
+              value={formData.officeAddress}
+              options={[...ALL_PK_AREAS.map(a => `Office, ${a}`), 'Government Hospital, Lahore', 'Services Hospital, Lahore']}
+              allowCustom onChange={v => set('officeAddress', v)}
+              placeholder="e.g., Arfa Software Park, Ferozepur Road, Lahore"
+              helperText="Leave blank if not applicable." />
+          </div>
+        )}
+
+        {/* ── STEP 3: Family & Residence (same as wizard step 3) ───────────── */}
+        {step === 3 && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">Family & Residence</h2>
+
+            <SearchableSelect label="City *" name="city" value={formData.city}
+              options={CITIES} allowCustom required
+              onChange={v => { set('city', v); if (fieldErrors.city) setFieldErrors(p => { const n = { ...p }; delete n.city; return n; }); }}
+              placeholder="Search city…" error={fieldErrors.city}
+              helperText="Select current city of residence." />
+
+            <SearchableSelect label="Residential Area" name="address" value={formData.address}
+              options={ALL_PK_AREAS} allowCustom onChange={v => set('address', v)}
+              placeholder="e.g., DHA Phase 5, Lahore…"
+              helperText="Select area or type full address." />
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Parents Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={lc}>Father's Name</label>
+                  <input type="text" name="fatherName" value={formData.fatherName}
+                    onChange={handleInputChange} className={ic()} />
+                </div>
+                <SearchableSelect label="Father's Occupation" name="fatherOccupation"
+                  value={formData.fatherOccupation} options={OCCUPATIONS} allowCustom
+                  onChange={v => set('fatherOccupation', v)} placeholder="e.g., Businessman, Retired…" />
               </div>
-              <div>
-                <label className={lbl}>Sisters</label>
-                <input type="number" min={0} value={form.numSisters} onChange={e => set('numSisters', parseInt(e.target.value) || 0)} className={cls} />
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className={lc}>Mother's Name</label>
+                  <input type="text" name="motherName" value={formData.motherName}
+                    onChange={handleInputChange} className={ic()} />
+                </div>
+                <SearchableSelect label="Mother's Occupation" name="motherOccupation"
+                  value={formData.motherOccupation} options={OCCUPATIONS} allowCustom
+                  onChange={v => set('motherOccupation', v)} placeholder="e.g., Housewife, Teacher…" />
               </div>
-              <div>
-                <label className={lbl}>Married Sisters</label>
-                <input type="number" min={0} value={form.numMarriedSisters} onChange={e => set('numMarriedSisters', parseInt(e.target.value) || 0)} className={cls} />
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <PhoneInput label="Father's Mobile" value={formData.fatherMobile}
+                  onChange={v => set('fatherMobile', v)} error={fieldErrors.fatherMobile} />
+                <PhoneInput label="Mother's Mobile" value={formData.motherMobile}
+                  onChange={v => set('motherMobile', v)} error={fieldErrors.motherMobile} />
               </div>
             </div>
-            {(form.numBrothers > 0 || form.numSisters > 0) && (
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Siblings Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={lc}>Total Brothers</label>
+                  <input type="number" min="0" value={formData.numBrothers}
+                    onChange={e => handleNumberChange('numBrothers', parseInt(e.target.value) || 0)}
+                    className={ic()} />
+                </div>
+                <div>
+                  <label className={lc}>Married Brothers</label>
+                  <input type="number" min="0" value={formData.numMarriedBrothers}
+                    data-error={fieldErrors.numMarriedBrothers ? 'true' : undefined}
+                    onChange={e => handleNumberChange('numMarriedBrothers', parseInt(e.target.value) || 0)}
+                    className={ic(fieldErrors.numMarriedBrothers)} />
+                  {errEl(fieldErrors.numMarriedBrothers)}
+                </div>
+                <div>
+                  <label className={lc}>Total Sisters</label>
+                  <input type="number" min="0" value={formData.numSisters}
+                    onChange={e => handleNumberChange('numSisters', parseInt(e.target.value) || 0)}
+                    className={ic()} />
+                </div>
+                <div>
+                  <label className={lc}>Married Sisters</label>
+                  <input type="number" min="0" value={formData.numMarriedSisters}
+                    data-error={fieldErrors.numMarriedSisters ? 'true' : undefined}
+                    onChange={e => handleNumberChange('numMarriedSisters', parseInt(e.target.value) || 0)}
+                    className={ic(fieldErrors.numMarriedSisters)} />
+                  {errEl(fieldErrors.numMarriedSisters)}
+                </div>
+              </div>
+
+              {/* Sibling contact — only when siblings > 0 (same conditional as wizard) */}
+              {(formData.numBrothers > 0 || formData.numSisters > 0) && (
+                <div className="mt-4" data-error={fieldErrors.siblingsMobile ? 'true' : undefined}>
+                  <PhoneInput label="Sibling's Mobile" value={formData.siblingsMobile} required
+                    onChange={v => { set('siblingsMobile', v); if (fieldErrors.siblingsMobile) setFieldErrors(p => { const n = { ...p }; delete n.siblingsMobile; return n; }); }}
+                    error={fieldErrors.siblingsMobile} helperText="Required when siblings > 0" />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 4: Home & Requirements (same as wizard step 4) ──────────── */}
+        {step === 4 && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">Home & Requirements</h2>
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-gray-900 mb-4">House Details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={lc}>Home Status</label>
+                  <select name="homeOwnership" value={formData.homeOwnership}
+                    onChange={handleInputChange} className={ic()}>
+                    <option value="owned">Owned</option>
+                    <option value="rented">Rented</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={lc}>Size Unit</label>
+                  <select name="homeSize" value={formData.homeSize} onChange={handleInputChange} className={ic()}>
+                    <option value="kanal">Kanal</option>
+                    <option value="marla">Marla</option>
+                    <option value="sqft">Sq Ft</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-4" data-error={fieldErrors.areaValue ? 'true' : undefined}>
+                <label className={lc}>Area Value</label>
+                <input type="number" name="areaValue" value={formData.areaValue || ''}
+                  onChange={e => handleNumberChange('areaValue', parseInt(e.target.value) || 0)}
+                  placeholder="e.g., 2500" className={ic(fieldErrors.areaValue)} />
+                {errEl(fieldErrors.areaValue)}
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Match Requirements</h3>
+              <div>
+                <label className={lc}>Desired Criteria for Match</label>
+                <textarea name="matchCriteria" value={formData.matchCriteria} onChange={handleInputChange}
+                  rows={3} placeholder="e.g., Educated, caring, family-oriented…" className={ic()} />
+              </div>
               <div className="mt-4">
-                <label className={lbl}>Sibling's Mobile</label>
-                <input value={form.siblingsMobile} onChange={e => set('siblingsMobile', e.target.value)} className={cls} placeholder="03001234567" />
+                <label className={lc}>Desired Match Details</label>
+                <textarea name="desiredMatchDetails" value={formData.desiredMatchDetails}
+                  onChange={handleInputChange} rows={3} placeholder="Additional preferences…" className={ic()} />
               </div>
-            )}
-          </div>
 
-          <div className="border-t pt-4">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Home</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={lbl}>Home Status</label>
-                <select value={form.homeOwnership} onChange={e => set('homeOwnership', e.target.value)} className={cls}>
-                  <option value="owned">Owned</option><option value="rented">Rented</option>
-                </select>
-              </div>
-              <div>
-                <label className={lbl}>Size Unit</label>
-                <select value={form.homeSize} onChange={e => set('homeSize', e.target.value)} className={cls}>
-                  <option value="kanal">Kanal</option><option value="marla">Marla</option><option value="sqft">Sq Ft</option>
-                </select>
-              </div>
+              {/* Female-only field (same conditional as wizard) */}
+              {formData.gender === 'female' && (
+                <div className="mt-4">
+                  <label className={lc}>Is Married Person Acceptable?</label>
+                  <select name="acceptMarriedPerson"
+                    value={formData.acceptMarriedPerson || 'No'} onChange={handleInputChange} className={ic()}>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+              )}
             </div>
-            <div className="mt-4">
-              <label className={lbl}>Area Value</label>
-              <input type="number" min={0} value={form.areaValue || ''} onChange={e => set('areaValue', parseInt(e.target.value) || 0)} className={cls} placeholder="e.g. 10" />
-            </div>
-          </div>
-        </>}
 
-        {/* ── STEP 5: Preferences ─────────────────────────────────────────── */}
-        {step === 5 && <>
-          <h2 className="font-semibold text-gray-900 text-lg mb-4">Match Preferences</h2>
-
-          <div>
-            <label className={lbl}>Desired Criteria for Match</label>
-            <textarea value={form.matchCriteria} onChange={e => set('matchCriteria', e.target.value)} rows={3} className={cls}
-              placeholder="e.g. Educated, same caste, family-oriented, God-fearing…" />
-          </div>
-
-          <div>
-            <label className={lbl}>Desired Match Details</label>
-            <textarea value={form.desiredMatchDetails} onChange={e => set('desiredMatchDetails', e.target.value)} rows={2} className={cls}
-              placeholder="Any additional preferences or notes…" />
-          </div>
-
-          {form.gender === 'female' && (
-            <div>
-              <label className={lbl}>Is a married person acceptable?</label>
-              <select value={form.acceptMarriedPerson} onChange={e => set('acceptMarriedPerson', e.target.value)} className={cls}>
-                <option value="No">No</option><option value="Yes">Yes</option>
-              </select>
-            </div>
-          )}
-
-          <div className="border-t pt-4">
-            <p className="text-sm font-semibold text-gray-700 mb-3">Reference</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={lbl}>Reference Name</label>
-                <input value={form.reference} onChange={e => set('reference', e.target.value)} className={cls} placeholder="Name of referrer" />
-              </div>
-              <div>
-                <label className={lbl}>Relation / Organization</label>
-                <input value={form.referenceRelation} onChange={e => set('referenceRelation', e.target.value)} className={cls} placeholder="e.g. Family friend, organization" />
+            <div className="border-t pt-4">
+              <h3 className="font-semibold text-gray-900 mb-4">Reference</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={lc}>Reference Name</label>
+                  <input type="text" name="reference" value={formData.reference}
+                    onChange={handleInputChange} placeholder="Referral name or contact" className={ic()} />
+                </div>
+                <div>
+                  <label className={lc}>Relation / Organization</label>
+                  <input type="text" name="referenceRelation" value={formData.referenceRelation}
+                    onChange={handleInputChange} placeholder="e.g., Family friend, organization" className={ic()} />
+                </div>
               </div>
             </div>
           </div>
-        </>}
+        )}
       </div>
 
       {/* Navigation */}
-      <div className="mt-6 flex justify-between gap-4">
-        <button
-          onClick={() => setStep(s => Math.max(1, s - 1))}
-          disabled={step === 1}
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-40 text-sm"
-        >
+      <div className="mt-8 flex justify-between gap-4">
+        <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}
+          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50">
           Previous
         </button>
-
-        {step < TOTAL ? (
-          <button
-            onClick={handleNext}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
-          >
+        {step < TOTAL_STEPS ? (
+          <button onClick={handleNext}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
             Next
           </button>
         ) : (
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
-          >
+          <button onClick={handleSubmit} disabled={loading}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium">
             {loading ? 'Creating Profile…' : 'Create Profile'}
           </button>
         )}
