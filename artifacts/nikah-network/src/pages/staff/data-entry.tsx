@@ -112,21 +112,28 @@ export default function StaffDataEntry() {
 
   const validateStep = (s: number): boolean => {
     const errs: Record<string, string> = {};
+    // Step 1 UI: source, notes, photo
     if (s === 1) {
-      if (!form.source)              errs.source      = 'Source required';
-      if (!form.name.trim())         errs.name        = 'Name required';
-      if (!form.phone.match(/^\d{10,}/)) errs.phone   = 'Valid phone required (10+ digits)';
-      if (!form.gender)              errs.gender      = 'Gender required';
-      if (!form.dateOfBirth)         errs.dateOfBirth = 'Date of birth required';
-      if (!form.caste.trim())        errs.caste       = 'Caste required';
+      if (!form.source) errs.source = 'Source required';
     }
+    // Step 2 UI: name, email, phone, gender, dob, height, caste, religion, sect, etc.
     if (s === 2) {
+      if (!form.name.trim())                        errs.name        = 'Name required';
+      if (!form.phone.match(/^\+?\d[\d\s\-]{8,}/)) errs.phone       = 'Valid phone required';
+      if (!form.gender)                             errs.gender      = 'Gender required';
+      if (!form.dateOfBirth)                        errs.dateOfBirth = 'Date of birth required';
+      if (!form.caste.trim())                       errs.caste       = 'Caste required';
+    }
+    // Step 3 UI: education, institution, profession, etc.
+    if (s === 3) {
       if (!form.education)  errs.education  = 'Education required';
       if (!form.profession) errs.profession = 'Profession required';
     }
-    if (s === 3) {
+    // Step 4 UI: city, address, family, home
+    if (s === 4) {
       if (!form.city.trim()) errs.city = 'City required';
     }
+    // Step 5 UI: preferences — no required fields
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -134,7 +141,7 @@ export default function StaffDataEntry() {
   const handleNext = () => { if (validateStep(step)) setStep(s => Math.min(5, s + 1)); };
 
   const handleSubmit = async () => {
-    if (!validateStep(4)) return;
+    if (!validateStep(5)) return; // step 5 has no required fields
     const token = localStorage.getItem('token');
     if (!token) { setSubmitError('Not authenticated. Please log in.'); return; }
 
