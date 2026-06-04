@@ -123,6 +123,52 @@ router.post(
 );
 
 /**
+ * GET /api/profile/view/:id
+ * Fetch any approved applicant profile by ID.
+ * Used by the matches "View Profile" feature.
+ * Requires authentication. Returns only approved profiles to prevent browsing unapproved ones.
+ */
+router.get(
+  '/view/:id',
+  authMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+      const id = (req.params as any).id as string;
+      if (!id || !ObjectId.isValid(id)) {
+        res.status(400).json({ error: 'Invalid profile ID' });
+        return;
+      }
+
+      const db = await getDatabase();
+      const proj = { projection: { password: 0, verificationToken: 0, verificationTokenExpiry: 0 } };
+
+      // Search both collections — profiles (main) and users (simple-register)
+      let profile =
+        await db.collection('profiles').findOne({ _id: new ObjectId(id) }, proj) ||
+        await db.collection('users').findOne({ _id: new ObjectId(id) }, proj);
+
+      if (!profile) {
+        res.status(404).json({ error: 'Profile not found' });
+        return;
+      }
+
+      // Only show approved profiles to other users
+      if (profile.profileStatus !== 'approved') {
+        res.status(403).json({ error: 'This profile is not yet available for viewing.' });
+        return;
+      }
+
+      res.json({ success: true, profile: { ...profile, _id: profile._id.toString() } });
+    } catch (error) {
+      console.error('[profile/view]', error);
+      res.status(500).json({ error: 'Failed to load profile' });
+    }
+  }
+);
+
+/**
  * GET /api/profile/me
  * Return the authenticated user's full profile — used by wizard to pre-populate
  */
