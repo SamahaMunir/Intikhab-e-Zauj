@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ interface Profile {
   education: string;
   profession: string;
   profileStatus: 'pending' | 'approved' | 'rejected';
-  profilePhoto?: string;
+  photo?: string;
   notes?: string;
   enteredBy?: string;
   createdAt: string;
@@ -176,10 +176,11 @@ export default function StaffProfiles() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12"></TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
                   <TableHead>Gender</TableHead>
                   <TableHead>City</TableHead>
+                  <TableHead>Profession</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -187,10 +188,22 @@ export default function StaffProfiles() {
               <TableBody>
                 {profiles.map(profile => (
                   <TableRow key={profile._id}>
-                    <TableCell className="font-medium">{profile.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{profile.email}</TableCell>
-                    <TableCell>{profile.gender}</TableCell>
+                    <TableCell>
+                      {profile.photo ? (
+                        <img src={profile.photo} alt={profile.name}
+                          className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xs">?</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div>{profile.name}</div>
+                      <div className="text-xs text-muted-foreground">{profile.email}</div>
+                    </TableCell>
+                    <TableCell className="capitalize">{profile.gender}</TableCell>
                     <TableCell>{profile.city}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{profile.profession}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
