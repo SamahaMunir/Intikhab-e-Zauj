@@ -47,7 +47,7 @@ router.post('/', async (_req: Request, res: Response) => {
         female: females.length,
         male:   males.length,
         total:  all.length,
-        photos: 'randomuser.me — real human faces, gender-locked by URL path',
+        photos: 'avatar.iran.liara.app — generated avatars, gender-locked by path (/girl vs /boy)',
       },
     });
   } catch (err) {
