@@ -260,7 +260,9 @@ const Matches: React.FC = () => {
                   <div className="flex items-start gap-5">
                     <div className="shrink-0">
                       {match.candidate?.photo ? (
-                        <img src={match.candidate.photo} alt={match.candidate.name} crossOrigin="anonymous" className="w-20 h-20 rounded-xl object-cover shadow-sm" />
+                        <img src={match.candidate.photo} alt={match.candidate.name}
+                          crossOrigin={match.candidate.photo?.includes('cloudinary.com') ? 'anonymous' : undefined}
+                          className="w-20 h-20 rounded-xl object-cover shadow-sm" />
                       ) : (
                         <div className="w-20 h-20 rounded-xl bg-gray-200 flex items-center justify-center text-3xl text-gray-400">👤</div>
                       )}
