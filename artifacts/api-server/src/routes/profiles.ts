@@ -83,6 +83,38 @@ router.get(
 );
 
 /**
+ * GET /api/staff/profiles/:id
+ * Fetch a single profile by ID (staff only)
+ */
+router.get(
+  '/:id',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      if (!ObjectId.isValid(id)) {
+        res.status(400).json({ error: 'Invalid profile ID' });
+        return;
+      }
+      const db = await getDatabase();
+      const profile = await db.collection('profiles').findOne(
+        { _id: new ObjectId(id) },
+        { projection: { password: 0, verificationToken: 0 } }
+      );
+      if (!profile) {
+        res.status(404).json({ error: 'Profile not found' });
+        return;
+      }
+      res.json({ success: true, profile: { ...profile, _id: profile._id.toString() } });
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+  }
+);
+
+/**
  * POST /api/staff/profiles/:id/approve
  * Approve a user profile (staff only)
  * ✅ UNIFIED: Uses 'profiles' collection
