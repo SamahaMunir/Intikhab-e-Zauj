@@ -85,7 +85,10 @@ export async function seedTestData(db: Db) {
         houseStatus: 'owned',
         houseArea: '2500',
         bio: 'Tech enthusiast looking for genuine connection.',
-        photo: 'https://avatar.iran.liara.app/public/boy?username=UsamaKhalid',
+        photo: (() => {
+          const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="60" fill="#1D4ED8"/><circle cx="60" cy="60" r="56" fill="none" stroke="#93C5FD" stroke-width="2" opacity="0.4"/><text x="60" y="76" text-anchor="middle" font-size="40" font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="white" letter-spacing="2">UK</text></svg>';
+          return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+        })(),
         country: 'Pakistan',
         religion: 'Islam',
         sect: 'Sunni',
