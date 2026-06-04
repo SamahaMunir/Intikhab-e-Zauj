@@ -9,61 +9,13 @@ import {
   INCOME_RANGES, DESIGNATIONS_BY_PROFESSION, GENERIC_DESIGNATIONS,
   ALL_PK_AREAS,
 } from '@/lib/profile-options';
+import {
+  validateCNIC, validatePakistaniPhone, validateAge,
+  validateHeight, validateHouseArea, formatCNIC, calculateAge,
+} from '@/lib/profile-validation';
 
 const DRAFT_KEY = 'profile_wizard_draft';
 const API = 'http://localhost:5000';
-
-// ── Validation helpers ────────────────────────────────────────────────────────
-
-function validateCNIC(raw: string): string | null {
-  if (!raw) return null; // optional field
-  const digits = raw.replace(/[-\s]/g, '');
-  if (!/^\d{13}$/.test(digits)) return 'CNIC must be 13 digits (format: 12345-1234567-1)';
-  return null;
-}
-
-function validatePakistaniPhone(phone: string): string | null {
-  if (!phone) return null; // optional
-  const digits = phone.replace(/[-\s+]/g, '');
-  // Accept: 03XXXXXXXXX (11 digits) or 923XXXXXXXXX (12 digits)
-  if (!/^(0|92)?3\d{9}$/.test(digits)) {
-    return 'Enter a valid Pakistani mobile number (e.g. 03001234567)';
-  }
-  return null;
-}
-
-function validateAge(dob: string): string | null {
-  if (!dob) return null;
-  const birth = new Date(dob);
-  if (isNaN(birth.getTime())) return 'Invalid date of birth';
-  const today = new Date();
-  const age = today.getFullYear() - birth.getFullYear() -
-    (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
-  if (age < 18) return 'Minimum age for registration is 18 years';
-  if (age > 60) return 'Maximum age for registration is 60 years';
-  return null;
-}
-
-function validateHeight(h: string): string | null {
-  if (!h) return null;
-  const v = parseFloat(h);
-  if (isNaN(v)) return 'Height must be a number (e.g. 5.9)';
-  if (v < 4.0 || v > 7.5) return 'Height must be between 4.0 and 7.5 feet';
-  return null;
-}
-
-function validateHouseArea(area: number): string | null {
-  if (!area || area === 0) return null; // optional
-  if (area < 1 || area > 50000) return 'House area must be between 1 and 50,000';
-  return null;
-}
-
-function formatCNIC(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 13);
-  if (digits.length <= 5) return digits;
-  if (digits.length <= 12) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
-  return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
-}
 
 interface ProfileFormData {
   name: string;
@@ -290,20 +242,6 @@ export default function ProfileWizard() {
       saveDraft(next);
       return next;
     });
-  };
-
-  const calculateAge = (dob: string) => {
-    if (!dob) return 0;
-    const birthDate = new Date(dob);
-    // Guard: invalid date string produces NaN timestamp
-    if (isNaN(birthDate.getTime())) return 0;
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return Math.max(0, age);
   };
 
   const handleDOBChange = (e: React.ChangeEvent<HTMLInputElement>) => {
