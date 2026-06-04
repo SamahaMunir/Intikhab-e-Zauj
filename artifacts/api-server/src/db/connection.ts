@@ -1,4 +1,5 @@
 import { MongoClient } from 'mongodb';
+import { initMatchesCollection } from './matches-schema';
 
 let cachedClient: MongoClient | null = null;
 
