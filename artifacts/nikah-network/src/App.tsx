@@ -106,7 +106,7 @@ function AppPortalRouter() {
         
         {/* Browse & Interact - NO /app prefix */}
         <Route path="/app/matches" component={AppMatches} />
-        <Route path="/app/match/:id" component={AppMatchDetail} />
+        <Route path="/app/match-detail/:id" component={AppMatchDetail} />
         <Route path="/app/proposals" component={AppProposals} />
         <Route path="/app/proposals/:id" component={AppProposalDetail} />
         <Route path="/app/profile" component={AppProfile} />
