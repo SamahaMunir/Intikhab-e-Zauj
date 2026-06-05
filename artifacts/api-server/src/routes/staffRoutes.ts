@@ -334,15 +334,31 @@ router.post(
       }
 
       const db = await getDatabase();
-      // ✅ FIX: Use 'profiles' collection for ALL user profiles
       const profilesCollection = db.collection('profiles');
 
-      // Check if phone already exists
-      const existing = await profilesCollection.findOne({ phone });
+      // Normalize phone for format-agnostic comparison
+      const normalizePhone = (raw: string): string => {
+        const digits = raw.replace(/\D/g, '');
+        if (digits.startsWith('92') && digits.length === 12) return `+${digits}`;
+        if (digits.startsWith('0')  && digits.length === 11) return `+92${digits.slice(1)}`;
+        if (digits.length === 10)                            return `+92${digits}`;
+        return raw;
+      };
+      const normalizedPhone = normalizePhone(phone);
+
+      // Check phone + email duplicates across all profiles
+      const orClauses: any[] = [{ phone: { $in: [phone, normalizedPhone] } }];
+      if (email) orClauses.push({ email: { $regex: `^${email.trim()}$`, $options: 'i' } });
+
+      const existing = await profilesCollection.findOne({ $or: orClauses });
       if (existing) {
-        res.status(400).json({
-          error: 'User with this phone already exists',
-          message: `Phone: ${phone} is already registered`,
+        const isPhone = existing.phone === phone || existing.phone === normalizedPhone;
+        res.status(409).json({
+          error: 'Duplicate profile',
+          field: isPhone ? 'phone' : 'email',
+          message: isPhone
+            ? `Phone ${phone} is already registered`
+            : `Email ${email} is already registered`,
         });
         return;
       }
@@ -358,9 +374,8 @@ router.post(
         phone,
         gender,
         dob: new Date(dob),
-        // Role & status
+        // Role & status — auto-approved, no manual approval needed for staff entry
         role: 'applicant',
-        profileStatus: 'pending',
         active: true,
         // Personal
         city,
@@ -411,10 +426,11 @@ router.post(
         referenceRelation:   referenceRelation   || '',
         // Photo
         photo: photo || null,
-        // Completion & payment
-        profileCompletion: 75,
-        paymentStatus:     'pending',
-        emailVerified:     false,
+        // Staff-created profiles are auto-approved — no approval workflow needed
+        profileCompletion: 100,
+        profileStatus:     'approved',
+        paymentStatus:     'completed',
+        emailVerified:     true,
         // Staff metadata
         source:        source        || 'staff_entry',
         notes:         notes         || '',
