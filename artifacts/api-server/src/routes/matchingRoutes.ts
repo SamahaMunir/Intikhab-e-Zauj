@@ -7,6 +7,15 @@ import { authMiddleware } from '../middleware/auth';
 
 const router = express.Router();
 
+// ── Profile type classification ───────────────────────────────────────────────
+// Staff profiles are created by staff via data-entry form.
+// User profiles are created by self-registration or seed data.
+const STAFF_SOURCES = ['staff_entry', 'paper', 'whatsapp', 'walkin', 'referral', 'phone'];
+
+function getProfileType(profile: any): 'staff' | 'user' {
+  return STAFF_SOURCES.includes(profile?.source) ? 'staff' : 'user';
+}
+
 function getId(id: string | string[] | undefined): string | null {
   if (!id) return null;
   if (Array.isArray(id)) return id[0] || null;
@@ -201,6 +210,8 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
           candidateId: c._id,
           score: scoreObj.total,
           scoreBreakdown: scoreObj,
+          leftProfileType: getProfileType(user),
+          rightProfileType: getProfileType(c),
           hardFiltersPassed: true,
           status: 'suggested',
           createdAt: new Date(),
@@ -215,6 +226,169 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
     res.json({ success: true, generated: records.length, matches: records });
   } catch (error) {
     console.error('❌ Generate error:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
+  }
+});
+
+// POST /api/staff/matches/generate-all-staff
+// Generates matches for ALL staff-created profiles without requiring user login.
+// Staff profiles have no account so they can't call generate/:userId themselves.
+router.post('/generate-all-staff', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const db = await getDatabase();
+
+    // Auto-approve any existing staff profiles that were created before this fix
+    // (old create-user set profileStatus: 'pending', profileCompletion: 60/75)
+    const patched = await db.collection('profiles').updateMany(
+      {
+        source: { $in: STAFF_SOURCES },
+        $or: [
+          { profileStatus: { $ne: 'approved' } },
+          { profileCompletion: { $lt: 100 } },
+          { paymentStatus: { $ne: 'completed' } },
+        ],
+      },
+      {
+        $set: {
+          profileStatus:     'approved',
+          profileCompletion: 100,
+          paymentStatus:     'completed',
+          updatedAt: new Date(),
+        },
+      }
+    );
+    if (patched.modifiedCount > 0) {
+      console.log(`🔧 Auto-approved ${patched.modifiedCount} legacy staff profiles`);
+    }
+
+    // Fetch all approved, completed staff profiles
+    const staffProfiles = await db.collection('profiles')
+      .find({
+        source: { $in: STAFF_SOURCES },
+        profileStatus: 'approved',
+        profileCompletion: { $gte: 100 },
+      })
+      .toArray();
+
+    console.log(`🔧 generate-all-staff: found ${staffProfiles.length} staff profiles`);
+
+    let totalGenerated = 0;
+
+    for (const staffProfile of staffProfiles) {
+      const oppositeGender = staffProfile.gender === 'male' ? 'female' : 'male';
+
+      // All approved+completed opposite-gender profiles (both staff and user)
+      const candidates = await db.collection('profiles')
+        .find({
+          _id: { $ne: staffProfile._id },
+          gender: oppositeGender,
+          profileStatus: 'approved',
+          paymentStatus: 'completed',
+        })
+        .toArray();
+
+      // Remove old suggested matches for this staff profile only
+      await db.collection('matches').deleteMany({
+        userId: staffProfile._id,
+        status: 'suggested',
+      });
+
+      const bulkOps: any[] = [];
+      for (const c of candidates) {
+        if (applyHardFilters(staffProfile, c).passes) {
+          const scoreObj = calculateScore(staffProfile, c);
+          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          bulkOps.push({
+            updateOne: {
+              filter: { userId: staffProfile._id, candidateId: c._id },
+              update: {
+                $set: {
+                  score:             scoreObj.total,
+                  scoreBreakdown:    scoreObj,
+                  leftProfileType:   'staff',
+                  rightProfileType:  getProfileType(c),
+                  hardFiltersPassed: true,
+                  updatedAt:         new Date(),
+                  expiresAt,
+                },
+                $setOnInsert: {
+                  status:    'suggested',
+                  createdAt: new Date(),
+                },
+              },
+              upsert: true,
+            },
+          });
+        }
+      }
+
+      if (bulkOps.length > 0) {
+        await db.collection('matches').bulkWrite(bulkOps, { ordered: false });
+        totalGenerated += bulkOps.length;
+      }
+      console.log(`  ${staffProfile.name} (${staffProfile.gender}) → ${bulkOps.length} matches`);
+    }
+
+    res.json({
+      success: true,
+      staffProfilesProcessed: staffProfiles.length,
+      matchesGenerated: totalGenerated,
+    });
+  } catch (error) {
+    console.error('❌ generate-all-staff error:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
+  }
+});
+
+// GET /api/staff/matches/staff-view
+// Staff-specific match view: only Staff↔Staff and Staff↔User (excludes User↔User).
+// Returns enriched matches with leftProfileType + rightProfileType.
+router.get('/staff-view', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const db = await getDatabase();
+
+    const allMatches = await db.collection('matches')
+      .find({ status: { $in: ['suggested', 'approved', 'rejected'] } })
+      .sort({ score: -1 })
+      .limit(500)
+      .toArray();
+
+    const enriched = await Promise.all(
+      allMatches.map(async (m) => {
+        const [userDoc, candidateDoc] = await Promise.all([
+          db.collection('profiles').findOne(
+            { _id: m.userId },
+            { projection: { name: 1, age: 1, city: 1, gender: 1, caste: 1, photo: 1, source: 1 } }
+          ),
+          db.collection('profiles').findOne(
+            { _id: m.candidateId },
+            { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1, source: 1 } }
+          ),
+        ]);
+
+        const leftType  = (m.leftProfileType  as string | undefined) || getProfileType(userDoc);
+        const rightType = (m.rightProfileType as string | undefined) || getProfileType(candidateDoc);
+
+        return { ...m, user: userDoc, candidate: candidateDoc, leftProfileType: leftType, rightProfileType: rightType };
+      })
+    );
+
+    // Filter: exclude pure User↔User; deduplicate bidirectional pairs (keep highest score)
+    const seen = new Set<string>();
+    const staffRelevant: typeof enriched = [];
+    for (const m of enriched) {
+      if (m.leftProfileType !== 'staff' && m.rightProfileType !== 'staff') continue;
+      const id1 = (m as any).userId?.toString() || '';
+      const id2 = (m as any).candidateId?.toString() || '';
+      const key = [id1, id2].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      staffRelevant.push(m);
+    }
+
+    res.json({ success: true, total: staffRelevant.length, matches: staffRelevant });
+  } catch (error) {
+    console.error('❌ staff-view error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
   }
 });
