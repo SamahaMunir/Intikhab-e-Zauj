@@ -30,7 +30,7 @@ export default function AdminPanel() {
   useEffect(() => {
     // Check if user is authenticated as admin
     const user = localStorage.getItem('user');
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('token');
 
     if (!user || !token) {
       setLocation('/staff-login');
@@ -47,7 +47,7 @@ export default function AdminPanel() {
   }, []);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('token');
 
   async function fetchStaff() {
     try {
