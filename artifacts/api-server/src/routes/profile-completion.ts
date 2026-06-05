@@ -483,4 +483,62 @@ router.get(
   }
 );
 
+// GET /api/profile/check-duplicate?phone=xxx&email=xxx&excludeId=xxx
+// No auth required — used by registration and staff data-entry forms.
+router.get('/check-duplicate', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { phone, email, excludeId } = req.query as Record<string, string | undefined>;
+
+    if (!phone && !email) {
+      res.status(400).json({ error: 'Provide phone or email to check' });
+      return;
+    }
+
+    const normalizePhone = (raw: string): string => {
+      const digits = raw.replace(/\D/g, '');
+      if (digits.startsWith('92') && digits.length === 12) return `+${digits}`;
+      if (digits.startsWith('0')  && digits.length === 11) return `+92${digits.slice(1)}`;
+      if (digits.length === 10)                            return `+92${digits}`;
+      return raw;
+    };
+
+    const orClauses: any[] = [];
+    if (phone) {
+      const norm = normalizePhone(phone);
+      orClauses.push({ phone: { $in: [phone, norm] } });
+    }
+    if (email) {
+      orClauses.push({ email: { $regex: `^${email.trim()}$`, $options: 'i' } });
+    }
+
+    const db = await getDatabase();
+    const query: any = { $or: orClauses };
+
+    // Exclude self when editing an existing profile
+    if (excludeId) {
+      try { query._id = { $ne: new ObjectId(excludeId) }; } catch { /* invalid id — ignore */ }
+    }
+
+    const existing = await db.collection('profiles').findOne(query, {
+      projection: { _id: 1, phone: 1, email: 1, name: 1 },
+    });
+
+    if (!existing) {
+      res.json({ duplicate: false });
+      return;
+    }
+
+    const isPhone = phone && (existing.phone === phone || existing.phone === normalizePhone(phone));
+    res.json({
+      duplicate: true,
+      field: isPhone ? 'phone' : 'email',
+      message: isPhone
+        ? `Phone ${phone} is already registered`
+        : `Email ${email} is already registered`,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Check failed' });
+  }
+});
+
 export default router;
