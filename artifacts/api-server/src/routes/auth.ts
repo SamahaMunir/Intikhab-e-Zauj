@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { generateToken, JWTPayload } from '../utils/jwt';
 import { logAudit } from '../db/auditLogs';
 import { getStaffByEmail, updateLastLogin } from '../db/staff';
+import { verifyPassword } from '../utils/password';
 
 const router = Router();
 
@@ -55,8 +56,11 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify password
-    if (staff.password !== password) {
+    // Verify password — stored as "salt.hash" (verifyPassword handles both hashed and legacy plain)
+    const passwordOk = staff.password?.includes('.')
+      ? verifyPassword(password, staff.password)
+      : staff.password === password;
+    if (!passwordOk) {
       return res.status(401).json({
         error: 'Invalid credentials',
         message: 'Password incorrect',
