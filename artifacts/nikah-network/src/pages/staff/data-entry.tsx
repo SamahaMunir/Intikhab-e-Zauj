@@ -165,13 +165,39 @@ export default function StaffDataEntry() {
     return true;
   };
 
-  const handleNext = () => { if (validateStep(step)) setStep(s => Math.min(TOTAL_STEPS, s + 1)); };
+  // ── Duplicate check ───────────────────────────────────────────────────────────
+  const checkPhoneDuplicate = async (p: string): Promise<boolean> => {
+    if (!p) return false;
+    try {
+      const r = await fetch(`${API}/api/profile/check-duplicate?phone=${encodeURIComponent(p)}`);
+      const d = await r.json();
+      if (d.duplicate) {
+        setFieldErrors(prev => ({ ...prev, phone: d.message || 'Phone already registered' }));
+        scrollToFirstError();
+        return true;
+      }
+    } catch { /* ignore network errors — backend will catch on submit */ }
+    return false;
+  };
+
+  const handleNext = async () => {
+    if (!validateStep(step)) return;
+    if (step === 1) {
+      const isDup = await checkPhoneDuplicate(phone);
+      if (isDup) return;
+    }
+    setStep(s => Math.min(TOTAL_STEPS, s + 1));
+  };
 
   // ── Submit ────────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!validateStep(4)) return;
     const token = localStorage.getItem('token');
     if (!token) { setSubmitError('Not authenticated. Please log in.'); return; }
+
+    // Pre-flight duplicate check
+    const isDup = await checkPhoneDuplicate(phone);
+    if (isDup) return;
 
     setLoading(true);
     setSubmitError(null);
@@ -189,8 +215,7 @@ export default function StaffDataEntry() {
         notes:     meta.notes,
         enteredBy: staffUser.email || 'staff',
         enteredAt: new Date().toISOString(),
-        profileStatus: 'pending',
-        profileCompletion: 75,
+        // profileStatus/profileCompletion/paymentStatus set by backend (auto-approved)
       };
 
       const res = await fetch(`${API}/api/staff/create-user`, {
