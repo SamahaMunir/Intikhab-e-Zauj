@@ -282,6 +282,17 @@ export default function ProfileWizard() {
         return next;
       });
       setFieldErrors(prev => { const n = { ...prev }; delete n.photo; return n; });
+      // Immediately check if this Cloudinary URL is already in use by another profile
+      try {
+        const excludeId = user?._id ? `&excludeId=${encodeURIComponent(user._id)}` : '';
+        const r = await fetch(`${API}/api/profile/check-duplicate?photo=${encodeURIComponent(result.url)}${excludeId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        });
+        const d = await r.json();
+        if (d.duplicate) {
+          setFieldErrors(prev => ({ ...prev, photo: d.message }));
+        }
+      } catch { /* ignore */ }
     }
     // uploadError from the hook is displayed directly in the photo section
   };
@@ -304,6 +315,25 @@ export default function ProfileWizard() {
         setError('Gender is required. Please select your gender in Step 1.');
         setStep(1);
         return;
+      }
+
+      // Pre-submit duplicate check: CNIC + photo + parent phones
+      {
+        const checks: Record<string, string> = {};
+        if (formData.cnic) checks.cnic = formData.cnic;
+        if (formData.photo) checks.photo = formData.photo;
+        if (formData.fatherMobile) checks.fatherMobile = formData.fatherMobile;
+        if (formData.motherMobile) checks.motherMobile = formData.motherMobile;
+        if (Object.keys(checks).length > 0) {
+          const dup = await checkDuplicate(checks);
+          if (dup) {
+            setError(dup.message);
+            if (dup.field === 'cnic' || dup.field === 'photo') setStep(1);
+            else setStep(3);
+            setFieldErrors(prev => ({ ...prev, [dup.field]: dup.message }));
+            return;
+          }
+        }
       }
 
       // Phone fields are already stored as +CC digits (set by PhoneInput onChange)
@@ -862,8 +892,51 @@ export default function ProfileWizard() {
     return true;
   };
 
-  const handleNext = () => {
-    if (validateStep(step)) setStep(s => Math.min(totalSteps, s + 1));
+  const checkDuplicate = async (params: Record<string, string>): Promise<{ field: string; message: string } | null> => {
+    try {
+      const excludeId = user?._id ? `&excludeId=${encodeURIComponent(user._id)}` : '';
+      const qs = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+      const r = await fetch(`${API}/api/profile/check-duplicate?${qs}${excludeId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      });
+      const d = await r.json();
+      if (d.duplicate) return { field: d.field, message: d.message };
+    } catch { /* network errors caught by backend on submit */ }
+    return null;
+  };
+
+  const handleNext = async () => {
+    if (!validateStep(step)) return;
+
+    if (step === 1) {
+      const checks: Record<string, string> = {};
+      if (formData.cnic) checks.cnic = formData.cnic;
+      if (formData.photo) checks.photo = formData.photo;
+      if (Object.keys(checks).length > 0) {
+        const dup = await checkDuplicate(checks);
+        if (dup) {
+          setFieldErrors(prev => ({ ...prev, [dup.field]: dup.message }));
+          scrollToFirstError();
+          return;
+        }
+      }
+    }
+
+    if (step === 3) {
+      const checks: Record<string, string> = {};
+      if (formData.fatherMobile) checks.fatherMobile = formData.fatherMobile;
+      if (formData.motherMobile) checks.motherMobile = formData.motherMobile;
+      if (Object.keys(checks).length > 0) {
+        const dup = await checkDuplicate(checks);
+        if (dup) {
+          setFieldErrors(prev => ({ ...prev, [dup.field]: dup.message }));
+          scrollToFirstError();
+          return;
+        }
+      }
+    }
+
+    setStep(s => Math.min(totalSteps, s + 1));
   };
 
   const totalSteps = 4;
