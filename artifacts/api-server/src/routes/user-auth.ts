@@ -57,13 +57,13 @@ if (!verifyPassword(password, profile.password)) {
 }
 
     // ✅ CHECK IF EMAIL VERIFIED
-   // if (!profile.emailVerified) {
-      //res.status(403).json({
-     //   error: 'Email not verified',
-    //    message: 'Please verify your email to login',
-     // });
-     // return;
-  //  }
+    if (!profile.emailVerified) {
+      res.status(403).json({
+        error: 'Email not verified',
+        message: 'Please verify your email to login',
+      });
+      return;
+    }
 
     // ✅ CHECK IF ACCOUNT ACTIVE
     if (!profile.active) {
