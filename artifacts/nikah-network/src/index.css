@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Inter:wght@300..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Nunito:wght@400;500;600;700;800;900&display=swap');
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -127,8 +127,8 @@
   --chart-4: 80 20% 70%;
   --chart-5: 40 30% 80%;
 
-  --app-font-sans: 'Inter', sans-serif;
-  --app-font-serif: 'Fraunces', serif;
+  --app-font-sans: 'Nunito', sans-serif;
+  --app-font-serif: 'Amiri', 'Fraunces', serif;
   --app-font-mono: ui-monospace, monospace;
   
   --radius: 0.75rem; /* Soft rounded corners */
@@ -231,6 +231,19 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
   }
+}
+
+/* ── Islamic theme utilities ─────────────────────────────────────────────── */
+.font-amiri {
+  font-family: 'Amiri', serif;
+}
+
+.shadow-warm {
+  box-shadow: 0 2px 12px rgba(180, 120, 40, 0.07), 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.bg-islamic-pattern {
+  background-color: #FDF8F3;
 }
 
 @layer utilities {
