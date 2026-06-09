@@ -1,153 +1,176 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, CheckCircle2, LogOut, BarChart3 } from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function StaffDashboard() {
   const [, setLocation] = useLocation();
-  const [matchStats, setMatchStats] = useState({ total: 0, suggested: 0, approved: 0 });
+  const [matchStats,   setMatchStats]   = useState({ total: 0, suggested: 0 });
+  const [profileStats, setProfileStats] = useState({ total: 0, pending: 0, approved: 0 });
+  const [loading, setLoading] = useState(true);
+
+  const user  = JSON.parse(localStorage.getItem('user') || '{}');
+  const token = localStorage.getItem('token') || '';
+  const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    const tok = localStorage.getItem('token') || '';
-    fetch('http://localhost:5000/api/staff/matches/all', {
-      headers: { Authorization: `Bearer ${tok}` },
-    })
-      .then(r => r.json())
-      .then(d => {
-        const all: any[] = d.matches || [];
-        setMatchStats({
-          total: all.length,
-          suggested: all.filter(m => m.status === 'suggested').length,
-          approved: all.filter(m => m.status === 'approved').length,
-        });
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch(`${API}/api/staff/matches/staff-view`, { headers }).then(r => r.json()).catch(() => ({})),
+      fetch(`${API}/api/staff/profiles`,           { headers }).then(r => r.json()).catch(() => ({})),
+    ]).then(([matchData, profileData]) => {
+      const matches: any[]  = matchData.matches || [];
+      const profiles: any[] = profileData.data  || [];
+      setMatchStats({
+        total:     matches.length,
+        suggested: matches.filter((m: any) => m.status === 'suggested').length,
+      });
+      setProfileStats({
+        total:    profiles.length,
+        pending:  profiles.filter((p: any) => p.profileStatus === 'pending').length,
+        approved: profiles.filter((p: any) => p.profileStatus === 'approved').length,
+      });
+    }).finally(() => setLoading(false));
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    alert('✅ Logged out successfully');
-    setLocation('/staff-login');
-  };
-
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const val = (n: number) => loading ? '—' : n;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-purple-50 to-blue-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900">Staff Dashboard</h1>
-            <p className="text-gray-600 mt-2">Welcome, <strong>{user.name || 'Staff'}</strong></p>
-            <p className="text-sm text-gray-500 mt-1">Role: <span className="font-semibold capitalize">{user.role}</span></p>
-          </div>
-          <Button 
-            variant="outline" 
-            onClick={handleLogout}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
-        </div>
+    <div className="max-w-5xl mx-auto space-y-8">
 
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6">
+      {/* ── Greeting ── */}
+      <div className="pb-4 border-b border-[#E8DED3]">
+        <p className="font-amiri text-[#D97706] text-lg tracking-wide">
+          As-Salamu Alaykum
+        </p>
+        <h1 className="text-3xl font-bold text-[#1C1917] mt-0.5">
+          {user.name || 'Staff'}{' '}
+          <span className="text-lg font-semibold text-stone-400 capitalize">
+            — {user.role || 'staff'}
+          </span>
+        </h1>
+      </div>
+
+      {/* ── Stats row ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Profiles',   value: val(profileStats.total),    bg: 'bg-white',         text: 'text-[#1C1917]',  border: 'border-[#E8DED3]' },
+          { label: 'Pending Approval', value: val(profileStats.pending),  bg: 'bg-[#FEF9EE]',     text: 'text-[#D97706]',  border: 'border-[#FCD34D]' },
+          { label: 'Approved',         value: val(profileStats.approved), bg: 'bg-emerald-50',    text: 'text-[#10B981]',  border: 'border-[#10B981]' },
+          { label: 'Total Matches',    value: val(matchStats.total),      bg: 'bg-white',         text: 'text-[#1C1917]',  border: 'border-[#E8DED3]' },
+        ].map(s => (
+          <div key={s.label} className={`rounded-2xl border-2 px-6 py-5 shadow-warm ${s.bg} ${s.border}`}>
+            <div className={`text-4xl font-black ${s.text}`}>{s.value}</div>
+            <div className="mt-1 text-sm font-semibold text-stone-500">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Quick actions ── */}
+      <div>
+        <h2 className="text-xl font-bold text-[#1C1917] mb-4">Quick Actions</h2>
+        <div className="grid md:grid-cols-3 gap-5">
+
           {/* Data Entry */}
-          <Card className="hover:shadow-lg transition-shadow border-purple-200 bg-white">
-            <CardHeader>
-              <CardTitle className="flex items-center text-purple-900">
-                <Plus className="w-5 h-5 mr-2 text-purple-600" />
-                Offline Data Entry
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Create new user profiles from offline sources (WhatsApp, paper forms, etc.)
+          <div className="bg-white rounded-2xl border border-[#E8DED3] p-6 flex flex-col gap-4
+                          shadow-warm hover:shadow-md transition-shadow">
+            <div>
+              <h3 className="text-xl font-bold text-[#1C1917]">Offline Data Entry</h3>
+              <p className="mt-2 text-base text-stone-500">
+                Create applicant profiles from WhatsApp, paper forms, or walk-ins.
               </p>
-              <Button 
-                onClick={() => setLocation('/staff/data-entry')}
-                className="w-full bg-purple-600 hover:bg-purple-700"
-              >
-                Start Data Entry
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+            <button
+              onClick={() => setLocation('/staff/data-entry')}
+              className="mt-auto min-h-12.5 w-full rounded-xl bg-[#10B981] hover:bg-[#059669]
+                         text-white text-lg font-bold transition-colors"
+            >
+              Start Data Entry
+            </button>
+          </div>
 
           {/* Profile Approval */}
-          <Card className="hover:shadow-lg transition-shadow border-green-200 bg-white">
-            <CardHeader>
-              <CardTitle className="flex items-center text-green-900">
-                <CheckCircle2 className="w-5 h-5 mr-2 text-green-600" />
-                Profile Approvals
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Review and approve pending profiles submitted by applicants
+          <div className="bg-white rounded-2xl border border-[#E8DED3] p-6 flex flex-col gap-4
+                          shadow-warm hover:shadow-md transition-shadow">
+            <div>
+              <h3 className="text-xl font-bold text-[#1C1917]">Profile Approvals</h3>
+              {!loading && profileStats.pending > 0 && (
+                <div className="mt-2 inline-block px-3 py-1 rounded-full bg-[#FEF9EE]
+                                border border-[#FCD34D] text-[#D97706] text-sm font-bold">
+                  {profileStats.pending} awaiting review
+                </div>
+              )}
+              <p className="mt-2 text-base text-stone-500">
+                Review and approve profiles submitted by applicants.
               </p>
-              <Button
-                onClick={() => setLocation('/staff/profile-approval')}
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                Review Profiles
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+            <button
+              onClick={() => setLocation('/staff/profile-approval')}
+              className="mt-auto min-h-12.5 w-full rounded-xl bg-[#10B981] hover:bg-[#059669]
+                         text-white text-lg font-bold transition-colors"
+            >
+              Review Profiles
+            </button>
+          </div>
 
-          {/* AI Match Suggestions */}
-          <Card className="hover:shadow-lg transition-shadow border-blue-200 bg-white">
-            <CardHeader>
-              <CardTitle className="flex items-center text-blue-900">
-                <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
-                AI Match Suggestions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Review AI-generated compatibility matches before applicants see them.
-              </p>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-yellow-50 rounded-lg p-2">
-                  <div className="text-xl font-bold text-yellow-700">{matchStats.suggested}</div>
-                  <div className="text-xs text-yellow-600">Pending</div>
+          {/* Matches */}
+          <div className="bg-white rounded-2xl border border-[#E8DED3] p-6 flex flex-col gap-4
+                          shadow-warm hover:shadow-md transition-shadow">
+            <div>
+              <h3 className="text-xl font-bold text-[#1C1917]">Match Suggestions</h3>
+              <div className="mt-3 flex gap-3">
+                <div className="flex-1 rounded-xl bg-[#FDF8F3] border border-[#E8DED3] px-4 py-3 text-center">
+                  <div className="text-2xl font-black text-[#1C1917]">{val(matchStats.suggested)}</div>
+                  <div className="text-xs font-semibold text-stone-500 mt-0.5">Suggested</div>
                 </div>
-                <div className="bg-green-50 rounded-lg p-2">
-                  <div className="text-xl font-bold text-green-700">{matchStats.approved}</div>
-                  <div className="text-xs text-green-600">Approved</div>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <div className="text-xl font-bold text-gray-700">{matchStats.total}</div>
-                  <div className="text-xs text-gray-600">Total</div>
+                <div className="flex-1 rounded-xl bg-emerald-50 border border-[#10B981] px-4 py-3 text-center">
+                  <div className="text-2xl font-black text-[#10B981]">{val(matchStats.total)}</div>
+                  <div className="text-xs font-semibold text-stone-500 mt-0.5">Total</div>
                 </div>
               </div>
-              <Button
-                onClick={() => setLocation('/staff/matches')}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                Review Matches
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+            <button
+              onClick={() => setLocation('/staff/matches')}
+              className="mt-auto min-h-12.5 w-full rounded-xl bg-[#10B981] hover:bg-[#059669]
+                         text-white text-lg font-bold transition-colors"
+            >
+              View Matches
+            </button>
+          </div>
         </div>
+      </div>
 
-        {/* Info */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <h3 className="font-semibold text-blue-900 mb-3">📋 Complete Workflow:</h3>
-            <ol className="text-sm text-blue-800 space-y-2">
-              <li><strong>1. Data Entry:</strong> Create user profiles from offline sources (WhatsApp, paper forms)</li>
-              <li><strong>2. Profile Creation:</strong> Profile saved with "pending" status</li>
-              <li><strong>3. Approval Review:</strong> Review pending profiles and approve/reject with reason</li>
-              <li><strong>4. Email Notification:</strong> User receives approval/rejection email automatically</li>
-              <li><strong>5. Activation:</strong> Approved profiles appear in applicant list</li>
-              <li><strong>6. Dashboard Access:</strong> Approved users can login and browse matches</li>
-            </ol>
-          </CardContent>
-        </Card>
+      {/* ── Workflow ── */}
+      <div className="bg-white rounded-2xl border border-[#E8DED3] p-6 shadow-warm">
+        <h2 className="text-xl font-bold text-[#1C1917] mb-5">Staff Workflow</h2>
+        <ol className="space-y-4">
+          {[
+            ['Data Entry',         'Create profiles from WhatsApp, paper forms, or walk-ins'],
+            ['Profile Creation',   'Profile saved as pending, awaiting staff review'],
+            ['Approval Review',    'Approve or reject with reason — email sent automatically'],
+            ['Email Notification', 'Applicant receives result and next steps by email'],
+            ['Activation',         'Approved profiles become visible in the applicant list'],
+            ['Match Generation',   'Matches auto-generate on approval using our algorithm'],
+          ].map(([title, desc], i) => (
+            <li key={i} className="flex items-start gap-4">
+              <span className="shrink-0 w-8 h-8 rounded-full bg-[#10B981] text-white flex items-center
+                               justify-center text-sm font-bold mt-0.5">
+                {i + 1}
+              </span>
+              <div>
+                <span className="font-bold text-[#1C1917]">{title}:</span>
+                <span className="ml-2 text-base text-stone-500">{desc}</span>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* ── Hadith footer ── */}
+      <div className="text-center py-4">
+        <p className="font-amiri text-[#D97706] text-base italic">
+          "وَمِنْ آيَاتِهِ أَنْ خَلَقَ لَكُم مِّنْ أَنفُسِكُمْ أَزْوَاجًا"
+        </p>
+        <p className="text-sm text-stone-400 mt-1">Surah Ar-Rum 30:21</p>
       </div>
     </div>
   );
