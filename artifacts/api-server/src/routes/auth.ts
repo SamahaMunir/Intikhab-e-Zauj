@@ -6,21 +6,6 @@ import { verifyPassword } from '../utils/password';
 
 const router = Router();
 
-// Real staff users database
-const STAFF_USERS: Record<string, { name: string; email: string; role: string; password: string }> = {
-  'staff@nikahnetwork.pk': {
-    name: 'Ayesha Staff',
-    email: 'staff@nikahnetwork.pk',
-    role: 'staff',
-    password: 'staff123',
-  },
-  'admin@intikhab.com': {
-    name: 'Admin User',
-    email: 'admin@intikhab.com',
-    role: 'admin',
-    password: 'admin123',
-  },
-};
 
 /**
  * POST /auth/login
