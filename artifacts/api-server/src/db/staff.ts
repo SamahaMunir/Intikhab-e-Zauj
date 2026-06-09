@@ -1,5 +1,6 @@
 import { Db, ObjectId } from 'mongodb';
 import crypto from 'crypto';
+import { hashPassword } from '../utils/password.js';
 
 export interface Staff {
   _id?: ObjectId;
@@ -93,7 +94,7 @@ export async function setPasswordWithInvite(
     { inviteToken: token },
     {
       $set: {
-        password,
+        password: hashPassword(password),
         passwordSet: true,
         status: 'active',
         inviteToken: null,
