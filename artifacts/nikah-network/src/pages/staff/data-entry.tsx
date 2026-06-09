@@ -103,6 +103,11 @@ export default function StaffDataEntry() {
     if (result?.url) {
       setFormData(prev => ({ ...prev, photo: result.url }));
       setFieldErrors(p => { const n = { ...p }; delete n.photo; return n; });
+      // Immediately check if this Cloudinary URL is already in use
+      const dup = await checkDuplicate({ photo: result.url });
+      if (dup) {
+        setFieldErrors(p => ({ ...p, photo: dup.message }));
+      }
     }
   };
 
@@ -166,26 +171,49 @@ export default function StaffDataEntry() {
   };
 
   // ── Duplicate check ───────────────────────────────────────────────────────────
-  const checkPhoneDuplicate = async (p: string): Promise<boolean> => {
-    if (!p) return false;
+  const checkDuplicate = async (params: Record<string, string>): Promise<{ field: string; message: string } | null> => {
     try {
-      const r = await fetch(`${API}/api/profile/check-duplicate?phone=${encodeURIComponent(p)}`);
+      const qs = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+      const r = await fetch(`${API}/api/profile/check-duplicate?${qs}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      });
       const d = await r.json();
-      if (d.duplicate) {
-        setFieldErrors(prev => ({ ...prev, phone: d.message || 'Phone already registered' }));
-        scrollToFirstError();
-        return true;
-      }
+      if (d.duplicate) return { field: d.field, message: d.message };
     } catch { /* ignore network errors — backend will catch on submit */ }
-    return false;
+    return null;
   };
 
   const handleNext = async () => {
     if (!validateStep(step)) return;
+
     if (step === 1) {
-      const isDup = await checkPhoneDuplicate(phone);
-      if (isDup) return;
+      const checks: Record<string, string> = {};
+      if (phone) checks.phone = phone;
+      if (formData.cnic) checks.cnic = formData.cnic;
+      if (Object.keys(checks).length > 0) {
+        const dup = await checkDuplicate(checks);
+        if (dup) {
+          setFieldErrors(prev => ({ ...prev, [dup.field]: dup.message }));
+          scrollToFirstError();
+          return;
+        }
+      }
     }
+
+    if (step === 3) {
+      const checks: Record<string, string> = {};
+      if (formData.fatherMobile) checks.fatherMobile = formData.fatherMobile;
+      if (formData.motherMobile) checks.motherMobile = formData.motherMobile;
+      if (Object.keys(checks).length > 0) {
+        const dup = await checkDuplicate(checks);
+        if (dup) {
+          setFieldErrors(prev => ({ ...prev, [dup.field]: dup.message }));
+          scrollToFirstError();
+          return;
+        }
+      }
+    }
+
     setStep(s => Math.min(TOTAL_STEPS, s + 1));
   };
 
@@ -195,9 +223,23 @@ export default function StaffDataEntry() {
     const token = localStorage.getItem('token');
     if (!token) { setSubmitError('Not authenticated. Please log in.'); return; }
 
-    // Pre-flight duplicate check
-    const isDup = await checkPhoneDuplicate(phone);
-    if (isDup) return;
+    // Pre-flight duplicate check: phone, CNIC, parent phones, photo
+    {
+      const checks: Record<string, string> = {};
+      if (phone) checks.phone = phone;
+      if (formData.cnic) checks.cnic = formData.cnic;
+      if (formData.fatherMobile) checks.fatherMobile = formData.fatherMobile;
+      if (formData.motherMobile) checks.motherMobile = formData.motherMobile;
+      if (formData.photo) checks.photo = formData.photo;
+      if (Object.keys(checks).length > 0) {
+        const dup = await checkDuplicate(checks);
+        if (dup) {
+          setSubmitError(dup.message);
+          setFieldErrors(prev => ({ ...prev, [dup.field]: dup.message }));
+          return;
+        }
+      }
+    }
 
     setLoading(true);
     setSubmitError(null);
@@ -243,10 +285,15 @@ export default function StaffDataEntry() {
   };
 
   // ── UI helpers ────────────────────────────────────────────────────────────────
+  const _base = 'mt-2 block w-full bg-[#FDF8F3] border-2 rounded-md text-base focus:outline-none focus:border-[#10B981] transition-colors placeholder:text-[#9CA3AF]';
   const ic = (err?: string) =>
-    `mt-1 block w-full px-3 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500 text-sm ${err ? 'border-red-400' : 'border-gray-300'}`;
-  const lc = 'block text-sm font-medium text-gray-700';
-  const errEl = (msg?: string) => msg ? <p className="text-xs text-red-600 mt-1">{msg}</p> : null;
+    `${_base} min-h-12.5 px-4 py-3 ${err ? 'border-[#EF4444]' : 'border-[#E8DED3]'}`;
+  const tc = (err?: string) =>
+    `${_base} min-h-30 px-4 py-3 resize-y ${err ? 'border-[#EF4444]' : 'border-[#E8DED3]'}`;
+  const lc = 'block text-lg font-bold text-[#1C1917] mb-2';
+  const errEl = (msg?: string) => msg
+    ? <p className="mt-1.5 text-sm font-semibold text-[#EF4444]">{msg}</p>
+    : null;
 
   const designationSuggestions = formData.profession
     ? (DESIGNATIONS_BY_PROFESSION[formData.profession] ?? GENERIC_DESIGNATIONS)
@@ -256,38 +303,40 @@ export default function StaffDataEntry() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
+    <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Offline Profile Entry</h1>
-        <p className="text-gray-500 text-sm mt-1">Register applicants from WhatsApp, paper forms, or walk-ins</p>
+        <h1 className="text-3xl font-bold text-[#1C1917]">Offline Profile Entry</h1>
+        <p className="text-base text-gray-500 mt-1">Register applicants from WhatsApp, paper forms, or walk-ins</p>
       </div>
 
       {/* Progress */}
       <div className="mb-6">
-        <div className="flex justify-between text-xs text-gray-500 mb-1">
+        <div className="flex justify-between text-base font-medium text-gray-500 mb-2">
           <span>Step {step} of {TOTAL_STEPS}: {stepTitle[step]}</span>
           <span>{Math.round((step / TOTAL_STEPS) * 100)}%</span>
         </div>
-        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full bg-green-600 transition-all" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
+        <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-full bg-[#10B981] transition-all" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
         </div>
       </div>
 
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm font-medium">
-          ✓ Profile created successfully — pending approval.
+        <div className="mb-5 p-5 bg-emerald-50 border-2 border-[#10B981] rounded-xl
+                        text-[#10B981] text-base font-semibold">
+          Profile created successfully — pending approval.
         </div>
       )}
       {submitError && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">{submitError}</div>
+        <div className="mb-5 p-5 bg-red-50 border-2 border-[#EF4444] rounded-xl
+                        text-[#EF4444] text-base font-semibold">{submitError}</div>
       )}
 
-      <div ref={formRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-6">
+      <div ref={formRef} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 space-y-6">
 
         {/* ── STEP 0: Staff Meta ────────────────────────────────────────────── */}
         {step === 0 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Staff Information</h2>
+            <h2 className="text-2xl font-bold text-[#1C1917]">Staff Information</h2>
 
             <div data-error={fieldErrors.source ? 'true' : undefined}>
               <label className={lc}>Data Source <span className="text-red-500">*</span></label>
@@ -311,8 +360,7 @@ export default function StaffDataEntry() {
               <textarea
                 value={meta.notes}
                 onChange={e => setMeta(p => ({ ...p, notes: e.target.value }))}
-                rows={3}
-                className={ic()}
+                className={tc()}
                 placeholder="Any relevant context about this submission…"
               />
             </div>
@@ -322,7 +370,7 @@ export default function StaffDataEntry() {
         {/* ── STEP 1: Personal Details (same as wizard step 1) ─────────────── */}
         {step === 1 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Personal Details</h2>
+            <h2 className="text-2xl font-bold text-[#1C1917]">Personal Details</h2>
 
             {/* Name */}
             <div data-error={fieldErrors.name ? 'true' : undefined}>
@@ -423,7 +471,7 @@ export default function StaffDataEntry() {
               <div>
                 <label className={lc}>Age (auto-calculated)</label>
                 <input type="number" value={formData.age > 0 ? formData.age : ''} disabled
-                  className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm" />
+                  className="mt-2 block w-full min-h-12.5 px-4 py-3 bg-gray-200 border-2 border-[#E8DED3] rounded-md text-base opacity-70 cursor-not-allowed" />
               </div>
             </div>
 
@@ -488,7 +536,7 @@ export default function StaffDataEntry() {
         {/* ── STEP 2: Education & Employment (same as wizard step 2) ────────── */}
         {step === 2 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Education & Employment</h2>
+            <h2 className="text-2xl font-bold text-[#1C1917]">Education & Employment</h2>
 
             <SearchableSelect label="Educational Qualification *" name="education"
               value={formData.education} options={EDUCATION_LEVELS} required
@@ -544,7 +592,7 @@ export default function StaffDataEntry() {
         {/* ── STEP 3: Family & Residence (same as wizard step 3) ───────────── */}
         {step === 3 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Family & Residence</h2>
+            <h2 className="text-2xl font-bold text-[#1C1917]">Family & Residence</h2>
 
             <SearchableSelect label="City *" name="city" value={formData.city}
               options={CITIES} allowCustom required
@@ -558,7 +606,7 @@ export default function StaffDataEntry() {
               helperText="Select area or type full address." />
 
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Parents Information</h3>
+              <h3 className="text-xl font-bold text-[#1C1917] mb-4">Parents Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={lc}>Father's Name</label>
@@ -588,7 +636,7 @@ export default function StaffDataEntry() {
             </div>
 
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Siblings Information</h3>
+              <h3 className="text-xl font-bold text-[#1C1917] mb-4">Siblings Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={lc}>Total Brothers</label>
@@ -635,10 +683,10 @@ export default function StaffDataEntry() {
         {/* ── STEP 4: Home & Requirements (same as wizard step 4) ──────────── */}
         {step === 4 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Home & Requirements</h2>
+            <h2 className="text-2xl font-bold text-[#1C1917]">Home & Requirements</h2>
 
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-gray-900 mb-4">House Details</h3>
+              <h3 className="text-xl font-bold text-[#1C1917] mb-4">House Details</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={lc}>Home Status</label>
@@ -667,16 +715,16 @@ export default function StaffDataEntry() {
             </div>
 
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Match Requirements</h3>
+              <h3 className="text-xl font-bold text-[#1C1917] mb-4">Match Requirements</h3>
               <div>
                 <label className={lc}>Desired Criteria for Match</label>
                 <textarea name="matchCriteria" value={formData.matchCriteria} onChange={handleInputChange}
-                  rows={3} placeholder="e.g., Educated, caring, family-oriented…" className={ic()} />
+                  placeholder="e.g., Educated, caring, family-oriented…" className={tc()} />
               </div>
               <div className="mt-4">
                 <label className={lc}>Desired Match Details</label>
                 <textarea name="desiredMatchDetails" value={formData.desiredMatchDetails}
-                  onChange={handleInputChange} rows={3} placeholder="Additional preferences…" className={ic()} />
+                  onChange={handleInputChange} placeholder="Additional preferences…" className={tc()} />
               </div>
 
               {/* Female-only field (same conditional as wizard) */}
@@ -693,7 +741,7 @@ export default function StaffDataEntry() {
             </div>
 
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-gray-900 mb-4">Reference</h3>
+              <h3 className="text-xl font-bold text-[#1C1917] mb-4">Reference</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={lc}>Reference Name</label>
@@ -713,18 +761,29 @@ export default function StaffDataEntry() {
 
       {/* Navigation */}
       <div className="mt-8 flex justify-between gap-4">
-        <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+        <button
+          onClick={() => setStep(s => Math.max(0, s - 1))}
+          disabled={step === 0}
+          className="min-h-12.5 px-8 rounded-xl border-2 border-gray-200 text-base font-bold
+                     text-[#1C1917] bg-white hover:bg-[#FDF8F3] transition-colors disabled:opacity-50"
+        >
           Previous
         </button>
         {step < TOTAL_STEPS ? (
-          <button onClick={handleNext}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+          <button
+            onClick={handleNext}
+            className="min-h-12.5 px-8 rounded-xl bg-[#10B981] hover:bg-[#059669]
+                       text-white text-base font-bold transition-colors"
+          >
             Next
           </button>
         ) : (
-          <button onClick={handleSubmit} disabled={loading}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium">
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="min-h-12.5 px-8 rounded-xl bg-[#10B981] hover:bg-[#059669]
+                       text-white text-base font-bold transition-colors disabled:opacity-50"
+          >
             {loading ? 'Creating Profile…' : 'Create Profile'}
           </button>
         )}
