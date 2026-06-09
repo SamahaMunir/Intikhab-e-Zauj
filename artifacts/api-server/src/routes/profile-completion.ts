@@ -58,6 +58,40 @@ router.post(
       }
 
       const db = await getDatabase();
+
+      // Pre-save duplicate guard: CNIC + photo uniqueness
+      {
+        const normCNIC = (raw: string) => raw.replace(/[-\s]/g, '');
+        const dupClauses: any[] = [];
+        if (cnic) {
+          const n = normCNIC(cnic);
+          if (n.length === 13) {
+            const fmt = `${n.slice(0, 5)}-${n.slice(5, 12)}-${n.slice(12)}`;
+            dupClauses.push({ cnic: { $in: [cnic, n, fmt] } });
+          }
+        }
+        if (photo && photo.includes('res.cloudinary.com')) {
+          dupClauses.push({ photo });
+        }
+        if (dupClauses.length > 0) {
+          const dup = await db.collection('profiles').findOne(
+            { $or: dupClauses, _id: { $ne: new ObjectId(req.user.id) } },
+            { projection: { _id: 1, cnic: 1, photo: 1 } },
+          );
+          if (dup) {
+            const isCnic = cnic && normCNIC(dup.cnic || '') === normCNIC(cnic);
+            res.status(409).json({
+              error: 'Duplicate profile',
+              field: isCnic ? 'cnic' : 'photo',
+              message: isCnic
+                ? 'This CNIC is already registered to another profile'
+                : 'This photo is already used by another profile',
+            });
+            return;
+          }
+        }
+      }
+
       await db.collection('profiles').updateOne(
         { _id: new ObjectId(req.user.id) },
         {
@@ -483,14 +517,15 @@ router.get(
   }
 );
 
-// GET /api/profile/check-duplicate?phone=xxx&email=xxx&excludeId=xxx
+// GET /api/profile/check-duplicate?phone=xxx&email=xxx&cnic=xxx&fatherMobile=xxx&motherMobile=xxx&photo=xxx&excludeId=xxx
 // No auth required — used by registration and staff data-entry forms.
 router.get('/check-duplicate', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { phone, email, excludeId } = req.query as Record<string, string | undefined>;
+    const { phone, email, cnic, fatherMobile, motherMobile, photo, excludeId } =
+      req.query as Record<string, string | undefined>;
 
-    if (!phone && !email) {
-      res.status(400).json({ error: 'Provide phone or email to check' });
+    if (!phone && !email && !cnic && !fatherMobile && !motherMobile && !photo) {
+      res.status(400).json({ error: 'Provide at least one field to check' });
       return;
     }
 
@@ -501,6 +536,7 @@ router.get('/check-duplicate', async (req: AuthRequest, res: Response): Promise<
       if (digits.length === 10)                            return `+92${digits}`;
       return raw;
     };
+    const normalizeCNIC = (raw: string): string => raw.replace(/[-\s]/g, '');
 
     const orClauses: any[] = [];
     if (phone) {
@@ -510,17 +546,35 @@ router.get('/check-duplicate', async (req: AuthRequest, res: Response): Promise<
     if (email) {
       orClauses.push({ email: { $regex: `^${email.trim()}$`, $options: 'i' } });
     }
+    if (cnic) {
+      const normCnic = normalizeCNIC(cnic);
+      if (normCnic.length === 13) {
+        const formatted = `${normCnic.slice(0, 5)}-${normCnic.slice(5, 12)}-${normCnic.slice(12)}`;
+        orClauses.push({ cnic: { $in: [cnic, normCnic, formatted] } });
+      }
+    }
+    // Parent phones are checked against applicant phone to catch own-number-as-parent tricks
+    if (fatherMobile) {
+      const norm = normalizePhone(fatherMobile);
+      orClauses.push({ phone: { $in: [fatherMobile, norm] } });
+    }
+    if (motherMobile) {
+      const norm = normalizePhone(motherMobile);
+      orClauses.push({ phone: { $in: [motherMobile, norm] } });
+    }
+    if (photo) {
+      orClauses.push({ photo });
+    }
 
     const db = await getDatabase();
     const query: any = { $or: orClauses };
 
-    // Exclude self when editing an existing profile
     if (excludeId) {
       try { query._id = { $ne: new ObjectId(excludeId) }; } catch { /* invalid id — ignore */ }
     }
 
     const existing = await db.collection('profiles').findOne(query, {
-      projection: { _id: 1, phone: 1, email: 1, name: 1 },
+      projection: { _id: 1, phone: 1, email: 1, cnic: 1, photo: 1, name: 1 },
     });
 
     if (!existing) {
@@ -528,14 +582,32 @@ router.get('/check-duplicate', async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    const isPhone = phone && (existing.phone === phone || existing.phone === normalizePhone(phone));
-    res.json({
-      duplicate: true,
-      field: isPhone ? 'phone' : 'email',
-      message: isPhone
-        ? `Phone ${phone} is already registered`
-        : `Email ${email} is already registered`,
-    });
+    // Determine which input field triggered the match
+    const normExistingPhone = existing.phone ? normalizePhone(existing.phone) : '';
+    let field = 'unknown';
+    let message = 'Duplicate detected';
+
+    if (phone && (existing.phone === phone || normExistingPhone === normalizePhone(phone))) {
+      field = 'phone';
+      message = `Phone ${phone} is already registered`;
+    } else if (email && existing.email?.toLowerCase() === email.trim().toLowerCase()) {
+      field = 'email';
+      message = `Email ${email} is already registered`;
+    } else if (cnic && normalizeCNIC(existing.cnic || '') === normalizeCNIC(cnic)) {
+      field = 'cnic';
+      message = 'This CNIC is already registered to another profile';
+    } else if (fatherMobile && (existing.phone === fatherMobile || normExistingPhone === normalizePhone(fatherMobile))) {
+      field = 'fatherMobile';
+      message = "Father's mobile matches another applicant's registered phone number";
+    } else if (motherMobile && (existing.phone === motherMobile || normExistingPhone === normalizePhone(motherMobile))) {
+      field = 'motherMobile';
+      message = "Mother's mobile matches another applicant's registered phone number";
+    } else if (photo && existing.photo === photo) {
+      field = 'photo';
+      message = 'This photo is already used by another profile';
+    }
+
+    res.json({ duplicate: true, field, message });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : 'Check failed' });
   }
