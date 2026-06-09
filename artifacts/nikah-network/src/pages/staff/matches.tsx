@@ -58,7 +58,7 @@ export default function StaffMatches() {
   const [generating,  setGenerating]  = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [expandedId,  setExpandedId]  = useState<string | null>(null);
-  const [filter,      setFilter]      = useState<'all' | 'suggested' | 'approved' | 'rejected'>('all');
+  const [filter,      setFilter]      = useState<'all'>('all');
   const [typeFilter,  setTypeFilter]  = useState<'all' | 'staff-staff' | 'staff-user'>('all');
 
   const token = localStorage.getItem('token') || '';
@@ -105,14 +105,8 @@ useEffect(() => { load(); }, []);
   const scoreColor = (s: number) =>
     s >= 75 ? 'text-green-600' : s >= 60 ? 'text-orange-500' : s >= 40 ? 'text-yellow-500' : 'text-red-500';
 
-  const statusBadge = (s: string) =>
-    s === 'approved' ? 'bg-green-100 text-green-800 border-green-300' :
-    s === 'rejected' ? 'bg-red-100 text-red-800 border-red-300' :
-    'bg-blue-100 text-blue-800 border-blue-300';
-
   // Apply filters
   const filtered = matches
-    .filter(m => filter === 'all' || m.status === filter)
     .filter(m => {
       if (typeFilter === 'all') return true;
       if (typeFilter === 'staff-staff') return m.leftProfileType === 'staff' && m.rightProfileType === 'staff';
@@ -120,12 +114,7 @@ useEffect(() => { load(); }, []);
       return true;
     });
 
-  const counts = {
-    all:       matches.length,
-    suggested: matches.filter(m => m.status === 'suggested').length,
-    approved:  matches.filter(m => m.status === 'approved').length,
-    rejected:  matches.filter(m => m.status === 'rejected').length,
-  };
+  const counts = { all: matches.length };
 
   if (loading) return (
     <div className="flex justify-center items-center min-h-64 p-6">
@@ -147,15 +136,19 @@ useEffect(() => { load(); }, []);
             Shows Staff↔Staff and Staff↔User only. User↔User matches are excluded.
           </p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={load}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+        <div className="flex gap-3">
+          <button
+            onClick={load}
+            className="min-h-15 px-6 rounded-xl border-2 border-[#E8DED3] bg-white text-base font-bold
+                       text-[#1C1917] hover:bg-[#FDF8F3] transition-colors"
+          >
             Refresh
           </button>
           <button
             onClick={generateStaffMatches}
             disabled={generating}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium"
+            className="min-h-15 px-6 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-base font-bold
+                       transition-colors disabled:opacity-50 shadow-sm"
           >
             {generating ? 'Generating…' : 'Generate Staff Matches'}
           </button>
@@ -166,29 +159,24 @@ useEffect(() => { load(); }, []);
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
       )}
 
-      {/* Status filter tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {(['all', 'suggested', 'approved', 'rejected'] as const).map(s => (
-          <button key={s} onClick={() => setFilter(s)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium capitalize ${
-              filter === s ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}>
-            {s} ({counts[s]})
-          </button>
-        ))}
+      {/* Match count */}
+      <div className="text-sm text-gray-500">
+        {counts.all} match{counts.all !== 1 ? 'es' : ''} total
       </div>
 
       {/* Type filter tabs */}
       <div className="flex gap-2 flex-wrap">
         <span className="text-xs text-gray-500 self-center">Type:</span>
         {([
-          { key: 'all',        label: 'All' },
+          { key: 'all',         label: 'All' },
           { key: 'staff-staff', label: 'Staff ↔ Staff' },
           { key: 'staff-user',  label: 'Staff ↔ User' },
         ] as const).map(({ key, label }) => (
           <button key={key} onClick={() => setTypeFilter(key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-              typeFilter === key ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            className={`px-5 py-2.5 rounded-xl text-base font-bold transition-colors ${
+              typeFilter === key
+                ? 'bg-[#10B981] text-white shadow-sm'
+                : 'bg-white text-[#1C1917] border border-[#E8DED3] hover:bg-emerald-50 hover:text-[#10B981]'
             }`}>
             {label}
           </button>
@@ -197,7 +185,7 @@ useEffect(() => { load(); }, []);
 
       {/* Empty state */}
       {filtered.length === 0 && !error && (
-        <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-200">
+        <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-[#E8DED3]">
           <p className="text-gray-500 text-lg mb-2">
             {matches.length === 0 ? 'No staff matches yet.' : 'No matches for selected filters.'}
           </p>
@@ -227,79 +215,97 @@ useEffect(() => { load(); }, []);
           const bothStaff     = maleType === 'staff' && femaleType === 'staff';
 
           return (
-            <div key={m._id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div key={m._id} className="bg-white rounded-xl shadow-sm border border-[#E8DED3] overflow-hidden">
 
               {/* Card header */}
               <div className="p-5">
-                <div className="flex items-start gap-4 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap">
 
                   {/* Male profile — left */}
-                  <div className="flex-1 min-w-40">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      {typeBadge(maleType as ProfileType)}
-                      <span className="text-xs text-blue-500 font-medium">♂</span>
-                      {maleProfile?.photo && (
+                  <div className="flex items-center gap-3 flex-1 min-w-48">
+                    {/* Photo */}
+                    <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 border-blue-100 bg-blue-50 flex items-center justify-center">
+                      {maleProfile?.photo ? (
                         <img src={maleProfile.photo} alt={maleProfile.name}
-                          className="w-6 h-6 rounded-full object-cover border border-gray-200 ml-1"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          className="w-full h-full object-cover"
+                          onError={e => {
+                            const el = e.target as HTMLImageElement;
+                            el.style.display = 'none';
+                            el.parentElement!.innerHTML = '<span class="text-2xl">👤</span>';
+                          }} />
+                      ) : (
+                        <span className="text-2xl">👤</span>
                       )}
                     </div>
-                    <p className="font-bold text-gray-900">{maleProfile?.name || 'Unknown'}</p>
-                    <p className="text-xs text-gray-500 capitalize">
-                      Age {maleProfile?.age} · {maleProfile?.city}
-                    </p>
-                    {maleProfile?.caste && <p className="text-xs text-purple-600 font-medium">{maleProfile.caste}</p>}
-                    {maleProfile?.profession && <p className="text-xs text-gray-400">{maleProfile.profession}</p>}
+                    {/* Info */}
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        {typeBadge(maleType as ProfileType)}
+                        <span className="text-xs text-blue-500 font-bold">♂</span>
+                      </div>
+                      <p className="font-bold text-gray-900">{maleProfile?.name || 'Unknown'}</p>
+                      <p className="text-xs text-gray-500">Age {maleProfile?.age} · {maleProfile?.city}</p>
+                      {maleProfile?.caste && <p className="text-xs text-purple-600 font-medium">{maleProfile.caste}</p>}
+                      {maleProfile?.profession && <p className="text-xs text-gray-400">{maleProfile.profession}</p>}
+                    </div>
                   </div>
 
                   {/* Score + pair type */}
-                  <div className="text-center px-4 shrink-0">
+                  <div className="text-center px-3 shrink-0">
                     <div className={`text-4xl font-black ${scoreColor(score)}`}>{score}</div>
                     <div className="text-xs text-gray-400 font-medium">/100</div>
                     <div className="mt-1">{pairLabel(maleType as ProfileType, femaleType as ProfileType)}</div>
                   </div>
 
                   {/* Female profile — right */}
-                  <div className="flex-1 min-w-40">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      {typeBadge(femaleType as ProfileType)}
-                      <span className="text-xs text-pink-500 font-medium">♀</span>
-                      {femaleProfile?.photo && (
+                  <div className="flex items-center gap-3 flex-1 min-w-48">
+                    {/* Photo */}
+                    <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 border-pink-100 bg-pink-50 flex items-center justify-center">
+                      {femaleProfile?.photo ? (
                         <img src={femaleProfile.photo} alt={femaleProfile.name}
-                          className="w-6 h-6 rounded-full object-cover border border-gray-200 ml-1"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          className="w-full h-full object-cover"
+                          onError={e => {
+                            const el = e.target as HTMLImageElement;
+                            el.style.display = 'none';
+                            el.parentElement!.innerHTML = '<span class="text-2xl">👤</span>';
+                          }} />
+                      ) : (
+                        <span className="text-2xl">👤</span>
                       )}
                     </div>
-                    <p className="font-bold text-gray-900">{femaleProfile?.name || 'Unknown'}</p>
-                    <p className="text-xs text-gray-500 capitalize">
-                      Age {femaleProfile?.age} · {femaleProfile?.city}
-                    </p>
-                    {femaleProfile?.caste && <p className="text-xs text-purple-600 font-medium">{femaleProfile.caste}</p>}
-                    {femaleProfile?.profession && <p className="text-xs text-gray-400">{femaleProfile.profession}</p>}
+                    {/* Info */}
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        {typeBadge(femaleType as ProfileType)}
+                        <span className="text-xs text-pink-500 font-bold">♀</span>
+                      </div>
+                      <p className="font-bold text-gray-900">{femaleProfile?.name || 'Unknown'}</p>
+                      <p className="text-xs text-gray-500">Age {femaleProfile?.age} · {femaleProfile?.city}</p>
+                      {femaleProfile?.caste && <p className="text-xs text-purple-600 font-medium">{femaleProfile.caste}</p>}
+                      {femaleProfile?.profession && <p className="text-xs text-gray-400">{femaleProfile.profession}</p>}
+                    </div>
                   </div>
 
                   {/* Actions */}
                   <div className="flex flex-col items-end gap-2 shrink-0">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize border ${statusBadge(m.status)}`}>
-                      {m.status}
-                    </span>
-
                     {/* View Profile buttons */}
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-2">
                       {maleProfile?._id && (
                         <button
                           onClick={() => setLocation(`/staff/profiles/${maleProfile._id}`)}
-                          className="px-2.5 py-1 text-xs border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 font-medium"
+                          className="min-h-15 px-4 rounded-xl border-2 border-blue-200 text-blue-700
+                                     bg-white hover:bg-blue-50 text-sm font-bold transition-colors"
                         >
-                          View ♂
+                          View Male
                         </button>
                       )}
                       {femaleProfile?._id && (
                         <button
                           onClick={() => setLocation(`/staff/profiles/${femaleProfile._id}`)}
-                          className="px-2.5 py-1 text-xs border border-pink-200 text-pink-700 rounded-lg hover:bg-pink-50 font-medium"
+                          className="min-h-15 px-4 rounded-xl border-2 border-pink-200 text-pink-700
+                                     bg-white hover:bg-pink-50 text-sm font-bold transition-colors"
                         >
-                          View ♀
+                          View Female
                         </button>
                       )}
                     </div>
@@ -309,7 +315,8 @@ useEffect(() => { load(); }, []);
                       onClick={() => {
                         alert(`Proposal workflow coming soon. Match: ${m._id}`);
                       }}
-                      className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium"
+                      className="min-h-15 px-5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white
+                                 text-base font-bold transition-colors shadow-sm"
                     >
                       {bothStaff ? 'Make Proposal' : 'Send Proposal'}
                     </button>
@@ -322,7 +329,8 @@ useEffect(() => { load(); }, []);
                 <div className="border-t border-gray-100">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : m._id)}
-                    className="w-full px-5 py-2.5 text-left text-sm text-purple-600 font-medium hover:bg-purple-50 flex items-center gap-2"
+                    className="w-full px-5 py-3 text-left text-base text-[#10B981] font-bold
+                               hover:bg-emerald-50 flex items-center gap-2 transition-colors"
                   >
                     <span>{isExpanded ? '▼' : '▶'}</span>
                     <span>Compatibility Breakdown — 100-point scoring</span>
