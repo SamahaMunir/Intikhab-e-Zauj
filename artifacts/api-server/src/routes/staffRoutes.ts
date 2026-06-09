@@ -336,7 +336,6 @@ router.post(
       const db = await getDatabase();
       const profilesCollection = db.collection('profiles');
 
-      // Normalize phone for format-agnostic comparison
       const normalizePhone = (raw: string): string => {
         const digits = raw.replace(/\D/g, '');
         if (digits.startsWith('92') && digits.length === 12) return `+${digits}`;
@@ -344,22 +343,50 @@ router.post(
         if (digits.length === 10)                            return `+92${digits}`;
         return raw;
       };
+      const normalizeCNIC = (raw: string): string => (raw || '').replace(/[-\s]/g, '');
       const normalizedPhone = normalizePhone(phone);
 
-      // Check phone + email duplicates across all profiles
+      // Duplicate check: phone, email, CNIC, parent phones (vs applicant phone), photo
       const orClauses: any[] = [{ phone: { $in: [phone, normalizedPhone] } }];
       if (email) orClauses.push({ email: { $regex: `^${email.trim()}$`, $options: 'i' } });
+      if (cnic) {
+        const n = normalizeCNIC(cnic);
+        if (n.length === 13) {
+          const fmt = `${n.slice(0, 5)}-${n.slice(5, 12)}-${n.slice(12)}`;
+          orClauses.push({ cnic: { $in: [cnic, n, fmt] } });
+        }
+      }
+      if (fatherMobile) {
+        const nf = normalizePhone(fatherMobile);
+        orClauses.push({ phone: { $in: [fatherMobile, nf] } });
+      }
+      if (motherMobile) {
+        const nm = normalizePhone(motherMobile);
+        orClauses.push({ phone: { $in: [motherMobile, nm] } });
+      }
+      if (photo && photo.includes('res.cloudinary.com')) {
+        orClauses.push({ photo });
+      }
 
       const existing = await profilesCollection.findOne({ $or: orClauses });
       if (existing) {
-        const isPhone = existing.phone === phone || existing.phone === normalizedPhone;
-        res.status(409).json({
-          error: 'Duplicate profile',
-          field: isPhone ? 'phone' : 'email',
-          message: isPhone
-            ? `Phone ${phone} is already registered`
-            : `Email ${email} is already registered`,
-        });
+        let field = 'phone';
+        let message = `Phone ${phone} is already registered`;
+        const normExPhone = normalizePhone(existing.phone || '');
+        if (existing.phone === phone || normExPhone === normalizedPhone) {
+          field = 'phone'; message = `Phone ${phone} is already registered`;
+        } else if (email && existing.email?.toLowerCase() === email.trim().toLowerCase()) {
+          field = 'email'; message = `Email ${email} is already registered`;
+        } else if (cnic && normalizeCNIC(existing.cnic || '') === normalizeCNIC(cnic)) {
+          field = 'cnic'; message = 'This CNIC is already registered to another profile';
+        } else if (fatherMobile && (existing.phone === fatherMobile || normExPhone === normalizePhone(fatherMobile))) {
+          field = 'fatherMobile'; message = "Father's mobile matches another applicant's registered phone";
+        } else if (motherMobile && (existing.phone === motherMobile || normExPhone === normalizePhone(motherMobile))) {
+          field = 'motherMobile'; message = "Mother's mobile matches another applicant's registered phone";
+        } else if (photo && existing.photo === photo) {
+          field = 'photo'; message = 'This photo is already used by another profile';
+        }
+        res.status(409).json({ error: 'Duplicate profile', field, message });
         return;
       }
 
@@ -617,7 +644,8 @@ router.post(
           const filterResult = applyHardFilters(profile, candidate);
           
           if (filterResult.passes) {
-            const score = calculateScore(profile, candidate);
+            const scoreObj = calculateScore(profile, candidate);
+            const score = scoreObj.total;
 
             // Only save good matches (score >= 40)
             if (score >= 40) {
@@ -625,6 +653,7 @@ router.post(
                 userId: profile._id,
                 candidateId: candidate._id,
                 score,
+                scoreBreakdown: scoreObj,
                 status: 'suggested',
                 hardFiltersPassed: true,
                 createdAt: new Date(),
