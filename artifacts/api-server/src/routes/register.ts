@@ -95,7 +95,7 @@ if (password.length < 6) {
       
       // AUTHENTICATION
       password: hashPassword(password),  // ✅ ALWAYS hash - never null
-emailVerified: true,  // ✅ Skip verification for now
+emailVerified: false,
       
       // PROFILE DATA - REQUIRED FOR MATCHING
       education: '',
