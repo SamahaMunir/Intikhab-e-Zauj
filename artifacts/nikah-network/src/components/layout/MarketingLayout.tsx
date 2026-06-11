@@ -7,6 +7,11 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
   const { currentUser } = useStore();
   const [location] = useLocation();
 
+  // Pages that render their own chrome (PublicNavbar/Footer or full landing behind a modal)
+  const selfChrome = ['/', '/about', '/login', '/user-login', '/register',
+    '/quick-register', '/staff-login', '/staff-register'];
+  if (selfChrome.includes(location)) return <>{children}</>;
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
