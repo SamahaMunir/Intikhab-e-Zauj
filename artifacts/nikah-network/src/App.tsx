@@ -2,11 +2,11 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { DemoSwitcher } from "@/components/DemoSwitcher";
 
 // Marketing
 import { MarketingLayout } from "@/components/layout/MarketingLayout";
 import Home from "@/pages/marketing/home";
+import LandingNew from "@/pages/marketing/landing-new";
 import About from "@/pages/marketing/about";
 import HowItWorks from "@/pages/marketing/how-it-works";
 import Counselling from "@/pages/marketing/counselling";
@@ -62,7 +62,8 @@ function MarketingRouter() {
     <MarketingLayout>
       <Switch>
         {/* Marketing Pages */}
-        <Route path="/" component={Home} />
+        <Route path="/" component={LandingNew} />
+        <Route path="/home-old" component={Home} />
         <Route path="/about" component={About} />
         <Route path="/how-it-works" component={HowItWorks} />
         <Route path="/counselling" component={Counselling} />
@@ -170,7 +171,6 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
-        <DemoSwitcher />
       </TooltipProvider>
     </QueryClientProvider>
   );
