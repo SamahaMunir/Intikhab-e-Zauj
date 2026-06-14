@@ -1,7 +1,8 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import AddNoteModal from "@/components/AddNoteModal";
+import ProfileImageCard from "@/components/matches/ProfileImageCard";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Users, RefreshCw, Search, LayoutGrid, List,
+  User as UserIcon, Eye, StickyNote, Loader2, Check, X, Clock,
+} from "lucide-react";
 
 interface Profile {
   _id: string;
@@ -31,17 +36,8 @@ interface Profile {
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-
-function InfoBox({ label, value }: { label: string; value?: string }) {
-  return (
-    <div className="rounded-xl bg-[#FDF8F3] px-4 py-3">
-      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">{label}</div>
-      <div className="text-sm font-semibold text-[#1C1917]">{value || '—'}</div>
-    </div>
-  );
-}
-
 export default function StaffProfiles() {
+  const [, setLocation] = useLocation();
   const [profiles, setProfiles]       = useState<Profile[]>([]);
   const [loading, setLoading]         = useState(true);
   const [filter, setFilter]           = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -51,30 +47,17 @@ export default function StaffProfiles() {
   const [actionLoading, setActionLoading] = useState(false);
   const [viewMode,      setViewMode]      = useState<'card' | 'table'>('card');
 
-  // Search + filter staged state (applied on button click)
-  const [searchInput,    setSearchInput]    = useState('');
-  const [ageInput,       setAgeInput]       = useState('');
-  const [locationInput,  setLocationInput]  = useState('');
-  const [educationInput, setEducationInput] = useState('');
-
-  // Active (applied) filter state
-  const [activeSearch,    setActiveSearch]    = useState('');
-  const [activeAge,       setActiveAge]       = useState('');
-  const [activeLocation,  setActiveLocation]  = useState('');
-  const [activeEducation, setActiveEducation] = useState('');
-
-  const applyFilters = () => {
-    setActiveSearch(searchInput);
-    setActiveAge(ageInput);
-    setActiveLocation(locationInput);
-    setActiveEducation(educationInput);
-  };
+  // Live filter state (applied as you type/select)
+  const [search,         setSearch]         = useState('');
+  const [ageFilter,      setAgeFilter]      = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [educationFilter, setEducationFilter] = useState('');
 
   const clearFilters = () => {
-    setSearchInput(''); setAgeInput(''); setLocationInput(''); setEducationInput('');
-    setActiveSearch(''); setActiveAge(''); setActiveLocation(''); setActiveEducation('');
+    setSearch(''); setAgeFilter(''); setLocationFilter(''); setEducationFilter('');
     setFilter('all');
   };
+  const hasActiveFilters = !!(search || ageFilter || locationFilter || educationFilter || filter !== 'all');
 
   useEffect(() => { fetchProfiles(); }, []);
 
@@ -137,17 +120,19 @@ export default function StaffProfiles() {
 
   const filtered = profiles.filter(p => {
     if (filter !== 'all' && p.profileStatus !== filter) return false;
-    if (activeSearch) {
-      const q = activeSearch.toLowerCase();
-      if (!p.name.toLowerCase().includes(q) && !p.city.toLowerCase().includes(q)) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!p.name?.toLowerCase().includes(q) && !p.city?.toLowerCase().includes(q)) return false;
     }
-    if (activeLocation && !p.city.toLowerCase().includes(activeLocation.toLowerCase())) return false;
-    if (activeEducation && !p.education?.toLowerCase().includes(activeEducation.toLowerCase())) return false;
-    if (activeAge && p.age) {
-      if (activeAge === 'under25' && p.age >= 25) return false;
-      if (activeAge === '25-30'  && (p.age < 25 || p.age > 30)) return false;
-      if (activeAge === '31-35'  && (p.age < 31 || p.age > 35)) return false;
-      if (activeAge === '36+'    && p.age < 36) return false;
+    if (locationFilter && !p.city?.toLowerCase().includes(locationFilter.toLowerCase())) return false;
+    if (educationFilter && !p.education?.toLowerCase().includes(educationFilter.toLowerCase())) return false;
+    if (ageFilter) {
+      const a = p.age;
+      if (a == null) return false; // exclude profiles with no age when filtering by age
+      if (ageFilter === 'under25' && a >= 25) return false;
+      if (ageFilter === '25-30'  && (a < 25 || a > 30)) return false;
+      if (ageFilter === '31-35'  && (a < 31 || a > 35)) return false;
+      if (ageFilter === '36+'    && a < 36) return false;
     }
     return true;
   });
@@ -166,10 +151,14 @@ export default function StaffProfiles() {
     { key: 'rejected', label: `Rejected (${counts.rejected})` },
   ];
 
+  const inputCls =
+    'h-11 px-4 rounded-xl bg-[#F4F6F5] border border-gray-200 text-sm text-[#1C1917] ' +
+    'placeholder-gray-400 focus:outline-none focus:border-[#10B981] focus:bg-white transition-colors';
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin h-10 w-10 rounded-full border-b-2 border-[#10B981]" />
+        <Loader2 className="w-9 h-9 animate-spin text-[#10B981]" />
       </div>
     );
   }
@@ -178,34 +167,41 @@ export default function StaffProfiles() {
     <div className="max-w-6xl mx-auto space-y-6">
 
       {/* Header */}
-      <div className="flex justify-between items-start flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-[#1C1917]">Applicant Profiles</h1>
-          <p className="mt-1 text-base text-gray-500">Review and manage all registered applicants.</p>
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
+            <Users className="w-6 h-6 text-[#10B981]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold text-[#1C1917]">Recommended Profiles</h1>
+              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-[#10B981]">Islamic Matrimonial</span>
+              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-50 text-[#D97706]">Family-Friendly</span>
+            </div>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Manage and review applicant profiles · <span className="font-semibold text-[#1C1917]">{counts.all}</span> total
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* View mode toggle */}
-          <div className="flex rounded-xl border border-[#E8DED3] overflow-hidden">
-            {(['card', 'table'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`px-4 py-2.5 text-sm font-bold capitalize transition-colors ${
-                  viewMode === mode
-                    ? 'bg-[#10B981] text-white'
-                    : 'bg-white text-[#1C1917] hover:bg-emerald-50'
-                }`}
-              >
-                {mode}
+          <div className="flex rounded-xl border border-gray-200 overflow-hidden bg-white">
+            {([
+              { mode: 'card',  icon: LayoutGrid },
+              { mode: 'table', icon: List },
+            ] as const).map(({ mode, icon: Icon }) => (
+              <button key={mode} onClick={() => setViewMode(mode)}
+                className={`p-2.5 transition-colors ${
+                  viewMode === mode ? 'bg-[#10B981] text-white' : 'text-gray-500 hover:bg-gray-50'
+                }`} aria-label={`${mode} view`}>
+                <Icon className="w-5 h-5" />
               </button>
             ))}
           </div>
-          <button
-            onClick={fetchProfiles}
-            className="min-h-12.5 px-6 rounded-xl border-2 border-[#E8DED3] text-base font-semibold
-                       text-[#1C1917] bg-white hover:bg-[#FDF8F3] transition-colors"
-          >
-            Refresh
+          <button onClick={fetchProfiles}
+            className="flex items-center gap-2 h-11 px-4 rounded-xl border border-gray-200 bg-white
+                       text-sm font-bold text-[#1C1917] hover:bg-gray-50 transition-colors">
+            <RefreshCw className="w-4 h-4" /> Refresh
           </button>
         </div>
       </div>
@@ -213,309 +209,233 @@ export default function StaffProfiles() {
       {/* Filter tabs */}
       <div className="flex gap-2 flex-wrap">
         {filterTabs.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+          <button key={key} onClick={() => setFilter(key)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
               filter === key
                 ? "bg-[#10B981] text-white"
-                : "bg-white text-[#1C1917] border border-[#E8DED3] hover:bg-emerald-50 hover:text-[#10B981]"
-            }`}
-          >
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-emerald-50 hover:text-[#10B981]"
+            }`}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* Search + Filter bar */}
-      <div className="bg-white rounded-2xl border border-[#E8DED3] p-5 space-y-4 shadow-sm">
-        {/* Row 1: Search */}
+      {/* Search + Filter bar (live) */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+        {/* Search */}
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl select-none">
-            &#9906;
-          </span>
+          <Search className="w-4 h-4 text-[#10B981] absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && applyFilters()}
-            placeholder="Search by name, location..."
-            className="w-full min-h-12.5 pl-11 pr-5 rounded-xl border-2 border-[#E8DED3]
-                       bg-[#FDF8F3] text-lg text-[#1C1917] placeholder-gray-400
-                       focus:outline-none focus:border-[#10B981] transition-colors"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or location…"
+            className="w-full h-12 pl-11 pr-5 rounded-xl bg-emerald-50/60 border border-emerald-100 text-sm
+                       text-[#1C1917] placeholder-[#10B981]/60 focus:outline-none focus:border-[#10B981]
+                       focus:bg-white transition-colors"
           />
         </div>
 
-        {/* Row 2: Filter dropdowns */}
+        {/* Filter fields w/ labels */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Age Range */}
-          <select
-            value={ageInput}
-            onChange={e => setAgeInput(e.target.value)}
-            className="min-h-12.5 px-4 rounded-xl border-2 border-[#E8DED3] bg-[#FDF8F3]
-                       text-base font-semibold text-[#10B981] focus:outline-none
-                       focus:border-[#10B981] transition-colors cursor-pointer"
-          >
-            <option value="">Age Range</option>
-            <option value="under25">Under 25</option>
-            <option value="25-30">25 – 30</option>
-            <option value="31-35">31 – 35</option>
-            <option value="36+">36 +</option>
-          </select>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-1">Age</span>
+            <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)} className={inputCls + ' cursor-pointer'}>
+              <option value="">Any age</option>
+              <option value="under25">Under 25</option>
+              <option value="25-30">25 – 30</option>
+              <option value="31-35">31 – 35</option>
+              <option value="36+">36 +</option>
+            </select>
+          </label>
 
-          {/* Location */}
-          <input
-            type="text"
-            value={locationInput}
-            onChange={e => setLocationInput(e.target.value)}
-            placeholder="Location"
-            className="min-h-12.5 px-4 rounded-xl border-2 border-[#E8DED3] bg-[#FDF8F3]
-                       text-base font-semibold text-[#10B981] placeholder-gray-400
-                       focus:outline-none focus:border-[#10B981] transition-colors"
-          />
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-1">Location</span>
+            <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
+              placeholder="Any city" className={inputCls} />
+          </label>
 
-          {/* Education */}
-          <input
-            type="text"
-            value={educationInput}
-            onChange={e => setEducationInput(e.target.value)}
-            placeholder="Education"
-            className="min-h-12.5 px-4 rounded-xl border-2 border-[#E8DED3] bg-[#FDF8F3]
-                       text-base font-semibold text-[#10B981] placeholder-gray-400
-                       focus:outline-none focus:border-[#10B981] transition-colors"
-          />
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-1">Education</span>
+            <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
+              placeholder="Any degree" className={inputCls} />
+          </label>
 
-          {/* Status */}
-          <select
-            value={filter}
-            onChange={e => setFilter(e.target.value as typeof filter)}
-            className="min-h-12.5 px-4 rounded-xl border-2 border-[#E8DED3] bg-[#FDF8F3]
-                       text-base font-semibold text-[#10B981] focus:outline-none
-                       focus:border-[#10B981] transition-colors cursor-pointer"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-1">Status</span>
+            <select value={filter} onChange={e => setFilter(e.target.value as typeof filter)} className={inputCls + ' cursor-pointer'}>
+              <option value="all">All status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
         </div>
 
-        {/* Row 3: Action buttons */}
-        <div className="flex gap-3 flex-wrap">
-          <button
-            onClick={applyFilters}
-            className="min-h-12.5 px-8 rounded-xl bg-[#10B981] hover:bg-[#059669]
-                       text-white text-base font-bold transition-colors shadow-sm"
-          >
-            Apply Filters
-          </button>
-          <button
-            onClick={clearFilters}
-            className="min-h-12.5 px-8 rounded-xl border-2 border-[#10B981] bg-white
-                       text-[#10B981] hover:bg-emerald-50 text-base font-bold transition-colors"
-          >
-            Clear Filters
-          </button>
-          {(activeSearch || activeAge || activeLocation || activeEducation) && (
-            <span className="self-center text-sm text-gray-500">
-              {filtered.length} result{filtered.length !== 1 ? 's' : ''}
-            </span>
+        {/* Result count + clear */}
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="text-sm font-semibold text-gray-500">
+            <span className="text-[#10B981] font-bold">{filtered.length}</span> result{filtered.length !== 1 ? 's' : ''}
+            {hasActiveFilters && <span className="text-gray-400"> · filtered from {profiles.length}</span>}
+          </span>
+          {hasActiveFilters && (
+            <button onClick={clearFilters}
+              className="flex items-center gap-1.5 h-9 px-4 rounded-xl border border-gray-200 bg-white text-gray-600
+                         hover:bg-gray-50 text-sm font-bold transition-colors">
+              <X className="w-4 h-4" /> Clear filters
+            </button>
           )}
         </div>
       </div>
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="text-center py-20 bg-white rounded-2xl border border-[#E8DED3]">
-          <p className="text-xl font-semibold text-gray-400">No profiles found</p>
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+          <p className="font-bold text-gray-500">No profiles found</p>
         </div>
       )}
 
       {/* ── Table view ── */}
       {viewMode === 'table' && filtered.length > 0 && (
-        <div className="bg-white rounded-2xl border border-[#E8DED3] shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[#FDF8F3] border-b-2 border-[#E8DED3]">
-                <th className="px-5 py-4 text-xl font-bold text-[#1C1917] w-[250px]">Name</th>
-                <th className="px-5 py-4 text-xl font-bold text-[#1C1917] w-[100px]">Age</th>
-                <th className="px-5 py-4 text-xl font-bold text-[#1C1917] w-[150px]">Location</th>
-                <th className="px-5 py-4 text-xl font-bold text-[#1C1917] w-[120px]">Status</th>
-                <th className="px-5 py-4 text-xl font-bold text-[#1C1917] w-[150px]">Joined</th>
-                <th className="px-5 py-4 text-xl font-bold text-[#1C1917] w-[200px] text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((profile, idx) => (
-                <tr
-                  key={profile._id}
-                  className={`border-b border-gray-100 hover:bg-[#F0FDFB] transition-colors min-h-[60px] ${
-                    idx % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]'
-                  }`}
-                >
-                  {/* Name */}
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#FDF8F3] shrink-0 flex items-center justify-center">
-                        {profile.photo ? (
-                          <img src={profile.photo} alt={profile.name}
-                            className="w-full h-full object-cover"
-                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        ) : (
-                          <span className="text-gray-300">{profile.gender === 'female' ? '♀' : '♂'}</span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-base font-bold text-[#1C1917]">{profile.name}</p>
-                        <p className="text-sm text-gray-400">{profile.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  {/* Age */}
-                  <td className="px-5 py-4 text-base font-semibold text-[#1C1917]">
-                    {profile.age ?? '—'}
-                  </td>
-                  {/* Location */}
-                  <td className="px-5 py-4 text-base text-[#1C1917]">{profile.city || '—'}</td>
-                  {/* Status */}
-                  <td className="px-5 py-4">
-                    <StatusBadge status={profile.profileStatus} />
-                  </td>
-                  {/* Joined */}
-                  <td className="px-5 py-4 text-base text-gray-500">
-                    {new Date(profile.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </td>
-                  {/* Actions */}
-                  <td className="px-5 py-4">
-                    <div className="flex justify-end gap-2 flex-wrap">
-                      <Link href={`/staff/profiles/${profile._id}`}>
-                        <button className="min-h-12.5 px-4 rounded-xl bg-[#10B981] hover:bg-[#059669]
-                                           text-white text-sm font-bold transition-colors">
-                          View
-                        </button>
-                      </Link>
-                      {profile.profileStatus === 'pending' && (
-                        <>
-                          <button
-                            onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
-                            className="min-h-12.5 px-4 rounded-xl border-2 border-[#10B981]
-                                       text-[#10B981] bg-white hover:bg-emerald-50 text-sm font-bold transition-colors"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
-                            className="min-h-12.5 px-4 rounded-xl bg-[#EF4444] hover:bg-red-700
-                                       text-white text-sm font-bold transition-colors"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={() => setNoteModal({ profileId: profile._id, profileName: profile.name, existing: profile.notes || '' })}
-                        className="min-h-12.5 px-4 rounded-xl border-2 border-[#E8DED3]
-                                   text-[#1C1917] bg-white hover:bg-[#FDF8F3] text-sm font-bold transition-colors"
-                      >
-                        Add Note
-                      </button>
-                    </div>
-                  </td>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-[#F4F6F5] border-b border-gray-100">
+                  {['Name', 'Age', 'Location', 'Status', 'Joined', 'Actions'].map((h, i) => (
+                    <th key={h} className={`px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${i === 5 ? 'text-right' : ''}`}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((profile, idx) => (
+                  <tr key={profile._id}
+                    className={`border-b border-gray-50 hover:bg-[#F4F6F5] transition-colors ${
+                      idx % 2 ? 'bg-white' : 'bg-gray-50/30'
+                    }`}>
+                    {/* Name */}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-[#F4F6F5] shrink-0 flex items-center justify-center">
+                          {profile.photo ? (
+                            <img src={profile.photo} alt={profile.name} className="w-full h-full object-cover"
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          ) : (
+                            <UserIcon className="w-4 h-4 text-gray-300" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[#1C1917] truncate">{profile.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{profile.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm font-semibold text-[#1C1917]">{profile.age ?? '—'}</td>
+                    <td className="px-5 py-3.5 text-sm text-gray-600">{profile.city || '—'}</td>
+                    <td className="px-5 py-3.5"><StatusBadge status={profile.profileStatus} /></td>
+                    <td className="px-5 py-3.5 text-sm text-gray-500 whitespace-nowrap">
+                      {new Date(profile.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex justify-end gap-2 flex-wrap">
+                        <Link href={`/staff/profiles/${profile._id}`}>
+                          <button className="h-9 px-3.5 rounded-lg bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold transition-colors">
+                            View
+                          </button>
+                        </Link>
+                        {profile.profileStatus === 'pending' && (
+                          <>
+                            <button onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
+                              className="h-9 px-3.5 rounded-lg border border-[#10B981] text-[#10B981] bg-white hover:bg-emerald-50 text-xs font-bold transition-colors">
+                              Approve
+                            </button>
+                            <button onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
+                              className="h-9 px-3.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold transition-colors">
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        <button onClick={() => setNoteModal({ profileId: profile._id, profileName: profile.name, existing: profile.notes || '' })}
+                          className="h-9 px-3.5 rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 text-xs font-bold transition-colors">
+                          Note
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* ── Card grid ── */}
-      {viewMode === 'card' && (
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {filtered.map(profile => (
-          <div key={profile._id}
-               className="bg-white rounded-2xl border border-[#E8DED3] shadow-sm overflow-hidden
-                          flex flex-col hover:shadow-md transition-shadow">
+      {/* ── Card grid (shared profile card) ── */}
+      {viewMode === 'card' && filtered.length > 0 && (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+          {filtered.map(profile => {
+            const sb = {
+              approved: { Icon: Check, cls: 'bg-[#10B981] text-white' },
+              rejected: { Icon: X,     cls: 'bg-red-500 text-white' },
+              pending:  { Icon: Clock, cls: 'bg-[#D97706] text-white' },
+            }[profile.profileStatus] ?? { Icon: Clock, cls: 'bg-gray-400 text-white' };
 
-            {/* Photo + name */}
-            <div className="p-6 flex gap-4 items-start">
-              {/* Photo */}
-              <div className="shrink-0 w-20 h-20 rounded-2xl overflow-hidden bg-[#FDF8F3] border border-[#E8DED3]
-                              flex items-center justify-center">
-                {profile.photo ? (
-                  <img
-                    src={profile.photo}
-                    alt={profile.name}
-                    className="w-full h-full object-cover"
-                    onError={e => {
-                      const el = e.target as HTMLImageElement;
-                      el.style.display = 'none';
-                      el.parentElement!.innerHTML = `<span class="text-3xl text-gray-300">${profile.gender === 'female' ? '♀' : '♂'}</span>`;
-                    }}
-                  />
-                ) : (
-                  <span className="text-3xl text-gray-300">{profile.gender === 'female' ? '♀' : '♂'}</span>
-                )}
-              </div>
+            const lines = [
+              profile.education,
+              profile.profession,
+              profile.city,
+              profile.caste,
+              profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '',
+            ].filter(Boolean) as string[];
 
-              {/* Identity */}
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xl font-bold text-[#1C1917] leading-tight truncate">{profile.name}</h3>
-                {profile.age && (
-                  <p className="text-base text-gray-500 mt-0.5">Age {profile.age}</p>
-                )}
-                <p className="text-base text-gray-500">{profile.city}</p>
-                <div className="mt-2">
-                  <StatusBadge status={profile.profileStatus} />
-                </div>
-              </div>
-            </div>
-
-            {/* Info boxes */}
-            <div className="px-6 pb-5 grid grid-cols-2 gap-2">
-              <InfoBox label="Education"  value={profile.education} />
-              <InfoBox label="Profession" value={profile.profession} />
-              <InfoBox label="Caste"      value={profile.caste} />
-              <InfoBox label="Gender"     value={profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : undefined} />
-            </div>
-
-            {/* Action buttons */}
-            <div className="mt-auto px-6 pb-6 flex flex-col gap-2">
-              <Link href={`/staff/profiles/${profile._id}`}>
-                <button className="w-full min-h-12.5 rounded-xl border-2 border-[#10B981] text-[#10B981]
-                                   bg-white hover:bg-emerald-50 text-base font-bold transition-colors">
-                  View Full Profile
-                </button>
-              </Link>
-
-              {profile.profileStatus === 'pending' && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
-                    className="min-h-12.5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white
-                               text-base font-bold transition-colors"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
-                    className="min-h-12.5 rounded-xl border-2 border-red-300 text-red-600
-                               bg-red-50 hover:bg-red-100 text-base font-bold transition-colors"
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-              <button
-                onClick={() => setNoteModal({ profileId: profile._id, profileName: profile.name, existing: profile.notes || '' })}
-                className="w-full min-h-12.5 rounded-xl border-2 border-[#E8DED3] text-base font-bold
-                           text-[#1C1917] bg-white hover:bg-[#FDF8F3] transition-colors"
-              >
-                Add Note
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+            return (
+              <ProfileImageCard key={profile._id}
+                photo={profile.photo} name={profile.name} age={profile.age} lines={lines}
+                heightClass="h-80" onClick={() => setLocation(`/staff/profiles/${profile._id}`)}
+                topRight={
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${sb.cls}`}
+                       title={profile.profileStatus}>
+                    <sb.Icon className="w-5 h-5" />
+                  </div>
+                }
+                footer={
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Link href={`/staff/profiles/${profile._id}`} className="flex-1">
+                        <button className="w-full h-11 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669]
+                                           text-white text-sm font-bold flex items-center justify-center gap-1.5
+                                           shadow-sm hover:shadow-md hover:brightness-105 transition-all">
+                          <Eye className="w-4 h-4" /> View Profile
+                        </button>
+                      </Link>
+                      <button onClick={() => setNoteModal({ profileId: profile._id, profileName: profile.name, existing: profile.notes || '' })}
+                        className="h-11 px-4 rounded-xl border border-[#E8DED3] text-[#1C1917] text-sm font-bold
+                                   flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-[#10B981] transition-colors">
+                        <StickyNote className="w-4 h-4" /> Note
+                      </button>
+                    </div>
+                    {profile.profileStatus === 'pending' && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
+                          className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-emerald-50
+                                     text-[#10B981] hover:bg-emerald-100 text-sm font-bold transition-colors">
+                          <Check className="w-4 h-4" /> Approve
+                        </button>
+                        <button onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
+                          className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-red-50
+                                     text-red-600 hover:bg-red-100 text-sm font-bold transition-colors">
+                          <X className="w-4 h-4" /> Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                }
+              />
+            );
+          })}
+        </div>
       )}
 
       {/* Add Note modal */}
@@ -543,18 +463,16 @@ export default function StaffProfiles() {
           </DialogHeader>
 
           <div className="space-y-3 py-2">
-            <div className="rounded-xl bg-[#FDF8F3] px-5 py-4">
+            <div className="rounded-xl bg-[#F4F6F5] px-5 py-4">
               <p className="text-base font-bold text-[#1C1917]">{selectedProfile?.name}</p>
               <p className="text-sm text-gray-500">{selectedProfile?.email}</p>
             </div>
 
             {action === 'reject' && (
               <div>
-                <label className="block text-base font-semibold text-[#1C1917] mb-2">
-                  Rejection Reason
-                </label>
+                <label className="block text-sm font-bold text-[#1C1917] mb-2">Rejection Reason</label>
                 <Textarea
-                  placeholder="Explain why the profile was rejected..."
+                  placeholder="Explain why the profile was rejected…"
                   value={reason}
                   onChange={e => setReason(e.target.value)}
                   className="min-h-24 text-base"
@@ -564,27 +482,17 @@ export default function StaffProfiles() {
           </div>
 
           <DialogFooter className="gap-2">
-            <button
-              onClick={() => setAction(null)}
-              disabled={actionLoading}
-              className="min-h-12.5 px-6 rounded-xl border-2 border-[#E8DED3] text-base font-bold
-                         text-[#1C1917] bg-white hover:bg-[#FDF8F3] transition-colors disabled:opacity-50"
-            >
+            <button onClick={() => setAction(null)} disabled={actionLoading}
+              className="h-11 px-6 rounded-xl border border-gray-200 text-sm font-bold
+                         text-gray-600 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50">
               Cancel
             </button>
-            <button
-              onClick={submitAction}
+            <button onClick={submitAction}
               disabled={actionLoading || (action === 'reject' && !reason.trim())}
-              className={`min-h-12.5 px-6 rounded-xl text-base font-bold text-white transition-colors
-                          disabled:opacity-50 ${
-                action === 'approve'
-                  ? 'bg-[#10B981] hover:bg-[#059669]'
-                  : 'bg-red-600 hover:bg-red-700'
-              }`}
-            >
-              {actionLoading
-                ? 'Processing...'
-                : action === 'approve' ? 'Approve' : 'Reject'}
+              className={`h-11 px-6 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-50 ${
+                action === 'approve' ? 'bg-[#10B981] hover:bg-[#059669]' : 'bg-red-600 hover:bg-red-700'
+              }`}>
+              {actionLoading ? 'Processing…' : action === 'approve' ? 'Approve' : 'Reject'}
             </button>
           </DialogFooter>
         </DialogContent>
