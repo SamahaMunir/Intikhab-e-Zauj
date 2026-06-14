@@ -1,7 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { subDays, addDays } from "date-fns";
-import { computeMatchScore } from "./matching";
+import type { HardFilterConfig } from "./hard-filter-matching";
+import {
+  DEFAULT_HARD_FILTER_CONFIG,
+  filterCandidatesWithHardFilters,
+} from "./hard-filter-matching";
+
+import {
+  computeMatchScore,
+  computeMatchScoreWithHardFilters,
+} from "./matching";
 
 export type Role = "applicant" | "staff" | "admin";
 export type ProfileStatus = "pending" | "approved" | "rejected";
@@ -64,8 +73,23 @@ export interface Message {
 }
 
 export interface Config {
-  weights: { age: number; location: number; caste: number; education: number; income: number };
-  qa: { maxQuestions: number; commDays: number; minScore: number };
+  weights: {
+    age: number;
+    location: number;
+    caste: number;
+    education: number;
+    income: number;
+  };
+
+  qa: {
+    maxQuestions: number;
+    commDays: number;
+    minScore: number;
+  };
+
+  hardFilters: HardFilterConfig;
+
+  minMatchScore: number;
 }
 
 export interface AuditLog {
@@ -223,10 +247,25 @@ export const useStore = create<AppState>()(
         { id: "c1", userId: "u1", type: "pre_marriage", status: "pending", topic: "Financial Planning", createdAt: new Date().toISOString() }
       ],
       auditLogs: [],
-      config: {
-        weights: { age: 0.2, location: 0.2, caste: 0.2, education: 0.2, income: 0.2 },
-        qa: { maxQuestions: 10, commDays: 14, minScore: 65 }
-      },
+     config: {
+  weights: {
+    age: 0.2,
+    location: 0.2,
+    caste: 0.2,
+    education: 0.2,
+    income: 0.2,
+  },
+
+  qa: {
+    maxQuestions: 10,
+    commDays: 14,
+    minScore: 65,
+  },
+
+  hardFilters: DEFAULT_HARD_FILTER_CONFIG,
+
+  minMatchScore: 40,
+},
 
       login: (id) => set(state => ({ currentUser: state.users.find(u => u.id === id) || null })),
       logout: () => set({ currentUser: null }),
@@ -309,31 +348,91 @@ export const useStore = create<AppState>()(
         };
       }),
 
-      generateMatchesFor: (userId) => set(state => {
-        const target = state.users.find(u => u.id === userId);
-        if (!target || target.role !== "applicant" || target.profileStatus !== "approved") return state;
-        const candidates = state.users.filter(u =>
-          u.id !== userId && u.role === "applicant" && u.profileStatus === "approved" && u.gender !== target.gender
+      generateMatchesFor: (userId) =>
+  set((state) => {
+    const target = state.users.find(
+      (u) => u.id === userId
+    );
+
+    if (
+      !target ||
+      target.role !== "applicant" ||
+      target.profileStatus !== "approved"
+    ) {
+      return state;
+    }
+
+    const candidates = state.users.filter(
+      (u) =>
+        u.id !== userId &&
+        u.role === "applicant" &&
+        u.profileStatus === "approved" &&
+        u.gender !== target.gender
+    );
+
+    // HARD FILTERS
+    const { passed } =
+      filterCandidatesWithHardFilters(
+        target,
+        candidates,
+        state.config.hardFilters
+      );
+
+    const existingPairs = new Set(
+      state.matches.map((m) =>
+        [m.userAId, m.userBId]
+          .sort()
+          .join("|")
+      )
+    );
+
+    const newMatches: Match[] = [];
+
+    passed.forEach((candidate) => {
+      const key = [userId, candidate.id]
+        .sort()
+        .join("|");
+
+      if (existingPairs.has(key)) return;
+
+      const scoreResult =
+        computeMatchScoreWithHardFilters(
+          target,
+          candidate,
+          state.config.weights,
+          state.config.hardFilters
         );
-        const existingPairs = new Set(state.matches.map(m => [m.userAId, m.userBId].sort().join("|")));
-        const newMatches: Match[] = [];
-        candidates.forEach(c => {
-          const key = [userId, c.id].sort().join("|");
-          if (existingPairs.has(key)) return;
-          const { total, breakdown } = computeMatchScore(target, c, state.config.weights);
-          if (total < 40) return;
-          newMatches.push({
-            id: `m${Date.now()}-${c.id}`,
-            userAId: target.id,
-            userBId: c.id,
-            score: total,
-            breakdown,
-            status: "suggested",
-            generatedAt: new Date().toISOString(),
-          });
-        });
-        return { matches: [...state.matches, ...newMatches] };
-      }),
+
+      if (!scoreResult) return;
+
+      const { total, breakdown } =
+        scoreResult.score;
+
+      if (
+        total < state.config.minMatchScore
+      ) {
+        return;
+      }
+
+      newMatches.push({
+        id: `m${Date.now()}-${candidate.id}`,
+        userAId: target.id,
+        userBId: candidate.id,
+        score: total,
+        breakdown,
+        status: "suggested",
+        generatedAt:
+          new Date().toISOString(),
+      });
+    });
+
+    return {
+      matches: [
+        ...state.matches,
+        ...newMatches,
+      ],
+    };
+  }),
 
       approveMatch: (id, staffId) => set(state => {
         const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "approve_match", resourceType: "match", resourceId: id, reason: "Approved by staff", timestamp: new Date().toISOString() };
