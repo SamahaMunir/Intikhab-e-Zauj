@@ -11,6 +11,7 @@ import {
 import ProfileCard from '../../components/matches/ProfileCard';
 import ProfileGridView from '../../components/matches/ProfileGridView';
 import FilterPanel from '../../components/matches/FilterPanel';
+import ProposalModal, { ProposalPayload } from '../../components/matches/ProposalModal';
 import { MatchesLoading, MatchesError, MatchesEmpty } from '../../components/matches/EmptyStates';
 
 function dedup(raw: MatchItem[]): MatchItem[] {
