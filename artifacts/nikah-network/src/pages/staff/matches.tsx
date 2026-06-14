@@ -1,6 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
+import {
+  Heart, RefreshCw, Sparkles, ChevronDown, ChevronRight,
+  Send, Loader2, Users, ShieldCheck, UserCheck, Star, ArrowUpRight,
+} from 'lucide-react';
 import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
+import ProfileImageCard from '../../components/matches/ProfileImageCard';
+import MatchScoreBadge from '../../components/matches/MatchScoreBadge';
+import ProposalModal, { ProposalMode, ProposalPayload } from '../../components/matches/ProposalModal';
+import { useStore } from '@/lib/store';
 
 type ProfileType = 'user' | 'staff';
 
@@ -12,6 +20,7 @@ interface ProfileSide {
   gender?: string;
   caste?: string;
   profession?: string;
+  education?: string;
   photo?: string;
   source?: string;
 }
@@ -32,23 +41,11 @@ interface MatchRecord {
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-function typeBadge(t: ProfileType) {
-  return t === 'staff'
-    ? <span className="px-2 py-0.5 text-xs font-bold bg-purple-100 text-purple-700 rounded-full border border-purple-200">Staff</span>
-    : <span className="px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-700 rounded-full border border-blue-200">User</span>;
-}
-
-function pairLabel(left?: ProfileType, right?: ProfileType) {
-  const l = left  === 'staff' ? 'Staff' : 'User';
-  const r = right === 'staff' ? 'Staff' : 'User';
-  const color = (left === 'staff' && right === 'staff')
-    ? 'bg-purple-50 border-purple-200 text-purple-800'
-    : 'bg-blue-50 border-blue-200 text-blue-800';
-  return (
-    <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${color}`}>
-      {l} ↔ {r}
-    </span>
-  );
+// Pair-type badge (display only — real data)
+function pairBadge(both: boolean) {
+  return both
+    ? <span className="px-3 py-1 text-xs font-bold rounded-full bg-violet-50 text-violet-600">Staff ↔ Staff</span>
+    : <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-50 text-[#10B981]">Staff ↔ User</span>;
 }
 
 export default function StaffMatches() {
@@ -58,8 +55,16 @@ export default function StaffMatches() {
   const [generating,  setGenerating]  = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [expandedId,  setExpandedId]  = useState<string | null>(null);
-  const [filter,      setFilter]      = useState<'all'>('all');
   const [typeFilter,  setTypeFilter]  = useState<'all' | 'staff-staff' | 'staff-user'>('all');
+
+  const [proposalModal, setProposalModal] = useState<{ mode: ProposalMode; name?: string; id?: string } | null>(null);
+  const staffOptions = useStore(s =>
+    s.users.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ id: u.id, name: u.name })));
+
+  const submitProposal = async (_payload: ProposalPayload) => {
+    // No backend proposal endpoint yet — record optimistically (frontend-only).
+    await new Promise(res => setTimeout(res, 500));
+  };
 
   const token = localStorage.getItem('token') || '';
   const headers: Record<string, string> = {
@@ -100,83 +105,100 @@ export default function StaffMatches() {
     }
   };
 
-useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []);
 
-  const scoreColor = (s: number) =>
-    s >= 75 ? 'text-green-600' : s >= 60 ? 'text-orange-500' : s >= 40 ? 'text-yellow-500' : 'text-red-500';
+  // Apply type filters
+  const filtered = matches.filter(m => {
+    if (typeFilter === 'all') return true;
+    if (typeFilter === 'staff-staff') return m.leftProfileType === 'staff' && m.rightProfileType === 'staff';
+    if (typeFilter === 'staff-user')  return (m.leftProfileType === 'staff') !== (m.rightProfileType === 'staff'); // XOR
+    return true;
+  });
 
-  // Apply filters
-  const filtered = matches
-    .filter(m => {
-      if (typeFilter === 'all') return true;
-      if (typeFilter === 'staff-staff') return m.leftProfileType === 'staff' && m.rightProfileType === 'staff';
-      if (typeFilter === 'staff-user')  return (m.leftProfileType === 'staff') !== (m.rightProfileType === 'staff'); // XOR
-      return true;
-    });
-
-  const counts = { all: matches.length };
+  // Real, meaningful stats
+  const isStaffStaff = (m: MatchRecord) => m.leftProfileType === 'staff' && m.rightProfileType === 'staff';
+  const isStaffUser  = (m: MatchRecord) => (m.leftProfileType === 'staff') !== (m.rightProfileType === 'staff');
+  const stats = [
+    { label: 'Total Matches',     value: matches.length,                                              icon: Users,       grad: 'from-emerald-50', ring: 'text-[#10B981]' },
+    { label: 'Staff ↔ Staff',     value: matches.filter(isStaffStaff).length,                          icon: ShieldCheck, grad: 'from-violet-50',  ring: 'text-violet-500' },
+    { label: 'Staff ↔ User',      value: matches.filter(isStaffUser).length,                           icon: UserCheck,   grad: 'from-sky-50',     ring: 'text-sky-500' },
+    { label: 'High Compatibility', value: matches.filter(m => (m.scoreBreakdown?.total ?? m.score) >= 75).length, icon: Star, grad: 'from-amber-50', ring: 'text-[#D97706]' },
+  ];
 
   if (loading) return (
-    <div className="flex justify-center items-center min-h-64 p-6">
+    <div className="flex justify-center items-center min-h-64">
       <div className="text-center">
-        <div className="animate-spin h-10 w-10 border-b-2 border-purple-600 rounded-full mx-auto mb-3" />
-        <p className="text-gray-600">Loading staff matches…</p>
+        <Loader2 className="w-9 h-9 animate-spin text-[#10B981] mx-auto mb-3" />
+        <p className="text-gray-500 text-sm">Loading staff matches…</p>
       </div>
     </div>
   );
 
+  // Info lines (reference layout): profession, then "City | Education"
+  const sideLines = (p?: ProfileSide) => {
+    const second = [p?.city, p?.education].filter(Boolean).join('  |  ');
+    return [p?.profession, second].filter(Boolean) as string[];
+  };
+
   return (
-    <div className="space-y-6 p-6 max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto space-y-6">
 
       {/* Header */}
-      <div className="flex justify-between items-start flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Matches</h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            Shows Staff↔Staff and Staff↔User only. User↔User matches are excluded.
-          </p>
+          <h1 className="text-2xl font-bold text-[#1C1917]">Matches</h1>
+          <p className="text-sm text-gray-500">Manage and review proposed matches</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={load}
-            className="min-h-15 px-6 rounded-xl border-2 border-[#E8DED3] bg-white text-base font-bold
-                       text-[#1C1917] hover:bg-[#FDF8F3] transition-colors"
-          >
-            Refresh
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-gray-500 mr-1">{matches.length} Matches</span>
+          <button onClick={load}
+            className="flex items-center gap-2 h-11 px-4 rounded-xl border border-gray-200 bg-white
+                       text-sm font-bold text-[#1C1917] hover:bg-gray-50 transition-colors">
+            <RefreshCw className="w-4 h-4" /> Refresh
           </button>
-          <button
-            onClick={generateStaffMatches}
-            disabled={generating}
-            className="min-h-15 px-6 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-base font-bold
-                       transition-colors disabled:opacity-50 shadow-sm"
-          >
-            {generating ? 'Generating…' : 'Generate Staff Matches'}
+          <button onClick={generateStaffMatches} disabled={generating}
+            className="flex items-center gap-2 h-11 px-5 rounded-xl bg-[#10B981] hover:bg-[#059669]
+                       text-white text-sm font-bold transition-colors disabled:opacity-50">
+            <Sparkles className="w-4 h-4" />
+            {generating ? 'Generating…' : 'Generate Matches'}
           </button>
         </div>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map(s => {
+          const Icon = s.icon;
+          return (
+            <div key={s.label}
+              className={`rounded-2xl border border-gray-100 shadow-sm p-6 bg-linear-to-br ${s.grad} to-white`}>
+              <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center mb-4">
+                <Icon className={`w-6 h-6 ${s.ring}`} />
+              </div>
+              <div className="text-sm font-semibold text-gray-500">{s.label}</div>
+              <div className="text-4xl font-black text-[#1C1917] mt-1">{s.value}</div>
+            </div>
+          );
+        })}
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+        <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">{error}</div>
       )}
 
-      {/* Match count */}
-      <div className="text-sm text-gray-500">
-        {counts.all} match{counts.all !== 1 ? 'es' : ''} total
-      </div>
-
       {/* Type filter tabs */}
-      <div className="flex gap-2 flex-wrap">
-        <span className="text-xs text-gray-500 self-center">Type:</span>
+      <div className="flex gap-2 flex-wrap items-center">
+        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide mr-1">Type</span>
         {([
           { key: 'all',         label: 'All' },
           { key: 'staff-staff', label: 'Staff ↔ Staff' },
           { key: 'staff-user',  label: 'Staff ↔ User' },
         ] as const).map(({ key, label }) => (
           <button key={key} onClick={() => setTypeFilter(key)}
-            className={`px-5 py-2.5 rounded-xl text-base font-bold transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
               typeFilter === key
-                ? 'bg-[#10B981] text-white shadow-sm'
-                : 'bg-white text-[#1C1917] border border-[#E8DED3] hover:bg-emerald-50 hover:text-[#10B981]'
+                ? 'bg-[#10B981] text-white'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-emerald-50 hover:text-[#10B981]'
             }`}>
             {label}
           </button>
@@ -185,143 +207,90 @@ useEffect(() => { load(); }, []);
 
       {/* Empty state */}
       {filtered.length === 0 && !error && (
-        <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-[#E8DED3]">
-          <p className="text-gray-500 text-lg mb-2">
-            {matches.length === 0 ? 'No staff matches yet.' : 'No matches for selected filters.'}
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+          <Heart className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+          <p className="text-gray-500 font-semibold mb-1">
+            {matches.length === 0 ? 'No staff matches yet' : 'No matches for selected filter'}
           </p>
           {matches.length === 0 && (
-            <p className="text-gray-400 text-sm mb-6">
-              Click "Generate Staff Matches" to generate matches for all staff-created profiles.
+            <p className="text-gray-400 text-sm">
+              Click "Generate Matches" to build matches for all staff-created profiles.
             </p>
           )}
         </div>
       )}
 
       {/* Match cards */}
-      <div className="space-y-4">
+      <div className="space-y-5">
         {filtered.map(m => {
           const score      = m.scoreBreakdown?.total ?? m.score;
           const isExpanded = expandedId === m._id;
 
-          // Always display male on left, female on right
+          // Always display male (groom) on left, female (bride) on right
           const maleProfile   = m.user?.gender === 'male' ? m.user      : m.candidate;
           const femaleProfile = m.user?.gender === 'male' ? m.candidate : m.user;
-          const maleType      = m.user?.gender === 'male'
-            ? (m.leftProfileType  ?? 'user')
-            : (m.rightProfileType ?? 'user');
-          const femaleType    = m.user?.gender === 'male'
-            ? (m.rightProfileType ?? 'user')
-            : (m.leftProfileType  ?? 'user');
+          const maleType      = m.user?.gender === 'male' ? (m.leftProfileType  ?? 'user') : (m.rightProfileType ?? 'user');
+          const femaleType    = m.user?.gender === 'male' ? (m.rightProfileType ?? 'user') : (m.leftProfileType  ?? 'user');
           const bothStaff     = maleType === 'staff' && femaleType === 'staff';
+          const pairName      = `${maleProfile?.name?.split(' ')[0] || 'Unknown'} & ${femaleProfile?.name?.split(' ')[0] || 'Unknown'}`;
 
           return (
-            <div key={m._id} className="bg-white rounded-xl shadow-sm border border-[#E8DED3] overflow-hidden">
+            <div key={m._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
               {/* Card header */}
-              <div className="p-5">
-                <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+                <h3 className="font-bold text-lg text-[#1C1917] flex items-center gap-2.5">
+                  <Heart className="w-5 h-5 text-[#10B981]" />
+                  {pairName}
+                </h3>
+                {pairBadge(bothStaff)}
+              </div>
 
-                  {/* Male profile — left */}
-                  <div className="flex items-center gap-3 flex-1 min-w-48">
-                    {/* Photo */}
-                    <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 border-blue-100 bg-blue-50 flex items-center justify-center">
-                      {maleProfile?.photo ? (
-                        <img src={maleProfile.photo} alt={maleProfile.name}
-                          className="w-full h-full object-cover"
-                          onError={e => {
-                            const el = e.target as HTMLImageElement;
-                            el.style.display = 'none';
-                            el.parentElement!.innerHTML = '<span class="text-2xl">👤</span>';
-                          }} />
-                      ) : (
-                        <span className="text-2xl">👤</span>
-                      )}
-                    </div>
-                    {/* Info */}
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        {typeBadge(maleType as ProfileType)}
-                        <span className="text-xs text-blue-500 font-bold">♂</span>
-                      </div>
-                      <p className="font-bold text-gray-900">{maleProfile?.name || 'Unknown'}</p>
-                      <p className="text-xs text-gray-500">Age {maleProfile?.age} · {maleProfile?.city}</p>
-                      {maleProfile?.caste && <p className="text-xs text-purple-600 font-medium">{maleProfile.caste}</p>}
-                      {maleProfile?.profession && <p className="text-xs text-gray-400">{maleProfile.profession}</p>}
-                    </div>
-                  </div>
-
-                  {/* Score + pair type */}
-                  <div className="text-center px-3 shrink-0">
-                    <div className={`text-4xl font-black ${scoreColor(score)}`}>{score}</div>
-                    <div className="text-xs text-gray-400 font-medium">/100</div>
-                    <div className="mt-1">{pairLabel(maleType as ProfileType, femaleType as ProfileType)}</div>
-                  </div>
-
-                  {/* Female profile — right */}
-                  <div className="flex items-center gap-3 flex-1 min-w-48">
-                    {/* Photo */}
-                    <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 border-pink-100 bg-pink-50 flex items-center justify-center">
-                      {femaleProfile?.photo ? (
-                        <img src={femaleProfile.photo} alt={femaleProfile.name}
-                          className="w-full h-full object-cover"
-                          onError={e => {
-                            const el = e.target as HTMLImageElement;
-                            el.style.display = 'none';
-                            el.parentElement!.innerHTML = '<span class="text-2xl">👤</span>';
-                          }} />
-                      ) : (
-                        <span className="text-2xl">👤</span>
-                      )}
-                    </div>
-                    {/* Info */}
-                    <div>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        {typeBadge(femaleType as ProfileType)}
-                        <span className="text-xs text-pink-500 font-bold">♀</span>
-                      </div>
-                      <p className="font-bold text-gray-900">{femaleProfile?.name || 'Unknown'}</p>
-                      <p className="text-xs text-gray-500">Age {femaleProfile?.age} · {femaleProfile?.city}</p>
-                      {femaleProfile?.caste && <p className="text-xs text-purple-600 font-medium">{femaleProfile.caste}</p>}
-                      {femaleProfile?.profession && <p className="text-xs text-gray-400">{femaleProfile.profession}</p>}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    {/* View Profile buttons */}
-                    <div className="flex gap-2">
-                      {maleProfile?._id && (
-                        <button
-                          onClick={() => setLocation(`/staff/profiles/${maleProfile._id}`)}
-                          className="min-h-15 px-4 rounded-xl border-2 border-blue-200 text-blue-700
-                                     bg-white hover:bg-blue-50 text-sm font-bold transition-colors"
-                        >
-                          View Male
-                        </button>
-                      )}
-                      {femaleProfile?._id && (
-                        <button
-                          onClick={() => setLocation(`/staff/profiles/${femaleProfile._id}`)}
-                          className="min-h-15 px-4 rounded-xl border-2 border-pink-200 text-pink-700
-                                     bg-white hover:bg-pink-50 text-sm font-bold transition-colors"
-                        >
-                          View Female
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Proposal button */}
-                    <button
-                      onClick={() => {
-                        alert(`Proposal workflow coming soon. Match: ${m._id}`);
-                      }}
-                      className="min-h-15 px-5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white
-                                 text-base font-bold transition-colors shadow-sm"
-                    >
-                      {bothStaff ? 'Make Proposal' : 'Send Proposal'}
-                    </button>
-                  </div>
+              {/* Paired profile cards with center match badge */}
+              <div className="relative p-5">
+                <div className="grid sm:grid-cols-2 gap-4 sm:gap-16">
+                  {([
+                    { p: maleProfile,   id: maleProfile?._id,   label: 'View Groom', type: maleType   as ProfileType },
+                    { p: femaleProfile, id: femaleProfile?._id, label: 'View Bride', type: femaleType as ProfileType },
+                  ]).map((side, i) => (
+                    <ProfileImageCard key={i}
+                      photo={side.p?.photo} name={side.p?.name || 'Unknown'} age={side.p?.age}
+                      lines={sideLines(side.p)} heightClass="aspect-3/4"
+                      onClick={side.id ? () => setLocation(`/staff/profiles/${side.id}`) : undefined}
+                      footer={
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setProposalModal({
+                              mode: side.type === 'staff' ? 'staff' : 'user',
+                              name: side.p?.name, id: side.id,
+                            })}
+                            className="flex-1 h-11 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669] text-white
+                                       text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm
+                                       hover:shadow-md hover:brightness-105 active:scale-[0.99] transition-all">
+                            <Send className="w-4 h-4" /> {side.type === 'staff' ? 'Make Proposal' : 'Send Proposal'}
+                          </button>
+                          {side.id && (
+                            <button onClick={() => setLocation(`/staff/profiles/${side.id}`)}
+                              className="h-11 px-4 rounded-xl border border-[#E8DED3] text-[#1C1917] text-sm font-bold
+                                         flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-[#10B981] transition-colors">
+                              View <ArrowUpRight className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      }
+                    />
+                  ))}
                 </div>
+
+                {/* Center match badge (desktop) */}
+                <div className="hidden sm:block absolute top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10" aria-hidden="true">
+                  <MatchScoreBadge score={score} size={84} />
+                </div>
+              </div>
+
+              {/* Mobile match badge */}
+              <div className="sm:hidden flex justify-center -mt-1 pb-4">
+                <MatchScoreBadge score={score} size={72} />
               </div>
 
               {/* Score breakdown toggle */}
@@ -329,11 +298,10 @@ useEffect(() => { load(); }, []);
                 <div className="border-t border-gray-100">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : m._id)}
-                    className="w-full px-5 py-3 text-left text-base text-[#10B981] font-bold
-                               hover:bg-emerald-50 flex items-center gap-2 transition-colors"
-                  >
-                    <span>{isExpanded ? '▼' : '▶'}</span>
-                    <span>Compatibility Breakdown — 100-point scoring</span>
+                    className="w-full px-5 py-3 text-left text-sm text-[#10B981] font-bold
+                               hover:bg-emerald-50/50 flex items-center gap-2 transition-colors">
+                    {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    Compatibility Breakdown — 100-point scoring
                   </button>
                   {isExpanded && (
                     <div className="px-5 pb-5">
@@ -346,6 +314,17 @@ useEffect(() => { load(); }, []);
           );
         })}
       </div>
+
+      {/* Shared proposal modal (Staff → User / Staff → Staff) */}
+      <ProposalModal
+        open={proposalModal !== null}
+        mode={proposalModal?.mode ?? 'user'}
+        recipientName={proposalModal?.name}
+        recipientId={proposalModal?.id}
+        staffOptions={staffOptions}
+        onClose={() => setProposalModal(null)}
+        onSubmit={submitProposal}
+      />
     </div>
   );
 }
