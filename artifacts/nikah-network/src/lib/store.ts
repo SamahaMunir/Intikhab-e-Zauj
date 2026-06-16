@@ -1,16 +1,31 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { subDays, addDays } from "date-fns";
-import type { HardFilterConfig } from "./hard-filter-matching";
-import {
-  DEFAULT_HARD_FILTER_CONFIG,
-  filterCandidatesWithHardFilters,
-} from "./hard-filter-matching";
 
-import {
-  computeMatchScore,
-  computeMatchScoreWithHardFilters,
-} from "./matching";
+/**
+ * Matching is owned entirely by the backend (artifacts/api-server/src/lib/matching).
+ * The store keeps only a config SHAPE for the staff config UI — no scoring logic.
+ * Real matches are fetched from the matching API (see useMatches / matchingService).
+ */
+export interface HardFilterConfig {
+  enableAgeFilter: boolean;
+  enableLocationFilter: boolean;
+  locationRadius: number;
+  enableCasteFilter: boolean;
+  strictCasteFilter: boolean;
+  enableRequiredFieldsFilter: boolean;
+  requiredFields: string[];
+}
+
+const DEFAULT_HARD_FILTER_CONFIG: HardFilterConfig = {
+  enableAgeFilter: true,
+  enableLocationFilter: true,
+  locationRadius: 200,
+  enableCasteFilter: true,
+  strictCasteFilter: false,
+  enableRequiredFieldsFilter: true,
+  requiredFields: ["name", "gender", "dob", "city", "caste", "education", "occupation", "bio", "maritalStatus"],
+};
 
 export type Role = "applicant" | "staff" | "admin";
 export type ProfileStatus = "pending" | "approved" | "rejected";
@@ -199,33 +214,10 @@ const seedUsers: User[] = [
   }
 ];
 
-const defaultWeights = { age: 0.2, location: 0.2, caste: 0.2, education: 0.2, income: 0.2 };
-
+// Matches come from the backend matching API, not the client.
+// The store no longer scores; seed matches are empty.
 function buildSeedMatches(): Match[] {
-  const approved = seedUsers.filter(u => u.role === "applicant" && u.profileStatus === "approved");
-  const out: Match[] = [];
-  const seen = new Set<string>();
-  for (const a of approved) {
-    for (const b of approved) {
-      if (a.id >= b.id) continue;
-      if (a.gender === b.gender) continue;
-      const key = [a.id, b.id].sort().join("|");
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const { total, breakdown } = computeMatchScore(a, b, defaultWeights);
-      if (total < 40) continue;
-      out.push({
-        id: `seed-${a.id}-${b.id}`,
-        userAId: a.id,
-        userBId: b.id,
-        score: total,
-        breakdown,
-        status: "suggested",
-        generatedAt: new Date().toISOString(),
-      });
-    }
-  }
-  return out;
+  return [];
 }
 
 const seedMatches: Match[] = buildSeedMatches();
@@ -348,91 +340,10 @@ export const useStore = create<AppState>()(
         };
       }),
 
-      generateMatchesFor: (userId) =>
-  set((state) => {
-    const target = state.users.find(
-      (u) => u.id === userId
-    );
-
-    if (
-      !target ||
-      target.role !== "applicant" ||
-      target.profileStatus !== "approved"
-    ) {
-      return state;
-    }
-
-    const candidates = state.users.filter(
-      (u) =>
-        u.id !== userId &&
-        u.role === "applicant" &&
-        u.profileStatus === "approved" &&
-        u.gender !== target.gender
-    );
-
-    // HARD FILTERS
-    const { passed } =
-      filterCandidatesWithHardFilters(
-        target,
-        candidates,
-        state.config.hardFilters
-      );
-
-    const existingPairs = new Set(
-      state.matches.map((m) =>
-        [m.userAId, m.userBId]
-          .sort()
-          .join("|")
-      )
-    );
-
-    const newMatches: Match[] = [];
-
-    passed.forEach((candidate) => {
-      const key = [userId, candidate.id]
-        .sort()
-        .join("|");
-
-      if (existingPairs.has(key)) return;
-
-      const scoreResult =
-        computeMatchScoreWithHardFilters(
-          target,
-          candidate,
-          state.config.weights,
-          state.config.hardFilters
-        );
-
-      if (!scoreResult) return;
-
-      const { total, breakdown } =
-        scoreResult.score;
-
-      if (
-        total < state.config.minMatchScore
-      ) {
-        return;
-      }
-
-      newMatches.push({
-        id: `m${Date.now()}-${candidate.id}`,
-        userAId: target.id,
-        userBId: candidate.id,
-        score: total,
-        breakdown,
-        status: "suggested",
-        generatedAt:
-          new Date().toISOString(),
-      });
-    });
-
-    return {
-      matches: [
-        ...state.matches,
-        ...newMatches,
-      ],
-    };
-  }),
+      // Deprecated: client-side match generation removed. Matches are produced by
+      // the backend matching engine and fetched via the matching API (useMatches).
+      // Kept as a no-op so legacy callers (e.g. approveProfile) don't break.
+      generateMatchesFor: (_userId) => { /* no-op — see api-server/src/lib/matching */ },
 
       approveMatch: (id, staffId) => set(state => {
         const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "approve_match", resourceType: "match", resourceId: id, reason: "Approved by staff", timestamp: new Date().toISOString() };
