@@ -1,7 +1,70 @@
 import { Db, ObjectId } from 'mongodb';
-import { sendFamilyMatchEmail, type FamilyMatchCandidate } from '../utils/email';
+import {
+  sendFamilyMatchEmail,
+  sendProposalReceivedEmail,
+  sendProposalApprovedEmail,
+  sendChatExpiredEmail,
+  type FamilyMatchCandidate,
+} from '../utils/email';
 import { sendSmsBatch } from '../utils/sms';
 import { logAudit } from '../db/auditLogs';
+
+const PARTY_FIELDS = { name: 1, email: 1, phone: 1 };
+
+async function loadParties(db: Db, proposal: any): Promise<{ initiator: any; recipient: any } | null> {
+  const [initiator, recipient] = await Promise.all([
+    db.collection('profiles').findOne({ _id: proposal.initiatorId }, { projection: PARTY_FIELDS }),
+    db.collection('profiles').findOne({ _id: proposal.recipientId }, { projection: PARTY_FIELDS }),
+  ]);
+  if (!initiator || !recipient) return null;
+  return { initiator, recipient };
+}
+
+/** Proposal created → notify recipient (USER_PROPOSAL needs their acceptance). */
+export async function notifyProposalCreated(db: Db, proposal: any): Promise<void> {
+  try {
+    if (proposal.type !== 'USER_PROPOSAL') return; // staff proposals skip recipient-accept
+    const parties = await loadParties(db, proposal);
+    if (!parties) return;
+    const { initiator, recipient } = parties;
+    if (recipient.email) await sendProposalReceivedEmail(recipient.email, recipient.name || 'Applicant', initiator.name || 'a member');
+    await sendSmsBatch([recipient.phone], `Intikhab-e-Zauj: New proposal from ${initiator.name || 'a member'}. Open the app to accept or decline.`);
+  } catch (e) {
+    console.error('❌ notifyProposalCreated:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** Staff approved → chat opens. Notify both participants. */
+export async function notifyProposalApproved(db: Db, proposal: any): Promise<void> {
+  try {
+    const parties = await loadParties(db, proposal);
+    if (!parties) return;
+    const { initiator, recipient } = parties;
+    await Promise.all([
+      initiator.email ? sendProposalApprovedEmail(initiator.email, initiator.name || 'Applicant', recipient.name || 'your match') : Promise.resolve(false),
+      recipient.email ? sendProposalApprovedEmail(recipient.email, recipient.name || 'Applicant', initiator.name || 'your match') : Promise.resolve(false),
+    ]);
+    await sendSmsBatch([initiator.phone, recipient.phone], `Intikhab-e-Zauj: Staff approved your proposal. A private chat is open for 48 hours.`);
+  } catch (e) {
+    console.error('❌ notifyProposalApproved:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** Chat window expired without mutual interest. Notify both participants. */
+export async function notifyChatExpired(db: Db, proposal: any): Promise<void> {
+  try {
+    const parties = await loadParties(db, proposal);
+    if (!parties) return;
+    const { initiator, recipient } = parties;
+    await Promise.all([
+      initiator.email ? sendChatExpiredEmail(initiator.email, initiator.name || 'Applicant', recipient.name || 'your match') : Promise.resolve(false),
+      recipient.email ? sendChatExpiredEmail(recipient.email, recipient.name || 'Applicant', initiator.name || 'your match') : Promise.resolve(false),
+    ]);
+    await sendSmsBatch([initiator.phone, recipient.phone], `Intikhab-e-Zauj: Your 48-hour chat window has closed. Contact staff to continue.`);
+  } catch (e) {
+    console.error('❌ notifyChatExpired:', e instanceof Error ? e.message : e);
+  }
+}
 
 const CANDIDATE_FIELDS = {
   name: 1, age: 1, city: 1, caste: 1, profession: 1, education: 1,
