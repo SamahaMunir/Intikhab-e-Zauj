@@ -4,7 +4,6 @@ import {
   Sliders, LayoutGrid, Layers, ChevronLeft, ChevronRight,
   Lock, ArrowRight, RefreshCw,
 } from 'lucide-react';
-import matchingService from '../../services/matchingService';
 import {
   MatchItem, MatchFilters, DEFAULT_FILTERS, applyFilters, activeFilterCount,
 } from '../../components/matches/types';
@@ -12,29 +11,14 @@ import ProfileCard from '../../components/matches/ProfileCard';
 import ProfileGridView from '../../components/matches/ProfileGridView';
 import FilterPanel from '../../components/matches/FilterPanel';
 import ProposalModal, { ProposalPayload } from '../../components/matches/ProposalModal';
+import proposalService from '../../services/proposalService';
+import { useMatches } from '../../hooks/useMatches';
 import { MatchesLoading, MatchesError, MatchesEmpty } from '../../components/matches/EmptyStates';
-
-function dedup(raw: MatchItem[]): MatchItem[] {
-  const seen = new Map<string, MatchItem>();
-  for (const m of raw) {
-    const cid = m.candidateId || m.candidate?._id;
-    if (!cid) continue;
-    const existing = seen.get(cid);
-    const score = m.scoreBreakdown?.total ?? m.score ?? 0;
-    const existScore = existing ? (existing.scoreBreakdown?.total ?? existing.score ?? 0) : -1;
-    if (!existing || score > existScore) seen.set(cid, m);
-  }
-  return Array.from(seen.values()).filter(m => m.candidate?.name && m.candidate?.city);
-}
 
 type View = 'card' | 'grid';
 
 const Matches: React.FC = () => {
   const [, setLocation] = useLocation();
-  const [matches, setMatches] = useState<MatchItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const [view, setView] = useState<View>('card');
   const [filters, setFilters] = useState<MatchFilters>(DEFAULT_FILTERS);
@@ -48,38 +32,9 @@ const Matches: React.FC = () => {
   const profileCompletion = user?.profileCompletion ?? 0;
   const profileComplete = profileCompletion >= 100;
 
-  useEffect(() => {
-    if (!userId) { setError('Please log in to view matches.'); setIsLoading(false); return; }
-    if (!profileComplete) { setIsLoading(false); return; }
-    loadMatches();
-  }, [userId, profileComplete]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadMatches = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await matchingService.generateMatches(userId);
-      const res = await matchingService.getMatches(userId);
-      setMatches(dedup(res.matches || []));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load matches');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const generateMatches = async () => {
-    try {
-      setIsGenerating(true); setIsLoading(false); setError(null);
-      await matchingService.generateMatches(userId);
-      const res = await matchingService.getMatches(userId);
-      setMatches(dedup(res.matches || []));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to generate matches');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  // Single source for match data — backend matching engine via API.
+  const { matches, isLoading, isGenerating, error, generate } = useMatches(userId, profileComplete);
+  const generateMatches = generate;
 
   // Filter + sort (highest compatibility first)
   const visible = useMemo(() => {
@@ -104,9 +59,16 @@ const Matches: React.FC = () => {
     const m = matches.find(x => x.candidateId === id);
     setProposalTarget({ id, name: m?.candidate?.name });
   };
-  const submitProposal = async (_payload: ProposalPayload) => {
-    // No backend proposal endpoint yet — record optimistically (frontend-only).
-    await new Promise(res => setTimeout(res, 500));
+  const submitProposal = async (payload: ProposalPayload) => {
+    if (payload.type !== 'USER_PROPOSAL' || !userId || !proposalTarget?.id) return;
+    await proposalService.create({
+      type: 'USER_PROPOSAL',
+      initiatorId: userId,
+      recipientId: proposalTarget.id,
+      message: payload.message,
+      matchNotes: payload.matchNotes,
+      compatibilityReason: payload.compatibilityReason,
+    });
   };
   const filterCount = activeFilterCount(filters);
 
@@ -195,7 +157,7 @@ const Matches: React.FC = () => {
       {isLoading || isGenerating ? (
         <MatchesLoading />
       ) : error ? (
-        <MatchesError message={error} onRetry={loadMatches} />
+        <MatchesError message={error} onRetry={generateMatches} />
       ) : visible.length === 0 ? (
         <MatchesEmpty hasMatches={matches.length > 0}
           onAdjust={() => setFilterOpen(true)} onGenerate={generateMatches} />
