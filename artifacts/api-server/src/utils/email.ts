@@ -411,6 +411,122 @@ export async function sendSimpleVerificationEmail(
   }
 }
 
+/**
+ * Send a family/match-completion email to one applicant describing the other
+ * party once both sides expressed mutual interest. Includes the candidate's
+ * details, contact info, match score and staff notes.
+ */
+export interface FamilyMatchCandidate {
+  name?: string;
+  age?: number;
+  city?: string;
+  caste?: string;
+  profession?: string;
+  education?: string;
+  phone?: string;
+  email?: string;
+  fatherName?: string;
+  fatherMobile?: string;
+  motherMobile?: string;
+}
+
+export async function sendFamilyMatchEmail(
+  toEmail: string,
+  recipientName: string,
+  candidate: FamilyMatchCandidate,
+  match: { score?: number; staffNotes?: string; compatibilityReason?: string }
+): Promise<boolean> {
+  try {
+    const subject = '💚 A Mutual Match — Next Steps for Your Family';
+
+    const row = (label: string, value?: string | number) =>
+      value === undefined || value === null || value === '' ? '' :
+      `<tr><td style="padding:6px 12px;color:#666;font-weight:bold;">${label}</td><td style="padding:6px 12px;">${value}</td></tr>`;
+
+    const contactRows = [
+      row('Name', candidate.name),
+      row('Age', candidate.age),
+      row('City', candidate.city),
+      row('Caste / Community', candidate.caste),
+      row('Education', candidate.education),
+      row('Profession', candidate.profession),
+      row('Phone', candidate.phone),
+      row('Email', candidate.email),
+      row("Guardian", candidate.fatherName),
+      row("Guardian Mobile", candidate.fatherMobile || candidate.motherMobile),
+    ].join('');
+
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.6; color: #1C1917; }
+      .container { max-width: 640px; margin: 0 auto; padding: 20px; }
+      .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 22px; border-radius: 10px; }
+      .content { padding: 20px; background: #f0fdf4; border-radius: 10px; margin: 18px 0; }
+      table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+      tr:nth-child(even) td { background: #f9fafb; }
+      .score { display:inline-block; background:#059669; color:#fff; font-weight:bold; padding:6px 14px; border-radius:999px; }
+      .notes { background:#fffbeb; border-left:4px solid #d97706; padding:12px 14px; margin:14px 0; border-radius:6px; }
+      .footer { text-align: center; color: #666; font-size: 12px; margin-top: 18px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header"><h1 style="margin:0;">A Mutual Match 💚</h1></div>
+      <div class="content">
+        <p>Assalamu Alaikum <strong>${recipientName}</strong>,</p>
+        <p>Both sides have expressed interest. With your families' blessing, here are the
+        details to take this forward. Our staff will also be in touch to assist.</p>
+
+        ${match.score !== undefined ? `<p>Compatibility: <span class="score">${match.score}% Match</span></p>` : ''}
+
+        <table>${contactRows}</table>
+
+        ${match.compatibilityReason ? `<div class="notes"><strong>Why this match:</strong><br/>${match.compatibilityReason}</div>` : ''}
+        ${match.staffNotes ? `<div class="notes"><strong>Staff notes:</strong><br/>${match.staffNotes}</div>` : ''}
+
+        <p style="margin-top:16px;">Please coordinate respectfully and involve your families in the next steps,
+        in line with Islamic guidelines.</p>
+      </div>
+      <div class="footer">
+        <p>© 2026 Intikhab-e-Zauj. All rights reserved.</p>
+        <p>This match was facilitated through staff mediation.</p>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+    const plain =
+      `A Mutual Match\n\nAssalamu Alaikum ${recipientName},\n\n` +
+      `Both sides have expressed interest. Details below:\n` +
+      (match.score !== undefined ? `Compatibility: ${match.score}% Match\n` : '') +
+      `Name: ${candidate.name || ''}\nAge: ${candidate.age ?? ''}\nCity: ${candidate.city || ''}\n` +
+      `Caste: ${candidate.caste || ''}\nEducation: ${candidate.education || ''}\nProfession: ${candidate.profession || ''}\n` +
+      `Phone: ${candidate.phone || ''}\nEmail: ${candidate.email || ''}\n` +
+      `Guardian: ${candidate.fatherName || ''} ${candidate.fatherMobile || candidate.motherMobile || ''}\n` +
+      (match.compatibilityReason ? `\nWhy this match: ${match.compatibilityReason}\n` : '') +
+      (match.staffNotes ? `Staff notes: ${match.staffNotes}\n` : '') +
+      `\n© 2026 Intikhab-e-Zauj.`;
+
+    console.log(`📧 Sending family match email to ${toEmail}...`);
+    await transporter.sendMail({
+      from: `"Intikhab-e-Zauj" <${process.env.EMAIL_USER}>`,
+      to: toEmail,
+      subject,
+      text: plain,
+      html: htmlBody,
+      replyTo: process.env.EMAIL_USER,
+    });
+    console.log(`✅ Family match email sent to ${toEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send family match email:', error instanceof Error ? error.message : error);
+    return false;
+  }
+}
+
 export async function sendVerificationEmail(
   email: string,
   name: string,
