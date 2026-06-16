@@ -272,27 +272,7 @@ router.post(
 
       console.log(`✓ Found profile: ${profile.email || profile._id}`);
 
-      const result = await profilesCollection.updateOne(
-        query,
-        {
-          $set: {
-            profileStatus: 'rejected',
-            rejectedAt: new Date(),
-            rejectedBy: staffEmail,
-            rejectionReason: reason,
-          },
-        }
-      );
-
-      console.log(`✓ Update result:`, result);
-
-      if (result.modifiedCount === 0) {
-        console.warn(`⚠️  No documents modified for: ${id}`);
-        res.status(400).json({ error: 'Profile was not updated' });
-        return;
-      }
-
-      // 📧 Send rejection email
+      // 📧 Send rejection email BEFORE deleting the record (needs profile data)
       let emailSent = false;
       try {
         emailSent = await sendProfileRejectionEmail(profile.email, profile.name, reason);
@@ -301,6 +281,7 @@ router.post(
         console.error('⚠️ Failed to send rejection email:', emailError);
       }
 
+      // 📝 Audit log (retains the rejection record even though the profile is removed)
       await logAudit(
         staffEmail,
         staffId,
@@ -308,16 +289,27 @@ router.post(
         'reject_profile',
         'profile',
         id,
-        `Profile rejected: ${reason}`,
-        { profile_email: profile.email, emailSent }
+        `Profile rejected & deleted: ${reason}`,
+        { profile_email: profile.email, profile_name: profile.name, emailSent }
       );
 
-      console.log(`✅ Profile rejected and logged`);
+      // 🗑️ Rejected profiles are deleted automatically — no rejected records kept
+      const result = await profilesCollection.deleteOne(query);
+
+      console.log(`✓ Delete result:`, result);
+
+      if (result.deletedCount === 0) {
+        console.warn(`⚠️  No documents deleted for: ${id}`);
+        res.status(400).json({ error: 'Profile was not deleted' });
+        return;
+      }
+
+      console.log(`✅ Profile rejected, deleted and logged`);
 
       res.json({
         success: true,
-        message: 'Profile rejected',
-        modifiedCount: result.modifiedCount,
+        message: 'Profile rejected and removed',
+        deletedCount: result.deletedCount,
         profileId: id,
         emailSent,
       });
