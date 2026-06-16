@@ -10,7 +10,12 @@ import {
   type Proposal,
 } from '../db/proposals-schema';
 import { createMessageDocument, MAX_MESSAGE_LEN } from '../db/messages-schema';
-import { notifyFamilyOnCompletion } from '../lib/notifications';
+import {
+  notifyFamilyOnCompletion,
+  notifyProposalCreated,
+  notifyProposalApproved,
+  notifyChatExpired,
+} from '../lib/notifications';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function getId(id: string | string[] | undefined): string | null {
@@ -90,8 +95,9 @@ async function settleExpiry(db: any, p: any): Promise<any> {
     chat: { ...p.chat, status: next['chat.status'] },
     updatedAt: now,
   };
-  // Window elapsed with both interested → completed: notify families (idempotent)
+  // Window elapsed: completed (both interested) → notify families; else expired → notify both
   if (bothInterested) await notifyFamilyOnCompletion(db, updated);
+  else await notifyChatExpired(db, updated);
   return updated;
 }
 
@@ -170,6 +176,9 @@ userProposalRouter.post('/', authMiddleware, async (req: AuthRequest, res: Respo
     });
 
     const result = await db.collection('proposals').insertOne(doc);
+
+    // Notify recipient (USER_PROPOSAL needs their acceptance) — never throws
+    await notifyProposalCreated(db, { ...doc, _id: result.insertedId });
 
     await logAudit(
       req.user!.email, req.user!.id, (role as any),
@@ -425,7 +434,11 @@ const handleInterest = async (req: AuthRequest, res: Response): Promise<void> =>
     console.error('❌ Interest proposal error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
   }
-});
+};
+
+// Mutual-interest flag (spec name) + /interest alias — same handler.
+userProposalRouter.patch('/:id/interest', authMiddleware, handleInterest);
+userProposalRouter.patch('/:id/mutual-interest', authMiddleware, handleInterest);
 
 /**
  * GET /api/proposals/:id/messages
@@ -611,6 +624,9 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
     }
 
     await db.collection('proposals').updateOne({ _id: oid }, update);
+
+    // Approved → chat opens: notify both participants (never throws)
+    if (act === 'approve') await notifyProposalApproved(db, p);
 
     await logAudit(
       req.user!.email, req.user!.id, req.user!.role as any,
