@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Send, Loader2, Heart, Check, X } from "lucide-react";
-import { formatDistanceToNow, parseISO } from "date-fns";
-import proposalService, { type Proposal, type ChatMessage } from "@/services/proposalService";
+import { useProposal } from "@/hooks/useProposal";
+import { useChatMessages } from "@/hooks/useChatMessages";
+import { useProposalTimer } from "@/hooks/useProposalTimer";
 
 export default function ProposalDetail() {
   const params = useParams();
@@ -18,53 +19,15 @@ export default function ProposalDetail() {
     return (u?._id || u?.id) as string | undefined;
   }, []);
 
-  const [proposal, setProposal] = useState<Proposal | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { proposal, loading, acting, error, respond, withdraw, interest } = useProposal(id);
+
+  const chatOpen = proposal?.status === "approved" && proposal?.chat?.status === "open";
+  const { messages, sending, send } = useChatMessages(id, !!chatOpen);
+  const timer = useProposalTimer(proposal?.chat?.closesAt);
+
   const [text, setText] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const loadProposal = async () => {
-    const res = await proposalService.get(id);
-    setProposal(res.proposal);
-    return res.proposal;
-  };
-
-  const loadMessages = async () => {
-    try {
-      const res = await proposalService.getMessages(id);
-      setMessages(res.messages || []);
-    } catch { /* chat may be closed — ignore */ }
-  };
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const p = await loadProposal();
-        if (active && p.status === "approved") await loadMessages();
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : "Failed to load proposal");
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => { active = false; };
-  }, [id]);
-
-  // Poll messages while chat is open
-  useEffect(() => {
-    if (!proposal || proposal.status !== "approved" || proposal.chat?.status !== "open") return;
-    const t = setInterval(loadMessages, 8000);
-    return () => clearInterval(t);
-  }, [proposal?.status, proposal?.chat?.status]);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages.length]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }); }, [messages.length]);
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -79,45 +42,12 @@ export default function ProposalDetail() {
     ? proposal.mutualInterest?.initiatorInterested
     : proposal.mutualInterest?.recipientInterested;
 
-  const chatOpen = proposal.status === "approved" && proposal.chat?.status === "open";
   const isRecipientPending = proposal.status === "pending_recipient" && !isInitiator;
   const canWithdraw = isInitiator && ["pending_recipient", "pending_staff"].includes(proposal.status);
 
-  const refresh = async () => { await loadProposal(); };
-
   const handleSend = async () => {
-    if (!text.trim() || busy) return;
-    setBusy(true);
-    try {
-      await proposalService.sendMessage(id, text.trim());
-      setText("");
-      await loadMessages();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRespond = async (action: "accept" | "decline") => {
-    setBusy(true);
-    try { await proposalService.respond(id, action); await refresh(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setBusy(false); }
-  };
-
-  const handleWithdraw = async () => {
-    setBusy(true);
-    try { await proposalService.withdraw(id); await refresh(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setBusy(false); }
-  };
-
-  const handleInterest = async () => {
-    setBusy(true);
-    try { await proposalService.interest(id); await refresh(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setBusy(false); }
+    const ok = await send(text);
+    if (ok) setText("");
   };
 
   return (
@@ -133,18 +63,12 @@ export default function ProposalDetail() {
         </Badge>
       </div>
 
-      {error && <Card><CardContent className="py-3 text-center text-destructive text-sm">{error}</CardContent></Card>}
-
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           <Card className="h-[600px] flex flex-col">
             <CardHeader className="border-b flex-row items-center justify-between">
               <CardTitle>Chat</CardTitle>
-              {chatOpen && proposal.chat?.closesAt && (
-                <span className="text-xs text-muted-foreground">
-                  Closes {formatDistanceToNow(parseISO(proposal.chat.closesAt), { addSuffix: true })}
-                </span>
-              )}
+              {chatOpen && <span className="text-xs text-muted-foreground">Closes in {timer.label}</span>}
             </CardHeader>
 
             <CardContent ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -197,8 +121,8 @@ export default function ProposalDetail() {
                 <Textarea value={text} onChange={e => setText(e.target.value)}
                   placeholder="Type your message…" className="resize-none min-h-[80px]"
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }} />
-                <Button onClick={handleSend} disabled={busy || !text.trim()} className="h-auto self-stretch aspect-square">
-                  {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                <Button onClick={handleSend} disabled={sending || !text.trim()} className="h-auto self-stretch aspect-square">
+                  {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                 </Button>
               </CardFooter>
             )}
@@ -206,28 +130,27 @@ export default function ProposalDetail() {
         </div>
 
         <div className="md:col-span-1 space-y-6">
-          {/* Actions */}
           {(isRecipientPending || canWithdraw || chatOpen) && (
             <Card>
               <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {isRecipientPending && (
                   <div className="space-y-2">
-                    <Button className="w-full" disabled={busy} onClick={() => handleRespond("accept")}>
+                    <Button className="w-full" disabled={acting} onClick={() => respond("accept")}>
                       <Check className="w-4 h-4 mr-2" /> Accept Proposal
                     </Button>
-                    <Button variant="outline" className="w-full" disabled={busy} onClick={() => handleRespond("decline")}>
+                    <Button variant="outline" className="w-full" disabled={acting} onClick={() => respond("decline")}>
                       <X className="w-4 h-4 mr-2" /> Decline
                     </Button>
                   </div>
                 )}
                 {canWithdraw && (
-                  <Button variant="outline" className="w-full" disabled={busy} onClick={handleWithdraw}>
+                  <Button variant="outline" className="w-full" disabled={acting} onClick={() => withdraw()}>
                     Withdraw Proposal
                   </Button>
                 )}
                 {chatOpen && (
-                  <Button className="w-full" disabled={busy || mySideInterested} onClick={handleInterest}>
+                  <Button className="w-full" disabled={acting || mySideInterested} onClick={() => interest()}>
                     <Heart className="w-4 h-4 mr-2" />
                     {mySideInterested ? "Interest Registered" : "I'm Interested"}
                   </Button>
