@@ -527,6 +527,76 @@ export async function sendFamilyMatchEmail(
   }
 }
 
+/** Generic green-themed transactional email used for proposal lifecycle events. */
+async function sendBasicEmail(toEmail: string, subject: string, heading: string, bodyHtml: string, bodyText: string): Promise<boolean> {
+  try {
+    const html = `
+<!DOCTYPE html><html><head><style>
+  body{font-family:Arial,sans-serif;line-height:1.6;color:#1C1917;}
+  .container{max-width:600px;margin:0 auto;padding:20px;}
+  .header{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:20px;border-radius:10px;}
+  .content{padding:20px;background:#f0fdf4;border-radius:10px;margin:18px 0;}
+  .button{display:inline-block;background:#10b981;color:#fff;padding:12px 28px;text-decoration:none;border-radius:6px;margin:14px 0;font-weight:bold;}
+  .footer{text-align:center;color:#666;font-size:12px;margin-top:18px;}
+</style></head><body><div class="container">
+  <div class="header"><h1 style="margin:0;">${heading}</h1></div>
+  <div class="content">${bodyHtml}
+    <center><a href="https://nikah-network.pk/app/proposals" class="button">View in App</a></center>
+  </div>
+  <div class="footer"><p>© 2026 Intikhab-e-Zauj. All rights reserved.</p></div>
+</div></body></html>`;
+    await transporter.sendMail({
+      from: `"Intikhab-e-Zauj" <${process.env.EMAIL_USER}>`,
+      to: toEmail, subject, text: bodyText, html, replyTo: process.env.EMAIL_USER,
+    });
+    console.log(`✅ Email "${subject}" sent to ${toEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to send "${subject}":`, error instanceof Error ? error.message : error);
+    return false;
+  }
+}
+
+/** Proposal received — to the recipient. */
+export function sendProposalReceivedEmail(toEmail: string, recipientName: string, initiatorName: string): Promise<boolean> {
+  return sendBasicEmail(
+    toEmail,
+    'New Proposal — Action Needed',
+    'You have a new proposal 💚',
+    `<p>Assalamu Alaikum <strong>${recipientName}</strong>,</p>
+     <p>You've received a new proposal from <strong>${initiatorName || 'a member'}</strong>.
+     Open the app to review and accept or decline. If you accept, our staff will review before a chat opens.</p>`,
+    `New proposal from ${initiatorName || 'a member'}. Open the app to accept or decline.`
+  );
+}
+
+/** Staff approved — chat opens. Sent to a participant. */
+export function sendProposalApprovedEmail(toEmail: string, name: string, otherName: string): Promise<boolean> {
+  return sendBasicEmail(
+    toEmail,
+    'Staff Approved — Your Chat Is Open',
+    'Chat opens now ✅',
+    `<p>Assalamu Alaikum <strong>${name}</strong>,</p>
+     <p>Staff approved your proposal with <strong>${otherName || 'your match'}</strong>.
+     A private chat is now open for <strong>48 hours</strong>. Use it respectfully, then mark
+     “I'm Interested” if you wish to proceed.</p>`,
+    `Staff approved your proposal with ${otherName || 'your match'}. Chat is open for 48 hours.`
+  );
+}
+
+/** Chat window closed without mutual interest. Sent to a participant. */
+export function sendChatExpiredEmail(toEmail: string, name: string, otherName: string): Promise<boolean> {
+  return sendBasicEmail(
+    toEmail,
+    'Chat Window Closed',
+    'Chat window closed',
+    `<p>Assalamu Alaikum <strong>${name}</strong>,</p>
+     <p>The 48-hour chat window for your proposal with <strong>${otherName || 'your match'}</strong> has closed.
+     If you'd like to continue, please contact our staff and they will assist you.</p>`,
+    `The chat window for your proposal with ${otherName || 'your match'} has closed. Contact staff to continue.`
+  );
+}
+
 export async function sendVerificationEmail(
   email: string,
   name: string,
