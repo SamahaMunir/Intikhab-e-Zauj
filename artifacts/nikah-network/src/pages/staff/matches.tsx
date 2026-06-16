@@ -8,6 +8,7 @@ import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
 import ProfileImageCard from '../../components/matches/ProfileImageCard';
 import MatchScoreBadge from '../../components/matches/MatchScoreBadge';
 import ProposalModal, { ProposalMode, ProposalPayload } from '../../components/matches/ProposalModal';
+import proposalService from '../../services/proposalService';
 import { useStore } from '@/lib/store';
 
 type ProfileType = 'user' | 'staff';
@@ -57,15 +58,29 @@ export default function StaffMatches() {
   const [expandedId,  setExpandedId]  = useState<string | null>(null);
   const [typeFilter,  setTypeFilter]  = useState<'all' | 'staff-staff' | 'staff-user'>('all');
 
-  const [proposalModal, setProposalModal] = useState<{ mode: ProposalMode; name?: string; id?: string } | null>(null);
+  const [proposalModal, setProposalModal] = useState<
+    { mode: ProposalMode; name?: string; id?: string; initiatorId?: string; recipientId?: string } | null
+  >(null);
   const users = useStore(s => s.users);
   const staffOptions = useMemo(
     () => users.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ id: u.id, name: u.name })),
     [users]);
 
-  const submitProposal = async (_payload: ProposalPayload) => {
-    // No backend proposal endpoint yet — record optimistically (frontend-only).
-    await new Promise(res => setTimeout(res, 500));
+  const submitProposal = async (payload: ProposalPayload) => {
+    const initiatorId = proposalModal?.initiatorId;
+    const recipientId = proposalModal?.recipientId;
+    if (!initiatorId || !recipientId) return;
+    if (payload.type === 'USER_PROPOSAL') {
+      await proposalService.create({
+        type: 'USER_PROPOSAL', initiatorId, recipientId,
+        message: payload.message, matchNotes: payload.matchNotes, compatibilityReason: payload.compatibilityReason,
+      });
+    } else {
+      await proposalService.create({
+        type: 'STAFF_PROPOSAL', initiatorId, recipientId,
+        notes: payload.notes, justification: payload.justification,
+      });
+    }
   };
 
   const token = localStorage.getItem('token') || '';
@@ -286,17 +301,22 @@ export default function StaffMatches() {
                 const bothUser = maleType === 'user' && femaleType === 'user';
                 const label = bothUser ? 'Send Proposal' : 'Make Proposal';
                 const recipient = maleType === 'user' ? maleProfile : femaleProfile;
+                const canPropose = !!maleProfile?._id && !!femaleProfile?._id;
                 return (
                   <div className="px-5 pb-5">
                     <button
+                      disabled={!canPropose}
                       onClick={() => setProposalModal({
                         mode: bothUser ? 'user' : 'staff',
                         name: recipient?.name ?? maleProfile?.name,
                         id: recipient?._id ?? maleProfile?._id,
+                        initiatorId: maleProfile?._id,
+                        recipientId: femaleProfile?._id,
                       })}
                       className="w-full h-12 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669] text-white
                                  font-bold flex items-center justify-center gap-2 shadow-md
-                                 hover:shadow-lg hover:brightness-105 active:scale-[0.99] transition-all">
+                                 hover:shadow-lg hover:brightness-105 active:scale-[0.99] transition-all
+                                 disabled:opacity-50 disabled:hover:shadow-md">
                       <Send className="w-4 h-4" /> {label}
                     </button>
                   </div>
