@@ -13,7 +13,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   Users, RefreshCw, Search, LayoutGrid, List,
-  User as UserIcon, Eye, StickyNote, Loader2, Check, X, Clock,
+  User as UserIcon, Eye, StickyNote, Loader2, Check, X, Clock, Trash2,
 } from "lucide-react";
 
 interface Profile {
@@ -119,6 +119,7 @@ export default function StaffProfiles() {
   const [noteModal, setNoteModal] = useState<{ profileId: string; profileName: string; existing: string } | null>(null);
 
   const filtered = profiles.filter(p => {
+    if (p.profileStatus === 'rejected') return false; // rejected profiles are auto-deleted — never list them
     if (filter !== 'all' && p.profileStatus !== filter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -137,18 +138,17 @@ export default function StaffProfiles() {
     return true;
   });
 
+  const visibleProfiles = profiles.filter(p => p.profileStatus !== 'rejected');
   const counts = {
-    all:      profiles.length,
-    pending:  profiles.filter(p => p.profileStatus === 'pending').length,
-    approved: profiles.filter(p => p.profileStatus === 'approved').length,
-    rejected: profiles.filter(p => p.profileStatus === 'rejected').length,
+    all:      visibleProfiles.length,
+    pending:  visibleProfiles.filter(p => p.profileStatus === 'pending').length,
+    approved: visibleProfiles.filter(p => p.profileStatus === 'approved').length,
   };
 
   const filterTabs: { key: typeof filter; label: string }[] = [
     { key: 'all',      label: `All (${counts.all})` },
     { key: 'pending',  label: `Pending (${counts.pending})` },
     { key: 'approved', label: `Approved (${counts.approved})` },
-    { key: 'rejected', label: `Rejected (${counts.rejected})` },
   ];
 
   const inputCls =
@@ -267,7 +267,6 @@ export default function StaffProfiles() {
               <option value="all">All status</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
             </select>
           </label>
         </div>
@@ -346,7 +345,7 @@ export default function StaffProfiles() {
                             View
                           </button>
                         </Link>
-                        {profile.profileStatus === 'pending' && (
+                        {profile.profileStatus === 'pending' ? (
                           <>
                             <button onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
                               className="h-9 px-3.5 rounded-lg border border-[#10B981] text-[#10B981] bg-white hover:bg-emerald-50 text-xs font-bold transition-colors">
@@ -357,6 +356,11 @@ export default function StaffProfiles() {
                               Reject
                             </button>
                           </>
+                        ) : (
+                          <button onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
+                            className="h-9 px-3.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold transition-colors flex items-center gap-1">
+                            <Trash2 className="w-3.5 h-3.5" /> Remove
+                          </button>
                         )}
                         <button onClick={() => setNoteModal({ profileId: profile._id, profileName: profile.name, existing: profile.notes || '' })}
                           className="h-9 px-3.5 rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 text-xs font-bold transition-colors">
@@ -416,7 +420,7 @@ export default function StaffProfiles() {
                         <StickyNote className="w-4 h-4" /> Note
                       </button>
                     </div>
-                    {profile.profileStatus === 'pending' && (
+                    {profile.profileStatus === 'pending' ? (
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
                           className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-emerald-50
@@ -429,6 +433,12 @@ export default function StaffProfiles() {
                           <X className="w-4 h-4" /> Reject
                         </button>
                       </div>
+                    ) : (
+                      <button onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
+                        className="w-full flex items-center justify-center gap-1.5 h-10 rounded-xl bg-red-50
+                                   text-red-600 hover:bg-red-100 text-sm font-bold transition-colors">
+                        <Trash2 className="w-4 h-4" /> Remove Profile
+                      </button>
                     )}
                   </div>
                 }
@@ -458,7 +468,7 @@ export default function StaffProfiles() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[#1C1917]">
-              {action === 'approve' ? 'Approve Profile' : 'Reject Profile'}
+              {action === 'approve' ? 'Approve Profile' : 'Reject & Delete Profile'}
             </DialogTitle>
           </DialogHeader>
 
@@ -470,9 +480,13 @@ export default function StaffProfiles() {
 
             {action === 'reject' && (
               <div>
-                <label className="block text-sm font-bold text-[#1C1917] mb-2">Rejection Reason</label>
+                <div className="flex items-start gap-2 p-3 mb-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700">
+                  <Trash2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  Rejecting permanently deletes this profile. This cannot be undone.
+                </div>
+                <label className="block text-sm font-bold text-[#1C1917] mb-2">Reason</label>
                 <Textarea
-                  placeholder="Explain why the profile was rejected…"
+                  placeholder="Explain why the profile is being rejected/removed…"
                   value={reason}
                   onChange={e => setReason(e.target.value)}
                   className="min-h-24 text-base"
@@ -492,7 +506,7 @@ export default function StaffProfiles() {
               className={`h-11 px-6 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-50 ${
                 action === 'approve' ? 'bg-[#10B981] hover:bg-[#059669]' : 'bg-red-600 hover:bg-red-700'
               }`}>
-              {actionLoading ? 'Processing…' : action === 'approve' ? 'Approve' : 'Reject'}
+              {actionLoading ? 'Processing…' : action === 'approve' ? 'Approve' : 'Reject & Delete'}
             </button>
           </DialogFooter>
         </DialogContent>
