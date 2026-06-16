@@ -1,8 +1,7 @@
 import express, { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
-import { applyHardFilters } from '../lib/hard-filters';
-import { calculateScore } from '../lib/scoring';
+import { applyHardFilters, calculateScore } from '../lib/matching';
 import { authMiddleware } from '../middleware/auth';
 
 const router = express.Router();
