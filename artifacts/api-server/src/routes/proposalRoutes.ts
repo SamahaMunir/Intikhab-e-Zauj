@@ -345,7 +345,7 @@ userProposalRouter.patch('/:id/withdraw', authMiddleware, async (req: AuthReques
  * proposal moves to `completed` (family stage). `side` is required only when a
  * staff member acts on behalf of a participant.
  */
-userProposalRouter.patch('/:id/interest', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+const handleInterest = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const oid = toObjectId(getId(req.params.id));
     if (!oid) {
