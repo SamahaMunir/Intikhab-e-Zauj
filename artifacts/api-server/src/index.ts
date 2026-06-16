@@ -22,6 +22,9 @@ import userAuthRouter from './routes/user-auth';
 import { initMatchesCollection } from './db/matches-schema';
 import matchingRoutes from './routes/matchingRoutes';
 import seedRoutes from './routes/seed-data';
+import { userProposalRouter, staffProposalRouter } from './routes/proposalRoutes';
+import { initProposalsCollection } from './db/proposals-schema';
+import { initMessagesCollection } from './db/messages-schema';
  
 
 const __filename = fileURLToPath(import.meta.url);
@@ -103,6 +106,9 @@ app.use('/auth', registerRouter);
 // Matching API routes
 app.use('/api/matches', matchingRoutes);
 app.use('/api/staff/matches', authMiddleware, staffOnlyMiddleware, matchingRoutes);
+// Proposal API routes
+app.use('/api/proposals', authMiddleware, userProposalRouter);
+app.use('/api/staff/proposals', authMiddleware, staffOnlyMiddleware, staffProposalRouter);
 // Auth routes (NO middleware needed for login)
 app.use('/auth', authSimpleRouter);
 app.use('/auth', authRouter);
@@ -181,6 +187,14 @@ async function startServer() {
     console.log('🔄 Initializing matches collection...');
 await initMatchesCollection(db);
 console.log('✓ Matches collection initialized');
+
+    console.log('🔄 Initializing proposals collection...');
+    await initProposalsCollection(db);
+    console.log('✓ Proposals collection initialized');
+
+    console.log('🔄 Initializing messages collection...');
+    await initMessagesCollection(db);
+    console.log('✓ Messages collection initialized');
 
     const server = app.listen(PORT, HOST, () => {
       console.log(`\n✓ Server running on http://${HOST}:${PORT}`);
