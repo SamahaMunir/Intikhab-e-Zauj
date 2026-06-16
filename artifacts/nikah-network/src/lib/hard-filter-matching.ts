@@ -1,3 +1,9 @@
+/**
+ * ⚠️ DEMO/MOCK hard filters — NOT production. Canonical filters live in
+ * artifacts/api-server/src/lib/hard-filters.ts (applyHardFilters).
+ * Used only by the Zustand demo store; removed in M4 when proposal/chat
+ * pages move to the real API. See ./matching.ts header.
+ */
 import type { User } from "./store";
 
 export interface HardFilterConfig {
