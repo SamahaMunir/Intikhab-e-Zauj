@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import {
   Heart, RefreshCw, Sparkles, ChevronDown, ChevronRight,
@@ -58,8 +58,10 @@ export default function StaffMatches() {
   const [typeFilter,  setTypeFilter]  = useState<'all' | 'staff-staff' | 'staff-user'>('all');
 
   const [proposalModal, setProposalModal] = useState<{ mode: ProposalMode; name?: string; id?: string } | null>(null);
-  const staffOptions = useStore(s =>
-    s.users.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ id: u.id, name: u.name })));
+  const users = useStore(s => s.users);
+  const staffOptions = useMemo(
+    () => users.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ id: u.id, name: u.name })),
+    [users]);
 
   const submitProposal = async (_payload: ProposalPayload) => {
     // No backend proposal endpoint yet — record optimistically (frontend-only).
@@ -257,27 +259,13 @@ export default function StaffMatches() {
                       photo={side.p?.photo} name={side.p?.name || 'Unknown'} age={side.p?.age}
                       lines={sideLines(side.p)} heightClass="aspect-3/4"
                       onClick={side.id ? () => setLocation(`/staff/profiles/${side.id}`) : undefined}
-                      footer={
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setProposalModal({
-                              mode: side.type === 'staff' ? 'staff' : 'user',
-                              name: side.p?.name, id: side.id,
-                            })}
-                            className="flex-1 h-11 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669] text-white
-                                       text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm
-                                       hover:shadow-md hover:brightness-105 active:scale-[0.99] transition-all">
-                            <Send className="w-4 h-4" /> {side.type === 'staff' ? 'Make Proposal' : 'Send Proposal'}
-                          </button>
-                          {side.id && (
-                            <button onClick={() => setLocation(`/staff/profiles/${side.id}`)}
-                              className="h-11 px-4 rounded-xl border border-[#E8DED3] text-[#1C1917] text-sm font-bold
-                                         flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-[#10B981] transition-colors">
-                              View <ArrowUpRight className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      }
+                      footer={side.id ? (
+                        <button onClick={() => setLocation(`/staff/profiles/${side.id}`)}
+                          className="w-full h-11 rounded-xl border border-[#E8DED3] text-[#1C1917] text-sm font-bold
+                                     flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-[#10B981] transition-colors">
+                          View Profile <ArrowUpRight className="w-4 h-4" />
+                        </button>
+                      ) : undefined}
                     />
                   ))}
                 </div>
@@ -289,9 +277,31 @@ export default function StaffMatches() {
               </div>
 
               {/* Mobile match badge */}
-              <div className="sm:hidden flex justify-center -mt-1 pb-4">
+              <div className="sm:hidden flex justify-center -mt-1 pb-2">
                 <MatchScoreBadge score={score} size={72} />
               </div>
+
+              {/* Single proposal action */}
+              {(() => {
+                const bothUser = maleType === 'user' && femaleType === 'user';
+                const label = bothUser ? 'Send Proposal' : 'Make Proposal';
+                const recipient = maleType === 'user' ? maleProfile : femaleProfile;
+                return (
+                  <div className="px-5 pb-5">
+                    <button
+                      onClick={() => setProposalModal({
+                        mode: bothUser ? 'user' : 'staff',
+                        name: recipient?.name ?? maleProfile?.name,
+                        id: recipient?._id ?? maleProfile?._id,
+                      })}
+                      className="w-full h-12 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669] text-white
+                                 font-bold flex items-center justify-center gap-2 shadow-md
+                                 hover:shadow-lg hover:brightness-105 active:scale-[0.99] transition-all">
+                      <Send className="w-4 h-4" /> {label}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Score breakdown toggle */}
               {m.scoreBreakdown && (
