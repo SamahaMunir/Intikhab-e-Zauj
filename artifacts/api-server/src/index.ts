@@ -25,6 +25,7 @@ import seedRoutes from './routes/seed-data';
 import { userProposalRouter, staffProposalRouter } from './routes/proposalRoutes';
 import { initProposalsCollection } from './db/proposals-schema';
 import { initMessagesCollection } from './db/messages-schema';
+import { startProposalSweeper } from './lib/proposalSweeper';
  
 
 const __filename = fileURLToPath(import.meta.url);
@@ -195,6 +196,9 @@ console.log('✓ Matches collection initialized');
     console.log('🔄 Initializing messages collection...');
     await initMessagesCollection(db);
     console.log('✓ Messages collection initialized');
+
+    // Cron: periodically expire/complete proposals whose 48h chat window elapsed
+    startProposalSweeper(db);
 
     const server = app.listen(PORT, HOST, () => {
       console.log(`\n✓ Server running on http://${HOST}:${PORT}`);
