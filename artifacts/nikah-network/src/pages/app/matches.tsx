@@ -40,6 +40,7 @@ const Matches: React.FC = () => {
   const [filters, setFilters] = useState<MatchFilters>(DEFAULT_FILTERS);
   const [filterOpen, setFilterOpen] = useState(false);
   const [cardIndex, setCardIndex] = useState(0);
+  const [proposalTarget, setProposalTarget] = useState<{ id: string; name?: string } | null>(null);
 
   const storedUser = localStorage.getItem('user');
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -99,7 +100,14 @@ const Matches: React.FC = () => {
     [matches]);
 
   const openDetails = (id: string) => setLocation(`/app/match-detail/${id}`);
-  const sendProposal = (id: string) => setLocation(`/app/send-proposal/${id}`);
+  const sendProposal = (id: string) => {
+    const m = matches.find(x => x.candidateId === id);
+    setProposalTarget({ id, name: m?.candidate?.name });
+  };
+  const submitProposal = async (_payload: ProposalPayload) => {
+    // No backend proposal endpoint yet — record optimistically (frontend-only).
+    await new Promise(res => setTimeout(res, 500));
+  };
   const filterCount = activeFilterCount(filters);
 
   // ── Gate ──
@@ -242,6 +250,16 @@ const Matches: React.FC = () => {
       {/* Filter panel */}
       <FilterPanel open={filterOpen} filters={filters} cities={cities} educations={educations}
         onClose={() => setFilterOpen(false)} onApply={setFilters} />
+
+      {/* Send-proposal modal */}
+      <ProposalModal
+        open={proposalTarget !== null}
+        mode="user"
+        recipientName={proposalTarget?.name}
+        recipientId={proposalTarget?.id}
+        onClose={() => setProposalTarget(null)}
+        onSubmit={submitProposal}
+      />
     </div>
   );
 };
