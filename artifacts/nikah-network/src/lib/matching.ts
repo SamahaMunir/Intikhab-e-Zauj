@@ -1,3 +1,18 @@
+/**
+ * ⚠️ DEMO/MOCK SCORER — NOT the production matching engine.
+ *
+ * The REAL, canonical matching lives in the backend:
+ *   artifacts/api-server/src/lib/scoring.ts      (calculateScore)
+ *   artifacts/api-server/src/lib/hard-filters.ts (applyHardFilters)
+ * Real pages (/app/matches, /staff/matches) consume it via the API
+ * (services/matchingService.ts). They never score on the client.
+ *
+ * This file + ./hard-filter-matching.ts are used ONLY by the Zustand demo
+ * store (generateMatchesFor / seed proposals), which powers the not-yet-real
+ * demo pages (/staff/proposals, /app/proposals, /staff/messages). It will be
+ * REMOVED in M4 when those pages migrate to the real proposal/chat API.
+ * Do NOT add production logic here — edit the backend scorer instead.
+ */
 import type { User, Config } from "./store";
 
 import {
