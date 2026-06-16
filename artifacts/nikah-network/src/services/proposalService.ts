@@ -63,8 +63,15 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface QuestionResponse {
+  questionId: string;
+  response: string;
+  respondedBy: string;
+}
+
 export interface CreateProposalInput {
   type: ProposalType;
+  matchId?: string;
   initiatorId: string;
   recipientId: string;
   message?: string;
@@ -72,6 +79,7 @@ export interface CreateProposalInput {
   compatibilityReason?: string;
   notes?: string;
   justification?: string;
+  questionResponses?: QuestionResponse[];
 }
 
 function authHeaders(json = true): Record<string, string> {
@@ -122,6 +130,14 @@ class ProposalService {
 
   async interest(id: string, side?: 'initiator' | 'recipient'): Promise<any> {
     const res = await fetch(`${API_BASE}/api/proposals/${id}/interest`, {
+      method: 'PATCH', headers: authHeaders(), body: JSON.stringify(side ? { side } : {}),
+    });
+    return parse(res);
+  }
+
+  /** Spec alias for interest — sets the mutual-interest flag. */
+  async mutualInterest(id: string, side?: 'initiator' | 'recipient'): Promise<any> {
+    const res = await fetch(`${API_BASE}/api/proposals/${id}/mutual-interest`, {
       method: 'PATCH', headers: authHeaders(), body: JSON.stringify(side ? { side } : {}),
     });
     return parse(res);
