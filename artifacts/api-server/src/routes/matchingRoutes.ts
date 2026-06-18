@@ -2,6 +2,10 @@ import express, { Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
 import { applyHardFilters, calculateScore } from '../lib/matching';
+import { buildInsights } from '../lib/insights';
+import { retrieveSimilarMatches, statsFromSimilar, toSimilarCard } from '../lib/ragRetrieval';
+import { summarizeInsightsWithRAG } from '../lib/llmInsights';
+import { getCostStats } from '../lib/cost-tracker';
 import { authMiddleware } from '../middleware/auth';
 
 const router = express.Router();
@@ -496,6 +500,77 @@ router.patch('/:matchId/status', async (req: Request, res: Response): Promise<vo
     console.error('❌ Update match status error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
   }
+});
+
+// GET /api/staff/matches/:matchId/insights — v0 staff AI insights (template-based)
+// Computes structured insight bullets + a recommendation, and retrieves similar
+// past pairs (by profession bucket + city group) with their outcomes.
+router.get('/:matchId/insights', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const matchIdStr = getId(req.params.matchId as string | string[] | undefined);
+    const oid = toObjectId(matchIdStr || '');
+    if (!oid) {
+      res.status(400).json({ success: false, error: 'Invalid matchId' });
+      return;
+    }
+
+    const db = await getDatabase();
+    const match = await db.collection('matches').findOne({ _id: oid });
+    if (!match) {
+      res.status(404).json({ success: false, error: 'Match not found' });
+      return;
+    }
+
+    const [user, candidate] = await Promise.all([
+      db.collection('profiles').findOne({ _id: match.userId }),
+      db.collection('profiles').findOne({ _id: match.candidateId }),
+    ]);
+    if (!user || !candidate) {
+      res.status(404).json({ success: false, error: 'Match profiles not found' });
+      return;
+    }
+
+    const includeAI  = String(req.query.includeAI || '') === 'true';
+    const includeRAG = String(req.query.includeRAG || '') !== 'false'; // default on
+
+    const score = calculateScore(user, candidate);
+    const hardFilter = applyHardFilters(user, candidate);
+
+    const male   = user.gender === 'male' ? user : candidate;
+    const female = user.gender === 'male' ? candidate : user;
+    const pairKey = [match.userId?.toString(), match.candidateId?.toString()].sort().join('|');
+
+    // ── RAG retrieval: named similar past pairs + real outcomes ────────────────
+    const similar = includeRAG ? await retrieveSimilarMatches(db, male, female, pairKey, 5) : [];
+    const stats = statsFromSimilar(similar);
+
+    const insights = buildInsights(user, candidate, score, hardFilter, stats);
+
+    // ── Optional LLM step: structured APPROVE/REVIEW/CAUTION (RAG-augmented) ────
+    // Null unless ?includeAI=true AND ANTHROPIC_API_KEY is set.
+    const aiSummary = includeAI
+      ? await summarizeInsightsWithRAG({ male, female, score, hardFiltersPassed: hardFilter.passes, similar, matchId: matchIdStr || '' })
+      : null;
+
+    res.json({
+      success: true,
+      matchId: matchIdStr,
+      score,
+      insights,
+      similarMatches: similar.map(toSimilarCard),
+      similarMetrics: stats,
+      aiSummary,
+      retrieval: 'categorical',
+    });
+  } catch (error) {
+    console.error('❌ Insights error:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
+  }
+});
+
+// GET /api/staff/matches/insights/cost-stats — LLM usage + cost gauge (in-memory)
+router.get('/insights/cost-stats', authMiddleware, async (_req: Request, res: Response): Promise<void> => {
+  res.json({ success: true, ...getCostStats() });
 });
 
 export default router;
