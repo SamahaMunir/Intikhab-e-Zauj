@@ -8,6 +8,7 @@ import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
 import ProfileImageCard from '../../components/matches/ProfileImageCard';
 import MatchScoreBadge from '../../components/matches/MatchScoreBadge';
 import ProposalModal, { ProposalMode, ProposalPayload } from '../../components/matches/ProposalModal';
+import InsightsModal from '../../components/matches/InsightsModal';
 import proposalService from '../../services/proposalService';
 import { useStore } from '@/lib/store';
 
@@ -61,6 +62,7 @@ export default function StaffMatches() {
   const [proposalModal, setProposalModal] = useState<
     { mode: ProposalMode; name?: string; id?: string; initiatorId?: string; recipientId?: string } | null
   >(null);
+  const [insightsMatchId, setInsightsMatchId] = useState<string | null>(null);
   const users = useStore(s => s.users);
   const staffOptions = useMemo(
     () => users.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ id: u.id, name: u.name })),
@@ -303,7 +305,14 @@ export default function StaffMatches() {
                 const recipient = maleType === 'user' ? maleProfile : femaleProfile;
                 const canPropose = !!maleProfile?._id && !!femaleProfile?._id;
                 return (
-                  <div className="px-5 pb-5">
+                  <div className="px-5 pb-5 flex gap-3">
+                    <button
+                      onClick={() => setInsightsMatchId(m._id)}
+                      className="h-12 px-4 rounded-xl border border-violet-200 text-violet-700 bg-violet-50
+                                 font-bold flex items-center justify-center gap-2 hover:bg-violet-100
+                                 active:scale-[0.99] transition-all shrink-0">
+                      <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">AI Insights</span>
+                    </button>
                     <button
                       disabled={!canPropose}
                       onClick={() => setProposalModal({
@@ -313,7 +322,7 @@ export default function StaffMatches() {
                         initiatorId: maleProfile?._id,
                         recipientId: femaleProfile?._id,
                       })}
-                      className="w-full h-12 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669] text-white
+                      className="flex-1 h-12 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669] text-white
                                  font-bold flex items-center justify-center gap-2 shadow-md
                                  hover:shadow-lg hover:brightness-105 active:scale-[0.99] transition-all
                                  disabled:opacity-50 disabled:hover:shadow-md">
@@ -354,6 +363,13 @@ export default function StaffMatches() {
         staffOptions={staffOptions}
         onClose={() => setProposalModal(null)}
         onSubmit={submitProposal}
+      />
+
+      {/* Staff AI Insights (v0 template) */}
+      <InsightsModal
+        open={insightsMatchId !== null}
+        matchId={insightsMatchId}
+        onClose={() => setInsightsMatchId(null)}
       />
     </div>
   );
