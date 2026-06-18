@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config();                                      // .env (defaults)
+dotenv.config({ path: '.env.local', override: true }); // .env.local overrides (real secrets)
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
