@@ -55,6 +55,7 @@ export interface Proposal {
   expiresAt: string;
   initiator?: ProfileSide;
   recipient?: ProfileSide;
+  compatibilityScore?: number;
 }
 
 export interface ChatMessage {
