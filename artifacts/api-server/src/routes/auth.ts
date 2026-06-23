@@ -6,39 +6,28 @@ import { verifyPassword } from '../utils/password';
 
 const router = Router();
 
-
 /**
  * POST /auth/login
- * Login with email and password
- * Returns JWT token
+ * Login with email and password. Returns JWT token.
  */
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        error: 'Invalid request',
-        message: 'Email and password required',
-      });
+      res.status(400).json({ error: 'Invalid request', message: 'Email and password required' });
+      return;
     }
 
-    // Get staff from database
     const staff = await getStaffByEmail(email);
-    
     if (!staff) {
-      return res.status(401).json({
-        error: 'Invalid credentials',
-        message: 'Email not found',
-      });
+      res.status(401).json({ error: 'Invalid credentials', message: 'Email not found' });
+      return;
     }
 
-    // Check if active
     if (staff.status !== 'active') {
-      return res.status(401).json({
-        error: 'Account inactive',
-        message: 'Your staff account has been deactivated',
-      });
+      res.status(401).json({ error: 'Account inactive', message: 'Your staff account has been deactivated' });
+      return;
     }
 
     // Verify password — stored as "salt.hash" (verifyPassword handles both hashed and legacy plain)
@@ -46,35 +35,22 @@ router.post('/login', async (req: Request, res: Response) => {
       ? verifyPassword(password, staff.password)
       : staff.password === password;
     if (!passwordOk) {
-      return res.status(401).json({
-        error: 'Invalid credentials',
-        message: 'Password incorrect',
-      });
+      res.status(401).json({ error: 'Invalid credentials', message: 'Password incorrect' });
+      return;
     }
 
-    // Generate JWT
     const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
       id: email.split('@')[0],
       email: staff.email,
       name: staff.name,
       role: staff.role,
     };
-
     const token = generateToken(payload);
 
-    // Update last login
     await updateLastLogin(email);
-
-    // Log the login
     await logAudit(
-      email,
-      payload.id,
-      staff.role,
-      'login',
-      'auth',
-      email,
-      'Staff logged in',
-      { userAgent: req.get('user-agent') }
+      email, payload.id, staff.role, 'login', 'auth', email,
+      'Staff logged in', { userAgent: req.get('user-agent') }
     );
 
     console.log(`✓ User logged in: ${email}`);
@@ -82,89 +58,37 @@ router.post('/login', async (req: Request, res: Response) => {
     res.json({
       success: true,
       token,
-      user: {
-        id: payload.id,
-        email: staff.email,
-        name: staff.name,
-        role: staff.role,
-      },
+      user: { id: payload.id, email: staff.email, name: staff.name, role: staff.role },
       expiresIn: '24h',
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
-      error: 'Login failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    res.status(500).json({ error: 'Login failed', message: error instanceof Error ? error.message : 'Unknown error' });
   }
-});
-
-router.post('/logout', (req: Request, res: Response) => {
-  res.json({
-    success: true,
-    message: 'Logged out successfully',
-  });
-});
-
-router.get('/me', (req: Request, res: Response) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader) {
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'No token provided',
-    });
-  }
-
-  const token = authHeader.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Invalid token format',
-    });
-  }
-
-  res.json({
-    success: true,
-    message: 'Token is valid',
-  });
 });
 
 /**
  * POST /auth/logout
  */
-router.post('/logout', (req: Request, res: Response) => {
-  res.json({
-    success: true,
-    message: 'Logged out successfully',
-  });
+router.post('/logout', (_req: Request, res: Response): void => {
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 /**
- * GET /auth/me
+ * GET /auth/me — lightweight token-presence check.
  */
-router.get('/me', (req: Request, res: Response) => {
+router.get('/me', (req: Request, res: Response): void => {
   const authHeader = req.headers.authorization;
-  
   if (!authHeader) {
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'No token provided',
-    });
+    res.status(401).json({ error: 'Unauthorized', message: 'No token provided' });
+    return;
   }
-
   const token = authHeader.split(' ')[1];
   if (!token) {
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Invalid token format',
-    });
+    res.status(401).json({ error: 'Unauthorized', message: 'Invalid token format' });
+    return;
   }
-
-  res.json({
-    success: true,
-    message: 'Token is valid',
-  });
+  res.json({ success: true, message: 'Token is valid' });
 });
 
 export default router;
