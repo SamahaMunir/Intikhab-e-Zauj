@@ -2,9 +2,9 @@ import { Db } from 'mongodb';
 import { notifyFamilyOnCompletion, notifyChatExpired } from './notifications';
 
 /**
- * Sweep approved proposals whose 48h chat window has elapsed.
- * Both interested → completed (+ family notify). Otherwise → expired (+ notify).
- * Idempotent and self-contained — safe to run on an interval (cron).
+ * Sweep chat_active proposals whose 48h chat window has elapsed.
+ * Both interested → family_proposal_stage (+ family notify). Otherwise → expired
+ * (+ notify). Idempotent and self-contained — safe to run on an interval (cron).
  */
 export async function sweepExpiredChats(db: Db): Promise<{ completed: number; expired: number }> {
   const now = new Date();
@@ -12,7 +12,7 @@ export async function sweepExpiredChats(db: Db): Promise<{ completed: number; ex
   let expired = 0;
 
   const due = await db.collection('proposals').find({
-    status: 'approved',
+    status: 'chat_active',
     'chat.status': 'open',
     'chat.closesAt': { $lte: now },
   }).toArray();
@@ -22,9 +22,9 @@ export async function sweepExpiredChats(db: Db): Promise<{ completed: number; ex
     if (both) {
       await db.collection('proposals').updateOne(
         { _id: p._id },
-        { $set: { status: 'completed', completedAt: now, 'chat.status': 'closed', updatedAt: now } }
+        { $set: { status: 'family_proposal_stage', completedAt: now, 'chat.status': 'closed', updatedAt: now } }
       );
-      await notifyFamilyOnCompletion(db, { ...p, status: 'completed', completedAt: now });
+      await notifyFamilyOnCompletion(db, { ...p, status: 'family_proposal_stage', completedAt: now });
       completed++;
     } else {
       await db.collection('proposals').updateOne(
