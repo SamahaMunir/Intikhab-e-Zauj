@@ -134,6 +134,44 @@ if (!verifyPassword(password, profile.password)) {
 });
 
 /**
+ * GET /auth/whoami
+ * Return the fresh current-user object (same shape as login) so the frontend can
+ * refresh values that go stale in localStorage — profileCompletion, profileStatus
+ * and paymentStatus change after staff approval / profile edits. Distinct path
+ * from the staff `/me` to avoid router shadowing.
+ */
+router.get('/whoami', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const db = await getDatabase();
+    const profile = await db.collection('profiles').findOne({ _id: new ObjectId(req.user.id) });
+    if (!profile) {
+      res.status(404).json({ error: 'User profile not found' });
+      return;
+    }
+    res.json({
+      success: true,
+      user: {
+        _id: profile._id.toString(),
+        email: profile.email,
+        name: profile.name,
+        role: profile.role || 'applicant',
+        gender: profile.gender || '',
+        profileCompletion: profile.profileCompletion || 0,
+        paymentStatus: profile.paymentStatus || 'pending',
+        profileStatus: profile.profileStatus || 'pending',
+      },
+    });
+  } catch (error) {
+    console.error('❌ whoami error:', error);
+    res.status(500).json({ error: 'Failed to load profile' });
+  }
+});
+
+/**
  * DELETE /auth/delete-account
  * User deletes their own account (authenticated)
  * ✅ UNIFIED: Uses 'profiles' collection
