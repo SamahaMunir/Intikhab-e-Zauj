@@ -458,6 +458,9 @@ router.post(
         profileStatus:     'approved',
         paymentStatus:     'completed',
         emailVerified:     true,
+        // Onboarding provenance — staff are the vetting authority for these.
+        registeredBy:        'staff',
+        registeredByStaffId: req.user!.id,
         // Staff metadata
         source:        source        || 'staff_entry',
         notes:         notes         || '',
