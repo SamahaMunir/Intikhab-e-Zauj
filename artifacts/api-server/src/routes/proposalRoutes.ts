@@ -45,6 +45,47 @@ const ACTIVE_STATUSES = ['pending_staff_review', 'pending_recipient', 'mutual_in
 // The recipient must never see these (pre-screen — they never saw it).
 const HIDDEN_FROM_RECIPIENT = ['pending_staff_review', 'rejected_by_staff'];
 
+// A staff-managed profile has no login (entered by staff). Staff acts as its
+// proxy — it cannot self-accept a proposal.
+const STAFF_SOURCES = ['staff_entry', 'paper', 'whatsapp', 'walkin', 'referral', 'phone'];
+function isStaffManaged(p: any): boolean {
+  if (p?.registeredBy === 'staff') return true;
+  return typeof p?.source === 'string' && STAFF_SOURCES.includes(p.source);
+}
+
+interface ApprovalDecision {
+  status: 'pending_recipient' | 'chat_active' | 'family_proposal_stage';
+  notify: 'recipient' | 'chat' | 'family';
+}
+
+/**
+ * Once staff approve (or a staff proposal is created), decide the next state by
+ * each side's autonomy:
+ *   both staff-managed  → family_proposal_stage (no logins to chat → offline)
+ *   recipient staff     → chat_active (staff proxies the recipient's consent)
+ *   recipient self      → pending_recipient (they must actively accept)
+ */
+function decidePostApproval(initiator: any, recipient: any): ApprovalDecision {
+  const initStaff = isStaffManaged(initiator);
+  const recipStaff = isStaffManaged(recipient);
+  if (initStaff && recipStaff) return { status: 'family_proposal_stage', notify: 'family' };
+  if (recipStaff) return { status: 'chat_active', notify: 'chat' };
+  return { status: 'pending_recipient', notify: 'recipient' };
+}
+
+/** Apply an approval decision's side effects to a fresh $set (or doc) object. */
+function approvalFields(decision: ApprovalDecision, now: Date): Record<string, any> {
+  const f: Record<string, any> = { status: decision.status, updatedAt: now };
+  if (decision.status === 'chat_active') {
+    f['mutualInterest.recipientAccepted'] = true; // staff proxies recipient consent
+    f.chat = { status: 'open', openedAt: now, closesAt: new Date(now.getTime() + CHAT_WINDOW_MS), messageCount: 0 };
+  } else if (decision.status === 'family_proposal_stage') {
+    f['mutualInterest.recipientAccepted'] = true;
+    f.completedAt = now; // both staff-managed → straight to family/offline stage
+  }
+  return f;
+}
+
 /**
  * Block contact-info sharing in chat — the platform is staff-mediated, so direct
  * phone/email/social handles defeat the supervision model. Best-effort guard.
@@ -67,12 +108,27 @@ const PROFILE_PROJECTION = {
   profession: 1, education: 1, photo: 1, height: 1, source: 1,
 };
 
+/** Best-effort compatibility score for a proposal — by matchId, else by pair. */
+async function lookupCompatibilityScore(db: any, p: any): Promise<number | undefined> {
+  let m = p.matchId ? await db.collection('matches').findOne({ _id: p.matchId }) : null;
+  if (!m) {
+    m = await db.collection('matches').findOne({
+      $or: [
+        { userId: p.initiatorId, candidateId: p.recipientId },
+        { userId: p.recipientId, candidateId: p.initiatorId },
+      ],
+    });
+  }
+  return (m?.scoreBreakdown?.total ?? m?.score) as number | undefined;
+}
+
 async function enrichProposal(db: any, p: any) {
-  const [initiator, recipient] = await Promise.all([
+  const [initiator, recipient, compatibilityScore] = await Promise.all([
     db.collection('profiles').findOne({ _id: p.initiatorId }, { projection: PROFILE_PROJECTION }),
     db.collection('profiles').findOne({ _id: p.recipientId }, { projection: PROFILE_PROJECTION }),
+    lookupCompatibilityScore(db, p),
   ]);
-  return { ...p, initiator, recipient };
+  return { ...p, initiator, recipient, compatibilityScore };
 }
 
 /** Is this account a participant (initiator/recipient/creator) or staff? */
@@ -216,14 +272,29 @@ userProposalRouter.post('/', authMiddleware, async (req: AuthRequest, res: Respo
       questionResponses: Array.isArray(questionResponses) ? questionResponses : undefined,
     });
 
+    // STAFF_PROPOSAL is already vetted (no staff-review stage). Resolve its post-
+    // approval state by each side's autonomy (staff-managed sides are proxied).
+    let createNotify: ApprovalDecision['notify'] = 'recipient';
+    if (type === 'STAFF_PROPOSAL') {
+      const decision = decidePostApproval(initiator, recipient);
+      const f = approvalFields(decision, new Date());
+      doc.status = decision.status as any;
+      if (f['mutualInterest.recipientAccepted']) doc.mutualInterest.recipientAccepted = true;
+      if (f.chat) doc.chat = f.chat;
+      if (f.completedAt) (doc as any).completedAt = f.completedAt;
+      createNotify = decision.notify;
+    }
+
     const result = await db.collection('proposals').insertOne(doc);
     const created = { ...doc, _id: result.insertedId };
 
-    // Staff pre-screen model (never throws):
-    //  USER_PROPOSAL → pending_staff_review: it enters the staff queue (dashboard).
-    //  STAFF_PROPOSAL → pending_recipient: already vetted, so notify the recipient.
-    if (doc.status === 'pending_recipient') await notifyProposalVisibleToRecipient(db, created);
-    else await notifyStaffNewProposal(db, created);
+    // Notify per outcome (never throws):
+    //  USER_PROPOSAL → pending_staff_review → staff queue.
+    //  STAFF_PROPOSAL → recipient | chat opened | family stage, per decision.
+    if (doc.status === 'pending_staff_review') await notifyStaffNewProposal(db, created);
+    else if (createNotify === 'chat') await notifyChatOpened(db, created);
+    else if (createNotify === 'family') await notifyFamilyOnCompletion(db, created);
+    else await notifyProposalVisibleToRecipient(db, created);
 
     await logAudit(
       req.user!.email, req.user!.id, (role as any),
@@ -685,17 +756,23 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
     const staffOid = toObjectId(req.user!.id);
 
     let update: any;
+    let approveDecision: ApprovalDecision | null = null;
     if (act === 'approve') {
-      // Approve makes it visible to the recipient — chat does NOT open here; it
-      // opens when the recipient accepts.
+      // Resolve the post-approval state by each side's autonomy: a staff-managed
+      // recipient is proxied (chat opens now / both-staff → family stage); a
+      // self-registered recipient must still actively accept (pending_recipient).
+      const [initiatorP, recipientP] = await Promise.all([
+        db.collection('profiles').findOne({ _id: p.initiatorId }, { projection: { registeredBy: 1, source: 1 } }),
+        db.collection('profiles').findOne({ _id: p.recipientId }, { projection: { registeredBy: 1, source: 1 } }),
+      ]);
+      approveDecision = decidePostApproval(initiatorP, recipientP);
       update = {
         $set: {
-          status: 'pending_recipient',
+          ...approvalFields(approveDecision, now),
           reviewedBy: staffOid || undefined,
           reviewedAt: now,
           reviewReason: reason || 'Approved',
           staffReview: { status: 'approved', reviewedBy: staffOid || undefined, reviewedAt: now, notes: reason || 'Approved' },
-          updatedAt: now,
         },
       };
     } else {
@@ -713,9 +790,15 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
 
     await db.collection('proposals').updateOne({ _id: oid }, update);
 
-    // Approved → now visible: notify recipient. Rejected → notify sender only. (never throws)
-    if (act === 'approve') await notifyProposalVisibleToRecipient(db, p);
-    else await notifyProposalRejected(db, p, reason);
+    // Notify per outcome (never throws). Approve routes by decision:
+    //   recipient → now visible; chat → opened (both); family → families notified.
+    if (act === 'approve' && approveDecision) {
+      if (approveDecision.notify === 'chat') await notifyChatOpened(db, p);
+      else if (approveDecision.notify === 'family') await notifyFamilyOnCompletion(db, { ...p, ...update.$set });
+      else await notifyProposalVisibleToRecipient(db, p);
+    } else if (act === 'reject') {
+      await notifyProposalRejected(db, p, reason);
+    }
 
     await logAudit(
       req.user!.email, req.user!.id, req.user!.role as any,
@@ -723,7 +806,11 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
       'proposal', oid.toString(), reason || (act === 'approve' ? 'Approved' : 'Rejected'), {}
     );
 
-    res.json({ success: true, message: `Proposal ${act}d`, status: act === 'approve' ? 'pending_recipient' : 'rejected_by_staff' });
+    res.json({
+      success: true,
+      message: `Proposal ${act}d`,
+      status: act === 'approve' ? (approveDecision?.status || 'pending_recipient') : 'rejected_by_staff',
+    });
   } catch (error) {
     console.error('❌ Review proposal error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
