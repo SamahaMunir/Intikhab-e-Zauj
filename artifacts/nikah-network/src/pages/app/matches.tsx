@@ -10,7 +10,9 @@ import {
 import ProfileCard from '../../components/matches/ProfileCard';
 import ProfileGridView from '../../components/matches/ProfileGridView';
 import FilterPanel from '../../components/matches/FilterPanel';
-import ProposalModal, { ProposalPayload } from '../../components/matches/ProposalModal';
+import ProposalModal, { ProposalPayload, MatchSummary } from '../../components/matches/ProposalModal';
+import { QNA_CATEGORIES } from '../../lib/qnaQuestions';
+import { getUserId, getStoredUser, refreshCurrentUser } from '../../lib/currentUser';
 import proposalService from '../../services/proposalService';
 import { useMatches } from '../../hooks/useMatches';
 import { MatchesLoading, MatchesError, MatchesEmpty } from '../../components/matches/EmptyStates';
@@ -24,11 +26,16 @@ const Matches: React.FC = () => {
   const [filters, setFilters] = useState<MatchFilters>(DEFAULT_FILTERS);
   const [filterOpen, setFilterOpen] = useState(false);
   const [cardIndex, setCardIndex] = useState(0);
-  const [proposalTarget, setProposalTarget] = useState<{ id: string; name?: string } | null>(null);
+  const [proposalTarget, setProposalTarget] = useState<
+    { id: string; name?: string; matchId?: string; summary?: MatchSummary } | null
+  >(null);
 
-  const storedUser = localStorage.getItem('user');
-  const user = storedUser ? JSON.parse(storedUser) : null;
-  const userId = user?._id;
+  // Refresh stale cached user (profileCompletion changes after staff approval).
+  const [userVersion, setUserVersion] = useState(0);
+  useEffect(() => { refreshCurrentUser().then(() => setUserVersion(v => v + 1)); }, []);
+
+  const user = useMemo(() => getStoredUser(), [userVersion]);
+  const userId = getUserId();
   const profileCompletion = user?.profileCompletion ?? 0;
   const profileComplete = profileCompletion >= 100;
 
@@ -57,7 +64,13 @@ const Matches: React.FC = () => {
   const openDetails = (id: string) => setLocation(`/app/match-detail/${id}`);
   const sendProposal = (id: string) => {
     const m = matches.find(x => x.candidateId === id);
-    setProposalTarget({ id, name: m?.candidate?.name });
+    const c = m?.candidate;
+    setProposalTarget({
+      id,
+      name: c?.name,
+      matchId: m?._id,
+      summary: { name: c?.name, age: c?.age, city: c?.city, profession: c?.profession, photo: c?.photo },
+    });
   };
   const submitProposal = async (payload: ProposalPayload) => {
     if (payload.type !== 'USER_PROPOSAL' || !userId || !proposalTarget?.id) return;
@@ -65,9 +78,11 @@ const Matches: React.FC = () => {
       type: 'USER_PROPOSAL',
       initiatorId: userId,
       recipientId: proposalTarget.id,
+      matchId: proposalTarget.matchId,
       message: payload.message,
       matchNotes: payload.matchNotes,
       compatibilityReason: payload.compatibilityReason,
+      questionResponses: payload.questionResponses,
     });
   };
   const filterCount = activeFilterCount(filters);
@@ -219,6 +234,9 @@ const Matches: React.FC = () => {
         mode="user"
         recipientName={proposalTarget?.name}
         recipientId={proposalTarget?.id}
+        qnaCategories={QNA_CATEGORIES}
+        matchSummary={proposalTarget?.summary}
+        currentUserId={userId}
         onClose={() => setProposalTarget(null)}
         onSubmit={submitProposal}
       />
