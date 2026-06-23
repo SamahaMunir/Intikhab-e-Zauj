@@ -23,6 +23,11 @@ const router = express.Router();
 // User profiles are created by self-registration or seed data.
 const STAFF_SOURCES = ['staff_entry', 'paper', 'whatsapp', 'walkin', 'referral', 'phone'];
 
+// A profile is matchable on payment if it has paid ('completed') OR payment was
+// waived for a staff-created profile (collected offline). Keep these in sync with
+// the staff-entry default.
+const PAYMENT_OK = ['completed', 'waived'];
+
 function getProfileType(profile: any): 'staff' | 'user' {
   return STAFF_SOURCES.includes(profile?.source) ? 'staff' : 'user';
 }
@@ -202,7 +207,7 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
         _id: { $ne: user._id },
         gender: oppositeGender,               // ← DB-level gender filter, not just hard-filter
         profileStatus: 'approved',
-        paymentStatus: 'completed',
+        paymentStatus: { $in: PAYMENT_OK },   // paid OR waived (staff-created)
       })
       .toArray();
 
@@ -264,14 +269,15 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
         $or: [
           { profileStatus: { $ne: 'approved' } },
           { profileCompletion: { $lt: 100 } },
-          { paymentStatus: { $ne: 'completed' } },
+          { paymentStatus: { $nin: PAYMENT_OK } },
         ],
       },
       {
         $set: {
           profileStatus:     'approved',
           profileCompletion: 100,
-          paymentStatus:     'completed',
+          paymentStatus:     'waived', // staff-created → payment waived (offline)
+          registeredBy:      'staff',  // backfill provenance for legacy staff profiles
           updatedAt: new Date(),
         },
       }
@@ -302,7 +308,7 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
           _id: { $ne: staffProfile._id },
           gender: oppositeGender,
           profileStatus: 'approved',
-          paymentStatus: 'completed',
+          paymentStatus: { $in: PAYMENT_OK },   // paid OR waived (staff-created)
         })
         .toArray();
 
