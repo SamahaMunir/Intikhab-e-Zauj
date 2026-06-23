@@ -9,8 +9,9 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 export type ProposalType = 'USER_PROPOSAL' | 'STAFF_PROPOSAL';
 
 export type ProposalStatus =
-  | 'pending_recipient' | 'pending_staff' | 'approved' | 'rejected'
-  | 'declined' | 'withdrawn' | 'expired' | 'completed' | 'closed';
+  | 'pending_staff_review' | 'pending_recipient' | 'mutual_interest_confirmed'
+  | 'chat_active' | 'family_proposal_stage' | 'completed' | 'expired'
+  | 'rejected_by_staff' | 'declined_by_recipient' | 'withdrawn';
 
 export interface ProfileSide {
   _id?: string;
@@ -35,6 +36,7 @@ export interface ProposalChat {
 export interface Proposal {
   _id: string;
   type: ProposalType;
+  matchId?: string;
   initiatorId: string;
   recipientId: string;
   status: ProposalStatus;
@@ -43,6 +45,7 @@ export interface Proposal {
   compatibilityReason?: string;
   notes?: string;
   justification?: string;
+  questionResponses?: QuestionResponse[];
   mutualInterest: { recipientAccepted: boolean; initiatorInterested: boolean; recipientInterested: boolean };
   chat: ProposalChat;
   familyEmail: { sent: boolean; sentAt?: string };
