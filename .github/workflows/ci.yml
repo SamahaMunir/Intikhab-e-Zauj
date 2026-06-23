@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --no-frozen-lockfile
+
+      # ── Gating: the critical consolidated matching engine + frontend types ──
+      - name: Unit tests (matching)
+        run: pnpm -C artifacts/api-server test
+
+      - name: Frontend typecheck
+        run: pnpm -C artifacts/nikah-network exec tsc --noEmit
+
+      # ── Gating: api-server typecheck (uses `tsc -b --noEmit` so composite
+      #    project refs lib/api-zod + lib/db build their declarations first). ──
+      - name: API typecheck
+        run: pnpm -C artifacts/api-server typecheck
