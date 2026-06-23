@@ -54,9 +54,11 @@ function side(p: any): SimilarMatchSide {
 }
 
 function mapStatus(s: string): SimilarStatus {
-  if (s === 'completed') return 'completed';
-  if (s === 'approved') return 'approved';
-  if (s === 'pending_recipient' || s === 'pending_staff') return 'pending';
+  // Staff pre-screen model: family_proposal_stage/completed = success;
+  // chat_active = approved/in-progress; pre-chat stages = pending; rest = rejected.
+  if (s === 'completed' || s === 'family_proposal_stage') return 'completed';
+  if (s === 'chat_active' || s === 'approved') return 'approved';
+  if (s === 'pending_recipient' || s === 'pending_staff_review' || s === 'mutual_interest_confirmed' || s === 'pending_staff') return 'pending';
   return 'rejected';
 }
 
@@ -81,7 +83,7 @@ export async function retrieveSimilarMatches(
     };
 
     const proposals = await db.collection('proposals')
-      .find({ status: { $in: ['completed', 'approved', 'pending_recipient', 'pending_staff', 'expired', 'closed', 'declined', 'rejected'] } })
+      .find({ status: { $in: ['completed', 'family_proposal_stage', 'chat_active', 'pending_recipient', 'pending_staff_review', 'mutual_interest_confirmed', 'expired', 'declined_by_recipient', 'rejected_by_staff', 'withdrawn', 'approved', 'pending_staff', 'closed', 'declined', 'rejected'] } })
       .limit(500)
       .toArray();
 
