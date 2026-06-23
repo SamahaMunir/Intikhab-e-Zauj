@@ -453,10 +453,11 @@ router.post(
         referenceRelation:   referenceRelation   || '',
         // Photo
         photo: photo || null,
-        // Staff-created profiles are auto-approved — no approval workflow needed
+        // Staff-created profiles are auto-approved — no approval workflow needed.
+        // Payment is 'waived': collected offline via family contact, not digitally.
         profileCompletion: 100,
         profileStatus:     'approved',
-        paymentStatus:     'completed',
+        paymentStatus:     'waived',
         emailVerified:     true,
         // Onboarding provenance — staff are the vetting authority for these.
         registeredBy:        'staff',
