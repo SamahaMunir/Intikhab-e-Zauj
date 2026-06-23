@@ -3,30 +3,33 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import proposalService, { type Proposal, type ProposalStatus } from "@/services/proposalService";
+import InsightsModal from "@/components/matches/InsightsModal";
 
 const FILTERS: { label: string; value: ProposalStatus | "all" }[] = [
-  { label: "Pending Review", value: "pending_staff" },
-  { label: "Approved", value: "approved" },
-  { label: "Completed", value: "completed" },
+  { label: "Pending Review", value: "pending_staff_review" },
+  { label: "Awaiting Recipient", value: "pending_recipient" },
+  { label: "Chat Active", value: "chat_active" },
+  { label: "Family Stage", value: "family_proposal_stage" },
   { label: "All", value: "all" },
 ];
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  approved: "default", completed: "default",
-  pending_recipient: "secondary", pending_staff: "secondary",
-  rejected: "destructive", declined: "destructive",
-  withdrawn: "outline", expired: "outline", closed: "outline",
+  chat_active: "default", family_proposal_stage: "default", completed: "default",
+  pending_recipient: "secondary", pending_staff_review: "secondary", mutual_interest_confirmed: "secondary",
+  rejected_by_staff: "destructive", declined_by_recipient: "destructive",
+  withdrawn: "outline", expired: "outline",
 };
 
 export default function StaffProposals() {
-  const [filter, setFilter] = useState<ProposalStatus | "all">("pending_staff");
+  const [filter, setFilter] = useState<ProposalStatus | "all">("pending_staff_review");
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [insightsMatchId, setInsightsMatchId] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -64,7 +67,7 @@ export default function StaffProposals() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-serif font-bold">Proposal Approvals</h1>
-        <p className="text-muted-foreground">Review accepted proposals before the chat opens.</p>
+        <p className="text-muted-foreground">Pre-screen new proposals before the recipient sees them. Use Insights for the compatibility score + AI explanation.</p>
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -114,8 +117,13 @@ export default function StaffProposals() {
                         {p.status.replace(/_/g, " ")}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      {p.status === "pending_staff" ? (
+                    <TableCell className="text-right space-x-2 whitespace-nowrap">
+                      {p.matchId && (
+                        <Button size="sm" variant="outline" onClick={() => setInsightsMatchId(p.matchId!)}>
+                          <Sparkles className="w-4 h-4 mr-1" /> Insights
+                        </Button>
+                      )}
+                      {p.status === "pending_staff_review" ? (
                         <>
                           <Button size="sm" variant="destructive" disabled={actingId === p._id}
                             onClick={() => review(p._id, "reject")}>Reject</Button>
@@ -124,9 +132,9 @@ export default function StaffProposals() {
                             {actingId === p._id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve"}
                           </Button>
                         </>
-                      ) : (
+                      ) : !p.matchId ? (
                         <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -135,6 +143,12 @@ export default function StaffProposals() {
           )}
         </CardContent>
       </Card>
+
+      <InsightsModal
+        matchId={insightsMatchId}
+        open={insightsMatchId !== null}
+        onClose={() => setInsightsMatchId(null)}
+      />
     </div>
   );
 }
