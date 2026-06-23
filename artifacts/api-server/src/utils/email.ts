@@ -584,6 +584,45 @@ export function sendProposalApprovedEmail(toEmail: string, name: string, otherNa
   );
 }
 
+/** Staff rejected the proposal — to the initiator. */
+export function sendProposalRejectedEmail(toEmail: string, name: string, otherName: string, reason?: string): Promise<boolean> {
+  return sendBasicEmail(
+    toEmail,
+    'Proposal Update',
+    'About your proposal',
+    `<p>Assalamu Alaikum <strong>${name}</strong>,</p>
+     <p>After review, our staff were unable to take your proposal with <strong>${otherName || 'your match'}</strong> forward at this time.
+     ${reason ? `<br/><em>Note from staff:</em> ${reason}` : ''}</p>
+     <p>This is a normal part of the process — please don't be discouraged. You can continue exploring other matches in the app.</p>`,
+    `Your proposal with ${otherName || 'your match'} was not taken forward.${reason ? ` Note: ${reason}` : ''}`
+  );
+}
+
+/** Recipient declined the proposal — to the initiator. */
+export function sendProposalDeclinedEmail(toEmail: string, name: string, otherName: string): Promise<boolean> {
+  return sendBasicEmail(
+    toEmail,
+    'Proposal Update',
+    'About your proposal',
+    `<p>Assalamu Alaikum <strong>${name}</strong>,</p>
+     <p>Your proposal with <strong>${otherName || 'your match'}</strong> was not accepted at this time.
+     Please don't be discouraged — you can continue exploring other matches in the app.</p>`,
+    `Your proposal with ${otherName || 'your match'} was not accepted.`
+  );
+}
+
+/** Initiator withdrew the proposal — to the recipient. */
+export function sendProposalWithdrawnEmail(toEmail: string, name: string, otherName: string): Promise<boolean> {
+  return sendBasicEmail(
+    toEmail,
+    'Proposal Withdrawn',
+    'A proposal was withdrawn',
+    `<p>Assalamu Alaikum <strong>${name}</strong>,</p>
+     <p>The proposal from <strong>${otherName || 'a member'}</strong> has been withdrawn. No further action is needed.</p>`,
+    `The proposal from ${otherName || 'a member'} has been withdrawn.`
+  );
+}
+
 /** Chat window closed without mutual interest. Sent to a participant. */
 export function sendChatExpiredEmail(toEmail: string, name: string, otherName: string): Promise<boolean> {
   return sendBasicEmail(
