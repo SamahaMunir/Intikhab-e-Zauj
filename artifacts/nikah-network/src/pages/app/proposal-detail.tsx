@@ -8,20 +8,22 @@ import { ArrowLeft, Send, Loader2, Heart, Check, X } from "lucide-react";
 import { useProposal } from "@/hooks/useProposal";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useProposalTimer } from "@/hooks/useProposalTimer";
+import { QNA_CATEGORIES } from "@/lib/qnaQuestions";
+import { getUserId } from "@/lib/currentUser";
+
+const QUESTION_LABELS: Record<string, string> = Object.fromEntries(
+  QNA_CATEGORIES.flatMap(c => c.questions.map(q => [q.id, q.label]))
+);
 
 export default function ProposalDetail() {
   const params = useParams();
   const id = params.id as string;
 
-  const userId = useMemo(() => {
-    const stored = localStorage.getItem("user");
-    const u = stored ? JSON.parse(stored) : null;
-    return (u?._id || u?.id) as string | undefined;
-  }, []);
+  const userId = useMemo(() => getUserId(), []);
 
   const { proposal, loading, acting, error, respond, withdraw, interest } = useProposal(id);
 
-  const chatOpen = proposal?.status === "approved" && proposal?.chat?.status === "open";
+  const chatOpen = proposal?.status === "chat_active" && proposal?.chat?.status === "open";
   const { messages, sending, send } = useChatMessages(id, !!chatOpen);
   const timer = useProposalTimer(proposal?.chat?.closesAt);
 
@@ -43,7 +45,8 @@ export default function ProposalDetail() {
     : proposal.mutualInterest?.recipientInterested;
 
   const isRecipientPending = proposal.status === "pending_recipient" && !isInitiator;
-  const canWithdraw = isInitiator && ["pending_recipient", "pending_staff"].includes(proposal.status);
+  const canWithdraw = isInitiator && ["pending_staff_review", "pending_recipient"].includes(proposal.status);
+  const isSuccess = proposal.status === "family_proposal_stage" || proposal.status === "completed";
 
   const handleSend = async () => {
     const ok = await send(text);
@@ -57,7 +60,7 @@ export default function ProposalDetail() {
           <Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
         </Link>
         <h1 className="text-2xl md:text-3xl font-serif font-bold">Proposal with {other?.name || "Unknown"}</h1>
-        <Badge variant={proposal.status === "approved" || proposal.status === "completed" ? "default" : "secondary"}
+        <Badge variant={proposal.status === "chat_active" || isSuccess ? "default" : "secondary"}
           className="capitalize ml-auto">
           {proposal.status.replace(/_/g, " ")}
         </Badge>
@@ -67,41 +70,46 @@ export default function ProposalDetail() {
         <div className="md:col-span-2 space-y-6">
           <Card className="h-[600px] flex flex-col">
             <CardHeader className="border-b flex-row items-center justify-between">
-              <CardTitle>Chat</CardTitle>
-              {chatOpen && <span className="text-xs text-muted-foreground">Closes in {timer.label}</span>}
+              <CardTitle>Introduction Chat</CardTitle>
+              {chatOpen && <span className="text-xs text-muted-foreground">Introduction closes in {timer.label}</span>}
             </CardHeader>
 
             <CardContent ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+              {proposal.status === "pending_staff_review" && (
+                <div className="h-full flex items-center justify-center text-center text-muted-foreground px-6">
+                  {isInitiator
+                    ? "Your proposal is awaiting staff review. We'll notify you once it's approved."
+                    : "This proposal is awaiting staff review."}
+                </div>
+              )}
               {proposal.status === "pending_recipient" && (
                 <div className="h-full flex items-center justify-center text-center text-muted-foreground px-6">
                   {isInitiator
-                    ? "Waiting for the recipient to accept your proposal."
-                    : "Accept this proposal to open a chat (staff will review first)."}
+                    ? "Staff approved your proposal. Waiting for the recipient to accept."
+                    : "Review this proposal and accept to open a private chat right away."}
                 </div>
               )}
-              {proposal.status === "pending_staff" && (
+              {["rejected_by_staff", "declined_by_recipient", "withdrawn", "expired"].includes(proposal.status) && (
                 <div className="h-full flex items-center justify-center text-center text-muted-foreground px-6">
-                  Accepted — awaiting staff review before the chat opens.
+                  This proposal is {proposal.status.replace(/_/g, " ")}.{proposal.reviewReason ? ` (${proposal.reviewReason})` : ""}
                 </div>
               )}
-              {["rejected", "declined", "withdrawn", "expired", "closed"].includes(proposal.status) && (
-                <div className="h-full flex items-center justify-center text-center text-muted-foreground px-6">
-                  This proposal is {proposal.status}.{proposal.reviewReason ? ` (${proposal.reviewReason})` : ""}
-                </div>
-              )}
-              {proposal.status === "completed" && (
+              {isSuccess && (
                 <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-2">
                   <Heart className="w-10 h-10 text-primary" />
                   <p className="font-semibold">Both sides are interested.</p>
-                  <p className="text-sm text-muted-foreground">Staff will now coordinate with both families.</p>
+                  <p className="text-sm text-muted-foreground">
+                    The introduction phase is complete. Staff will now share family contacts and
+                    coordinate the next steps with both families offline.
+                  </p>
                 </div>
               )}
-              {proposal.status === "approved" && messages.length === 0 && (
+              {proposal.status === "chat_active" && messages.length === 0 && (
                 <div className="h-full flex items-center justify-center text-muted-foreground text-center px-6">
                   No messages yet. Start with a thoughtful question.
                 </div>
               )}
-              {proposal.status === "approved" && messages.map(msg => {
+              {proposal.status === "chat_active" && messages.map(msg => {
                 const isMine = msg.senderId === userId;
                 return (
                   <div key={msg._id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
@@ -159,12 +167,27 @@ export default function ProposalDetail() {
             </Card>
           )}
 
+          {proposal.questionResponses && proposal.questionResponses.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Their Responses</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                {proposal.questionResponses.map((qr, i) => (
+                  <div key={qr.questionId || i}>
+                    <p className="text-xs text-muted-foreground">{QUESTION_LABELS[qr.questionId] || qr.questionId}</p>
+                    <p className="text-sm whitespace-pre-wrap">{qr.response}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
-            <CardHeader><CardTitle>Guidelines</CardTitle></CardHeader>
+            <CardHeader><CardTitle>About this introduction</CardTitle></CardHeader>
             <CardContent className="text-sm text-muted-foreground space-y-3">
-              <p>• The chat stays open for 48 hours.</p>
+              <p>• This is a <strong>48-hour introduction window</strong> — a short, supervised chat to get acquainted.</p>
               <p>• Mark “I'm Interested” once you wish to proceed.</p>
-              <p>• When both sides are interested, staff coordinate with families.</p>
+              <p>• When both sides are interested, staff share family contacts and the process continues offline.</p>
+              <p>• Please don't share contact details in chat — staff will coordinate that.</p>
               <p>• Be respectful and honest.</p>
             </CardContent>
           </Card>
