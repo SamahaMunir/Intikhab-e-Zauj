@@ -3,33 +3,40 @@ import { Db, ObjectId } from 'mongodb';
 /**
  * Proposal Document Schema — staff-mediated matrimonial proposals.
  *
- * Two types (Contract v2):
- *   USER_PROPOSAL  — initiator proposes to a recipient. Recipient must accept,
- *                    then staff reviews, then approved → chat opens 48h.
- *   STAFF_PROPOSAL — staff creates an internal proposal between two profiles.
- *                    Approved immediately (skips recipient-accept + staff review)
- *                    → chat opens 48h.
+ * STAFF PRE-SCREEN MODEL (v3): staff review happens BEFORE the recipient ever
+ * sees a proposal, so no emotional investment is built before vetting.
+ *
+ * Two types:
+ *   USER_PROPOSAL  — initiator proposes. Staff screen FIRST (recipient can't see
+ *                    it yet). Staff approve → recipient sees + accepts → chat
+ *                    opens immediately (no second review).
+ *   STAFF_PROPOSAL — staff manually pair two profiles. Pre-vetted, so skip the
+ *                    staff-review stage → straight to pending_recipient (the
+ *                    recipient still consents before chat opens).
  *
  * Lifecycle:
- *   USER_PROPOSAL:  pending_recipient → (accept) pending_staff → (review)
- *                   approved → (both interested) completed → family email
- *   STAFF_PROPOSAL: approved → (both interested) completed → family email
+ *   USER_PROPOSAL:  pending_staff_review → (staff approve) pending_recipient
+ *                   → (recipient accept) chat_active → (both interested)
+ *                   family_proposal_stage → completed
+ *   STAFF_PROPOSAL: pending_recipient → (recipient accept) chat_active → …
  *
- * Terminal: rejected | declined | withdrawn | expired | closed | completed
+ * Terminal: rejected_by_staff | declined_by_recipient | withdrawn | expired |
+ *           family_proposal_stage | completed
  */
 
 export type ProposalType = 'USER_PROPOSAL' | 'STAFF_PROPOSAL';
 
 export type ProposalStatus =
-  | 'pending_recipient' // waiting for recipient to accept/decline (USER only)
-  | 'pending_staff'     // recipient accepted, waiting for staff review (USER only)
-  | 'approved'          // staff approved (or STAFF auto) — chat open
-  | 'rejected'          // staff rejected
-  | 'declined'          // recipient declined
-  | 'withdrawn'         // initiator withdrew
-  | 'expired'           // chat window elapsed without mutual interest
-  | 'completed'         // both interested — family stage
-  | 'closed';           // manually closed
+  | 'pending_staff_review'    // created — staff must screen; recipient CANNOT see
+  | 'pending_recipient'       // staff approved — now visible to recipient to accept/decline
+  | 'mutual_interest_confirmed' // (transient) recipient accepted — chat opening
+  | 'chat_active'             // chat open 48h
+  | 'family_proposal_stage'   // both interested — families notified, contact shared
+  | 'completed'               // closed out after family stage
+  | 'expired'                 // chat window elapsed without mutual interest
+  | 'rejected_by_staff'       // staff rejected before recipient saw it
+  | 'declined_by_recipient'   // recipient declined an approved proposal
+  | 'withdrawn';              // initiator withdrew
 
 export type ChatStatus = 'closed' | 'open' | 'expired';
 
@@ -132,6 +139,32 @@ export async function initProposalsCollection(db: Db): Promise<void> {
     await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     console.log('   ✓ Index: TTL expiry (auto-delete after 14 days)');
 
+    // DB-level write validation (defense in depth beyond the TS interface).
+    // validationAction:'warn' logs offending writes without rejecting them, so
+    // legacy/edge docs never break; tighten to 'error' once data is clean.
+    const validator = {
+      $jsonSchema: {
+        bsonType: 'object',
+        required: ['type', 'initiatorId', 'recipientId', 'createdBy', 'status', 'mutualInterest', 'chat', 'createdAt', 'expiresAt'],
+        properties: {
+          type: { enum: ['USER_PROPOSAL', 'STAFF_PROPOSAL'] },
+          status: { enum: ['pending_staff_review', 'pending_recipient', 'mutual_interest_confirmed', 'chat_active', 'family_proposal_stage', 'completed', 'expired', 'rejected_by_staff', 'declined_by_recipient', 'withdrawn'] },
+          initiatorId: { bsonType: 'objectId' },
+          recipientId: { bsonType: 'objectId' },
+          createdBy: { bsonType: 'objectId' },
+          matchId: { bsonType: ['objectId', 'null'] },
+          createdAt: { bsonType: 'date' },
+          expiresAt: { bsonType: 'date' },
+        },
+      },
+    };
+    try {
+      await db.command({ collMod: 'proposals', validator, validationLevel: 'moderate', validationAction: 'warn' });
+    } catch {
+      try { await db.createCollection('proposals', { validator, validationLevel: 'moderate', validationAction: 'warn' }); } catch { /* exists */ }
+    }
+    console.log('   ✓ Schema validator applied (warn)');
+
     console.log('✓ Proposals collection ready!');
   } catch (error) {
     if (error instanceof Error && error.message.includes('already exists')) {
@@ -158,21 +191,14 @@ interface CreateProposalInput {
 }
 
 /**
- * Build a new proposal document. STAFF_PROPOSAL starts approved with chat open;
- * USER_PROPOSAL starts pending_recipient with chat closed.
+ * Build a new proposal document (staff pre-screen model).
+ *   USER_PROPOSAL  → pending_staff_review (staff screen before recipient sees it).
+ *   STAFF_PROPOSAL → pending_recipient (pre-vetted; recipient still consents).
+ * Chat is always closed at creation — it only opens when the recipient accepts.
  */
 export function createProposalDocument(input: CreateProposalInput): Proposal {
   const now = new Date();
   const isStaff = input.type === 'STAFF_PROPOSAL';
-
-  const chat: ProposalChat = isStaff
-    ? {
-        status: 'open',
-        openedAt: now,
-        closesAt: new Date(now.getTime() + CHAT_WINDOW_MS),
-        messageCount: 0,
-      }
-    : { status: 'closed', messageCount: 0 };
 
   return {
     type: input.type,
@@ -181,7 +207,8 @@ export function createProposalDocument(input: CreateProposalInput): Proposal {
     recipientId: input.recipientId,
     createdBy: input.createdBy,
     createdByRole: input.createdByRole,
-    status: isStaff ? 'approved' : 'pending_recipient',
+    // Staff proposals skip the review stage (already vetted); user proposals are screened first.
+    status: isStaff ? 'pending_recipient' : 'pending_staff_review',
     questionResponses: input.questionResponses || [],
     staffReview: isStaff
       ? { status: 'approved', reviewedAt: now, notes: 'Auto-approved (staff proposal)' }
@@ -192,11 +219,11 @@ export function createProposalDocument(input: CreateProposalInput): Proposal {
     notes: input.notes,
     justification: input.justification,
     mutualInterest: {
-      recipientAccepted: isStaff, // staff proposals skip recipient-accept
+      recipientAccepted: false, // recipient consents in both flows now
       initiatorInterested: false,
       recipientInterested: false,
     },
-    chat,
+    chat: { status: 'closed', messageCount: 0 }, // opens on recipient accept
     familyEmail: { sent: false },
     createdAt: now,
     updatedAt: now,
