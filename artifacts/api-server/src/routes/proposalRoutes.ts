@@ -12,10 +12,15 @@ import {
 import { createMessageDocument, MAX_MESSAGE_LEN } from '../db/messages-schema';
 import {
   notifyFamilyOnCompletion,
-  notifyProposalCreated,
-  notifyProposalApproved,
+  notifyStaffNewProposal,
+  notifyProposalVisibleToRecipient,
+  notifyChatOpened,
+  notifyProposalRejected,
+  notifyProposalDeclined,
+  notifyProposalWithdrawn,
   notifyChatExpired,
 } from '../lib/notifications';
+import { applyHardFilters } from '../lib/matching';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function getId(id: string | string[] | undefined): string | null {
@@ -34,7 +39,28 @@ function toObjectId(id: string | null): ObjectId | null {
 }
 
 // Non-terminal statuses — an active proposal already exists between a pair
-const ACTIVE_STATUSES = ['pending_recipient', 'pending_staff', 'approved'];
+const ACTIVE_STATUSES = ['pending_staff_review', 'pending_recipient', 'mutual_interest_confirmed', 'chat_active', 'family_proposal_stage'];
+
+// Statuses a proposal can be in BEFORE it is ever forwarded to the recipient.
+// The recipient must never see these (pre-screen — they never saw it).
+const HIDDEN_FROM_RECIPIENT = ['pending_staff_review', 'rejected_by_staff'];
+
+/**
+ * Block contact-info sharing in chat — the platform is staff-mediated, so direct
+ * phone/email/social handles defeat the supervision model. Best-effort guard.
+ */
+function detectContactInfo(text: string): string | null {
+  const t = text.toLowerCase();
+  // Email
+  if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(text)) return 'email address';
+  // Phone: 7+ digits, allowing spaces/dashes/dots/parens between them
+  const digits = (text.match(/\d/g) || []).length;
+  if (digits >= 7 && /(\+?\d[\d\s().-]{6,}\d)/.test(text)) return 'phone number';
+  // URLs / social handles
+  if (/https?:\/\/|www\.|\b\S+\.(com|net|org|pk|io)\b/i.test(text)) return 'web link';
+  if (/(whats\s?app|whatsapp|telegram|insta(gram)?|facebook|\bfb\b|snapchat|@[a-z0-9_]{3,})/i.test(t)) return 'social contact';
+  return null;
+}
 
 const PROFILE_PROJECTION = {
   name: 1, age: 1, dob: 1, city: 1, gender: 1, caste: 1,
@@ -55,11 +81,13 @@ function canAccess(req: AuthRequest, p: Proposal): boolean {
   if (role === 'staff' || role === 'admin') return true;
   const uid = req.user?.id;
   if (!uid) return false;
-  return (
-    p.createdBy?.toString() === uid ||
-    p.initiatorId?.toString() === uid ||
-    p.recipientId?.toString() === uid
-  );
+  const isInitiator = p.createdBy?.toString() === uid || p.initiatorId?.toString() === uid;
+  const isRecipient = p.recipientId?.toString() === uid;
+  // Pre-screen visibility rule: a recipient must never see a proposal that was
+  // not forwarded to them (still in staff review, or rejected by staff before
+  // forwarding). Initiator always sees their own.
+  if (isRecipient && !isInitiator && HIDDEN_FROM_RECIPIENT.includes(p.status)) return false;
+  return isInitiator || isRecipient;
 }
 
 /** Which side of the proposal is this account? null if not a direct participant. */
@@ -72,19 +100,20 @@ function participantSide(req: AuthRequest, p: any): 'initiator' | 'recipient' | 
 }
 
 /**
- * Lazily settle an approved proposal whose 48h chat window has elapsed.
- * Both-interested → completed; otherwise → expired. Persists + returns the
- * up-to-date proposal doc.
+ * Lazily settle a chat_active proposal whose 48h window has elapsed.
+ * Both-interested → family_proposal_stage; otherwise → expired. (Both-interested
+ * normally transitions immediately on the 2nd "interested" click; this is the
+ * safety net.) Persists + returns the up-to-date proposal doc.
  */
 async function settleExpiry(db: any, p: any): Promise<any> {
-  if (p.status !== 'approved' || p.chat?.status !== 'open') return p;
+  if (p.status !== 'chat_active' || p.chat?.status !== 'open') return p;
   const closesAt = p.chat?.closesAt ? new Date(p.chat.closesAt) : null;
   if (!closesAt || closesAt.getTime() > Date.now()) return p;
 
   const now = new Date();
   const bothInterested = !!(p.mutualInterest?.initiatorInterested && p.mutualInterest?.recipientInterested);
   const next = bothInterested
-    ? { status: 'completed', completedAt: now, 'chat.status': 'closed', updatedAt: now }
+    ? { status: 'family_proposal_stage', completedAt: now, 'chat.status': 'closed', updatedAt: now }
     : { status: 'expired', 'chat.status': 'expired', updatedAt: now };
 
   await db.collection('proposals').updateOne({ _id: p._id }, { $set: next });
@@ -95,7 +124,7 @@ async function settleExpiry(db: any, p: any): Promise<any> {
     chat: { ...p.chat, status: next['chat.status'] },
     updatedAt: now,
   };
-  // Window elapsed: completed (both interested) → notify families; else expired → notify both
+  // Window elapsed: both interested → family stage (notify families); else expired → notify both
   if (bothInterested) await notifyFamilyOnCompletion(db, updated);
   else await notifyChatExpired(db, updated);
   return updated;
@@ -151,6 +180,18 @@ userProposalRouter.post('/', authMiddleware, async (req: AuthRequest, res: Respo
       return;
     }
 
+    // Hard-filter gate — a proposal may only be sent for a pair that passes the
+    // mandatory matching constraints (opposite gender, age/height bounds, etc.).
+    const hf = applyHardFilters(initiator, recipient);
+    if (!hf.passes) {
+      res.status(400).json({
+        success: false,
+        error: 'Pair does not pass hard filters',
+        rejections: hf.rejections.map(r => r.reason),
+      });
+      return;
+    }
+
     // Block duplicate active proposal between the same two profiles (either direction)
     const existing = await db.collection('proposals').findOne({
       status: { $in: ACTIVE_STATUSES },
@@ -176,9 +217,13 @@ userProposalRouter.post('/', authMiddleware, async (req: AuthRequest, res: Respo
     });
 
     const result = await db.collection('proposals').insertOne(doc);
+    const created = { ...doc, _id: result.insertedId };
 
-    // Notify recipient (USER_PROPOSAL needs their acceptance) — never throws
-    await notifyProposalCreated(db, { ...doc, _id: result.insertedId });
+    // Staff pre-screen model (never throws):
+    //  USER_PROPOSAL → pending_staff_review: it enters the staff queue (dashboard).
+    //  STAFF_PROPOSAL → pending_recipient: already vetted, so notify the recipient.
+    if (doc.status === 'pending_recipient') await notifyProposalVisibleToRecipient(db, created);
+    else await notifyStaffNewProposal(db, created);
 
     await logAudit(
       req.user!.email, req.user!.id, (role as any),
@@ -212,9 +257,11 @@ userProposalRouter.get('/', authMiddleware, async (req: AuthRequest, res: Respon
       query = {}; // staff "all" = every proposal
     } else {
       const ids = oid ? [oid, uid] : [uid];
+      // Pre-screen rule: a recipient only sees proposals that were forwarded to them.
+      const recipientVisible = { recipientId: { $in: ids }, status: { $nin: HIDDEN_FROM_RECIPIENT } };
       if (roleFilter === 'initiator') query = { initiatorId: { $in: ids } };
-      else if (roleFilter === 'recipient') query = { recipientId: { $in: ids } };
-      else query = { $or: [{ initiatorId: { $in: ids } }, { recipientId: { $in: ids } }, { createdBy: { $in: ids } }] };
+      else if (roleFilter === 'recipient') query = recipientVisible;
+      else query = { $or: [{ initiatorId: { $in: ids } }, recipientVisible, { createdBy: { $in: ids } }] };
     }
 
     const raw = await db.collection('proposals').find(query).sort({ createdAt: -1 }).limit(200).toArray();
@@ -255,9 +302,9 @@ userProposalRouter.get('/:id', authMiddleware, async (req: AuthRequest, res: Res
 
 /**
  * PATCH /api/proposals/:id/respond  { action: 'accept' | 'decline' }
- * Recipient (or staff on their behalf) responds to a pending_recipient proposal.
- *   accept  → pending_staff, recipientAccepted=true
- *   decline → declined
+ * Recipient (or staff on their behalf) responds to a staff-approved proposal.
+ *   accept  → chat_active — chat opens immediately for 48h (no 2nd staff review)
+ *   decline → declined_by_recipient
  */
 userProposalRouter.patch('/:id/respond', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -288,11 +335,25 @@ userProposalRouter.patch('/:id/respond', authMiddleware, async (req: AuthRequest
     }
 
     const now = new Date();
+    const nextStatus = action === 'accept' ? 'chat_active' : 'declined_by_recipient';
     const update: any = action === 'accept'
-      ? { $set: { status: 'pending_staff', 'mutualInterest.recipientAccepted': true, respondedAt: now, updatedAt: now } }
-      : { $set: { status: 'declined', respondedAt: now, updatedAt: now } };
+      ? {
+          $set: {
+            status: 'chat_active',
+            'mutualInterest.recipientAccepted': true,
+            // Recipient accepted → chat opens immediately (no second staff review)
+            chat: { status: 'open', openedAt: now, closesAt: new Date(now.getTime() + CHAT_WINDOW_MS), messageCount: 0 },
+            respondedAt: now,
+            updatedAt: now,
+          },
+        }
+      : { $set: { status: 'declined_by_recipient', respondedAt: now, updatedAt: now } };
 
     await db.collection('proposals').updateOne({ _id: oid }, update);
+
+    // accept → chat opens, notify both; decline → tell the initiator (never throws)
+    if (action === 'accept') await notifyChatOpened(db, p);
+    else await notifyProposalDeclined(db, p);
 
     await logAudit(
       req.user!.email, req.user!.id, req.user!.role as any,
@@ -300,7 +361,7 @@ userProposalRouter.patch('/:id/respond', authMiddleware, async (req: AuthRequest
       'proposal', oid.toString(), `Recipient ${action}ed`, {}
     );
 
-    res.json({ success: true, message: `Proposal ${action}ed`, status: action === 'accept' ? 'pending_staff' : 'declined' });
+    res.json({ success: true, message: `Proposal ${action}ed`, status: nextStatus });
   } catch (error) {
     console.error('❌ Respond proposal error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
@@ -328,13 +389,16 @@ userProposalRouter.patch('/:id/withdraw', authMiddleware, async (req: AuthReques
       res.status(403).json({ success: false, error: 'Forbidden' });
       return;
     }
-    if (!['pending_recipient', 'pending_staff'].includes(p.status)) {
+    if (!['pending_staff_review', 'pending_recipient'].includes(p.status)) {
       res.status(409).json({ success: false, error: `Cannot withdraw a proposal in status '${p.status}'` });
       return;
     }
 
     const now = new Date();
     await db.collection('proposals').updateOne({ _id: oid }, { $set: { status: 'withdrawn', withdrawnAt: now, updatedAt: now } });
+
+    // Initiator withdrew → tell the recipient (never throws)
+    await notifyProposalWithdrawn(db, p);
 
     await logAudit(
       req.user!.email, req.user!.id, req.user!.role as any,
@@ -373,7 +437,7 @@ const handleInterest = async (req: AuthRequest, res: Response): Promise<void> =>
     }
 
     p = await settleExpiry(db, p);
-    if (p.status !== 'approved') {
+    if (p.status !== 'chat_active') {
       res.status(409).json({ success: false, error: `Cannot register interest on a proposal in status '${p.status}'` });
       return;
     }
@@ -401,18 +465,18 @@ const handleInterest = async (req: AuthRequest, res: Response): Promise<void> =>
       updatedAt: now,
     };
     if (bothInterested) {
-      set.status = 'completed';
+      set.status = 'family_proposal_stage';
       set.completedAt = now;
       set['chat.status'] = 'closed';
     }
 
     await db.collection('proposals').updateOne({ _id: oid }, { $set: set });
 
-    // Both interested → mutual match: email applicants + SMS families (idempotent, never throws)
+    // Both interested → family stage: email applicants + SMS families (idempotent, never throws)
     if (bothInterested) {
       await notifyFamilyOnCompletion(db, {
         ...p,
-        status: 'completed',
+        status: 'family_proposal_stage',
         completedAt: now,
         mutualInterest: { ...p.mutualInterest, initiatorInterested, recipientInterested },
       });
@@ -420,14 +484,14 @@ const handleInterest = async (req: AuthRequest, res: Response): Promise<void> =>
 
     await logAudit(
       req.user!.email, req.user!.id, req.user!.role as any,
-      bothInterested ? 'complete_proposal' : 'interest_proposal',
+      bothInterested ? 'family_proposal_stage' : 'interest_proposal',
       'proposal', oid.toString(), `${side} interested`, { bothInterested }
     );
 
     res.json({
       success: true,
-      message: bothInterested ? 'Both interested — proposal completed' : `${side} interested`,
-      status: bothInterested ? 'completed' : 'approved',
+      message: bothInterested ? 'Both interested — family proposal stage' : `${side} interested`,
+      status: bothInterested ? 'family_proposal_stage' : 'chat_active',
       mutualInterest: { ...p.mutualInterest, initiatorInterested, recipientInterested },
     });
   } catch (error) {
@@ -496,6 +560,12 @@ userProposalRouter.post('/:id/messages', authMiddleware, async (req: AuthRequest
       res.status(400).json({ success: false, error: `text exceeds ${MAX_MESSAGE_LEN} characters` });
       return;
     }
+    // Staff-mediated platform — block direct contact-info exchange in chat.
+    const contact = detectContactInfo(text);
+    if (contact) {
+      res.status(400).json({ success: false, error: `For your safety, sharing a ${contact} in chat isn't allowed. Staff will coordinate contact details.` });
+      return;
+    }
 
     const db = await getDatabase();
     let p: any = await db.collection('proposals').findOne({ _id: oid });
@@ -510,18 +580,16 @@ userProposalRouter.post('/:id/messages', authMiddleware, async (req: AuthRequest
 
     p = await settleExpiry(db, p);
     const closesAt = p.chat?.closesAt ? new Date(p.chat.closesAt) : null;
-    if (p.status !== 'approved' || p.chat?.status !== 'open' || !closesAt || closesAt.getTime() <= Date.now()) {
+    if (p.status !== 'chat_active' || p.chat?.status !== 'open' || !closesAt || closesAt.getTime() <= Date.now()) {
       res.status(409).json({ success: false, error: 'Chat is not open for this proposal' });
       return;
     }
 
-    const senderOid = toObjectId(req.user!.id);
-    if (!senderOid) {
-      res.status(400).json({ success: false, error: 'Invalid sender id' });
-      return;
-    }
+    // Sender is the account: applicant → profile ObjectId; staff → id may be a
+    // non-ObjectId string. Store whichever form it is.
+    const senderId = toObjectId(req.user!.id) || req.user!.id;
 
-    const msg = createMessageDocument(oid, senderOid, req.user!.role as any, text);
+    const msg = createMessageDocument(oid, senderId, req.user!.role as any, text);
     const result = await db.collection('messages').insertOne(msg);
 
     await db.collection('proposals').updateOne(
@@ -531,7 +599,7 @@ userProposalRouter.post('/:id/messages', authMiddleware, async (req: AuthRequest
 
     res.status(201).json({
       success: true,
-      message: { ...msg, _id: result.insertedId.toString(), proposalId: oid.toString(), senderId: senderOid.toString() },
+      message: { ...msg, _id: result.insertedId.toString(), proposalId: oid.toString(), senderId: senderId.toString() },
     });
   } catch (error) {
     console.error('❌ Send message error:', error);
@@ -548,11 +616,30 @@ export const staffProposalRouter = express.Router();
 staffProposalRouter.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const status = getId(req.query.status as string | string[] | undefined);
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '20'), 10) || 20));
+    const skip = (page - 1) * limit;
+
     const db = await getDatabase();
     const query: any = status ? { status } : {};
-    const raw = await db.collection('proposals').find(query).sort({ createdAt: -1 }).limit(300).toArray();
+
+    const total = await db.collection('proposals').countDocuments(query);
+    const raw = await db.collection('proposals')
+      .find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
     const proposals = await Promise.all(raw.map((p) => enrichProposal(db, p)));
-    res.json({ success: true, total: proposals.length, proposals });
+
+    res.json({
+      success: true,
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+      proposals,
+    });
   } catch (error) {
     console.error('❌ Staff list proposals error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
@@ -561,9 +648,9 @@ staffProposalRouter.get('/', async (req: AuthRequest, res: Response): Promise<vo
 
 /**
  * PATCH /api/staff/proposals/:id/review  { action: 'approve' | 'reject', reason }
- * Staff reviews a pending_staff proposal.
- *   approve → approved, chat opens 48h
- *   reject  → rejected
+ * Staff pre-screen a pending_staff_review proposal (before the recipient sees it).
+ *   approve → pending_recipient — proposal becomes visible to the recipient (no chat yet)
+ *   reject  → rejected_by_staff — only the sender is notified; recipient never saw it
  */
 staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -589,8 +676,8 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
       res.status(404).json({ success: false, error: 'Proposal not found' });
       return;
     }
-    if (p.status !== 'pending_staff') {
-      res.status(409).json({ success: false, error: `Only pending_staff proposals can be reviewed (current: '${p.status}')` });
+    if (p.status !== 'pending_staff_review') {
+      res.status(409).json({ success: false, error: `Only pending_staff_review proposals can be reviewed (current: '${p.status}')` });
       return;
     }
 
@@ -599,21 +686,22 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
 
     let update: any;
     if (act === 'approve') {
+      // Approve makes it visible to the recipient — chat does NOT open here; it
+      // opens when the recipient accepts.
       update = {
         $set: {
-          status: 'approved',
+          status: 'pending_recipient',
           reviewedBy: staffOid || undefined,
           reviewedAt: now,
           reviewReason: reason || 'Approved',
           staffReview: { status: 'approved', reviewedBy: staffOid || undefined, reviewedAt: now, notes: reason || 'Approved' },
-          chat: { status: 'open', openedAt: now, closesAt: new Date(now.getTime() + CHAT_WINDOW_MS), messageCount: 0 },
           updatedAt: now,
         },
       };
     } else {
       update = {
         $set: {
-          status: 'rejected',
+          status: 'rejected_by_staff',
           reviewedBy: staffOid || undefined,
           reviewedAt: now,
           reviewReason: reason,
@@ -625,8 +713,9 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
 
     await db.collection('proposals').updateOne({ _id: oid }, update);
 
-    // Approved → chat opens: notify both participants (never throws)
-    if (act === 'approve') await notifyProposalApproved(db, p);
+    // Approved → now visible: notify recipient. Rejected → notify sender only. (never throws)
+    if (act === 'approve') await notifyProposalVisibleToRecipient(db, p);
+    else await notifyProposalRejected(db, p, reason);
 
     await logAudit(
       req.user!.email, req.user!.id, req.user!.role as any,
@@ -634,7 +723,7 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
       'proposal', oid.toString(), reason || (act === 'approve' ? 'Approved' : 'Rejected'), {}
     );
 
-    res.json({ success: true, message: `Proposal ${act}d`, status: act === 'approve' ? 'approved' : 'rejected' });
+    res.json({ success: true, message: `Proposal ${act}d`, status: act === 'approve' ? 'pending_recipient' : 'rejected_by_staff' });
   } catch (error) {
     console.error('❌ Review proposal error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
