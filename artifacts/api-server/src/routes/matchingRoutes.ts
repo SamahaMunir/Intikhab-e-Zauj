@@ -6,7 +6,15 @@ import { buildInsights } from '../lib/insights';
 import { retrieveSimilarMatches, statsFromSimilar, toSimilarCard } from '../lib/ragRetrieval';
 import { summarizeInsightsWithRAG } from '../lib/llmInsights';
 import { getCostStats } from '../lib/cost-tracker';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, staffOnlyMiddleware } from '../middleware/auth';
+
+// Ownership guard: a non-staff user may only act on their own userId.
+function ownsOrStaff(req: Request, userId: string | null): boolean {
+  const u = (req as any).user;
+  if (!u) return false;
+  if (u.role === 'staff' || u.role === 'admin') return true;
+  return !!userId && u.id === userId;
+}
 
 const router = express.Router();
 
@@ -41,6 +49,10 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
 
     if (!userIdStr) {
       res.status(400).json({ success: false, error: 'userId required' });
+      return;
+    }
+    if (!ownsOrStaff(req, userIdStr)) {
+      res.status(403).json({ success: false, error: 'Forbidden' });
       return;
     }
 
@@ -107,6 +119,10 @@ router.post('/generate/:userId', authMiddleware, async (req: Request, res: Respo
 
     if (!userIdStr) {
       res.status(400).json({ success: false, error: 'userId required' });
+      return;
+    }
+    if (!ownsOrStaff(req, userIdStr)) {
+      res.status(403).json({ success: false, error: 'Forbidden' });
       return;
     }
 
@@ -236,7 +252,7 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
 // POST /api/staff/matches/generate-all-staff
 // Generates matches for ALL staff-created profiles without requiring user login.
 // Staff profiles have no account so they can't call generate/:userId themselves.
-router.post('/generate-all-staff', async (_req: Request, res: Response): Promise<void> => {
+router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_req: Request, res: Response): Promise<void> => {
   try {
     const db = await getDatabase();
 
@@ -346,7 +362,7 @@ router.post('/generate-all-staff', async (_req: Request, res: Response): Promise
 // GET /api/staff/matches/staff-view
 // Staff-specific match view: only Staff↔Staff and Staff↔User (excludes User↔User).
 // Returns enriched matches with leftProfileType + rightProfileType.
-router.get('/staff-view', async (_req: Request, res: Response): Promise<void> => {
+router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Request, res: Response): Promise<void> => {
   try {
     const db = await getDatabase();
 
@@ -442,7 +458,7 @@ router.get('/debug/:userId', authMiddleware, async (req: Request, res: Response)
 });
 
 // GET /api/matches/all — staff sees every match across all users
-router.get('/all', async (_req: Request, res: Response): Promise<void> => {
+router.get('/all', authMiddleware, staffOnlyMiddleware, async (_req: Request, res: Response): Promise<void> => {
   try {
     const db = await getDatabase();
     const matches = await db.collection('matches')
@@ -473,7 +489,7 @@ router.get('/all', async (_req: Request, res: Response): Promise<void> => {
 });
 
 // PATCH /api/matches/:matchId/status — staff approves or rejects a match
-router.patch('/:matchId/status', async (req: Request, res: Response): Promise<void> => {
+router.patch('/:matchId/status', authMiddleware, staffOnlyMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const matchIdStr = getId(req.params.matchId as string | string[] | undefined);
     const { status } = req.body;
@@ -505,7 +521,7 @@ router.patch('/:matchId/status', async (req: Request, res: Response): Promise<vo
 // GET /api/staff/matches/:matchId/insights — v0 staff AI insights (template-based)
 // Computes structured insight bullets + a recommendation, and retrieves similar
 // past pairs (by profession bucket + city group) with their outcomes.
-router.get('/:matchId/insights', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.get('/:matchId/insights', authMiddleware, staffOnlyMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const matchIdStr = getId(req.params.matchId as string | string[] | undefined);
     const oid = toObjectId(matchIdStr || '');
@@ -569,7 +585,7 @@ router.get('/:matchId/insights', authMiddleware, async (req: Request, res: Respo
 });
 
 // GET /api/staff/matches/insights/cost-stats — LLM usage + cost gauge (in-memory)
-router.get('/insights/cost-stats', authMiddleware, async (_req: Request, res: Response): Promise<void> => {
+router.get('/insights/cost-stats', authMiddleware, staffOnlyMiddleware, async (_req: Request, res: Response): Promise<void> => {
   res.json({ success: true, ...getCostStats() });
 });
 
