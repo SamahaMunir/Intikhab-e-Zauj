@@ -10,7 +10,7 @@ import { Db, ObjectId } from 'mongodb';
 export interface Message {
   _id?: ObjectId;
   proposalId: ObjectId;
-  senderId: ObjectId;        // account that sent it (profile/staff id)
+  senderId: ObjectId | string; // account that sent it (profile ObjectId, or staff id which may be a non-ObjectId string)
   senderRole: 'applicant' | 'staff' | 'admin';
   text: string;
   createdAt: Date;
@@ -32,9 +32,33 @@ export async function initMessagesCollection(db: Db): Promise<void> {
     await col.createIndex({ proposalId: 1, createdAt: 1 });
     console.log('   ✓ Index: proposalId + createdAt');
 
+    await col.createIndex({ senderId: 1 });
+    console.log('   ✓ Index: senderId');
+
     // TTL — auto-delete 14 days after expiresAt
     await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
     console.log('   ✓ Index: TTL expiry (auto-delete after 14 days)');
+
+    // DB-level write validation (validationAction:'warn' — non-rejecting).
+    const validator = {
+      $jsonSchema: {
+        bsonType: 'object',
+        required: ['proposalId', 'senderId', 'text', 'createdAt', 'expiresAt'],
+        properties: {
+          proposalId: { bsonType: 'objectId' },
+          senderId: { bsonType: ['objectId', 'string'] },
+          text: { bsonType: 'string', maxLength: MAX_MESSAGE_LEN },
+          createdAt: { bsonType: 'date' },
+          expiresAt: { bsonType: 'date' },
+        },
+      },
+    };
+    try {
+      await db.command({ collMod: 'messages', validator, validationLevel: 'moderate', validationAction: 'warn' });
+    } catch {
+      try { await db.createCollection('messages', { validator, validationLevel: 'moderate', validationAction: 'warn' }); } catch { /* exists */ }
+    }
+    console.log('   ✓ Schema validator applied (warn)');
 
     console.log('✓ Messages collection ready!');
   } catch (error) {
@@ -48,7 +72,7 @@ export async function initMessagesCollection(db: Db): Promise<void> {
 
 export function createMessageDocument(
   proposalId: ObjectId,
-  senderId: ObjectId,
+  senderId: ObjectId | string,
   senderRole: 'applicant' | 'staff' | 'admin',
   text: string
 ): Message {
