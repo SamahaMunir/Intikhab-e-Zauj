@@ -3,6 +3,9 @@ import {
   sendFamilyMatchEmail,
   sendProposalReceivedEmail,
   sendProposalApprovedEmail,
+  sendProposalRejectedEmail,
+  sendProposalDeclinedEmail,
+  sendProposalWithdrawnEmail,
   sendChatExpiredEmail,
   type FamilyMatchCandidate,
 } from '../utils/email';
@@ -20,22 +23,44 @@ async function loadParties(db: Db, proposal: any): Promise<{ initiator: any; rec
   return { initiator, recipient };
 }
 
-/** Proposal created → notify recipient (USER_PROPOSAL needs their acceptance). */
-export async function notifyProposalCreated(db: Db, proposal: any): Promise<void> {
+/**
+ * Proposal created (staff pre-screen model) → it enters the staff review queue.
+ * Per the chosen "dashboard-only" policy we don't email staff; this records an
+ * audit entry so the queue arrival is traceable. (Swap in an email to a
+ * STAFF_NOTIFY_EMAIL here if that policy changes.)
+ */
+export async function notifyStaffNewProposal(db: Db, proposal: any): Promise<void> {
   try {
-    if (proposal.type !== 'USER_PROPOSAL') return; // staff proposals skip recipient-accept
+    await logAudit(
+      'system', 'system', 'staff',
+      'proposal_queued_for_review', 'proposal', proposal._id?.toString() || 'unknown',
+      'New proposal awaiting staff review',
+      { type: proposal.type, initiatorId: proposal.initiatorId?.toString(), recipientId: proposal.recipientId?.toString() }
+    );
+    console.log(`🗂️  Proposal ${proposal._id} queued for staff review`);
+  } catch (e) {
+    console.error('❌ notifyStaffNewProposal:', e instanceof Error ? e.message : e);
+  }
+}
+
+/**
+ * Staff approved (or staff proposal created) → proposal is now visible to the
+ * recipient, who must accept/decline. Notify the recipient only.
+ */
+export async function notifyProposalVisibleToRecipient(db: Db, proposal: any): Promise<void> {
+  try {
     const parties = await loadParties(db, proposal);
     if (!parties) return;
     const { initiator, recipient } = parties;
     if (recipient.email) await sendProposalReceivedEmail(recipient.email, recipient.name || 'Applicant', initiator.name || 'a member');
-    await sendSmsBatch([recipient.phone], `Intikhab-e-Zauj: New proposal from ${initiator.name || 'a member'}. Open the app to accept or decline.`);
+    await sendSmsBatch([recipient.phone], `Intikhab-e-Zauj: You have a new proposal from ${initiator.name || 'a member'}. Open the app to accept or decline.`);
   } catch (e) {
-    console.error('❌ notifyProposalCreated:', e instanceof Error ? e.message : e);
+    console.error('❌ notifyProposalVisibleToRecipient:', e instanceof Error ? e.message : e);
   }
 }
 
-/** Staff approved → chat opens. Notify both participants. */
-export async function notifyProposalApproved(db: Db, proposal: any): Promise<void> {
+/** Recipient accepted → chat opens immediately. Notify both participants. */
+export async function notifyChatOpened(db: Db, proposal: any): Promise<void> {
   try {
     const parties = await loadParties(db, proposal);
     if (!parties) return;
@@ -44,9 +69,49 @@ export async function notifyProposalApproved(db: Db, proposal: any): Promise<voi
       initiator.email ? sendProposalApprovedEmail(initiator.email, initiator.name || 'Applicant', recipient.name || 'your match') : Promise.resolve(false),
       recipient.email ? sendProposalApprovedEmail(recipient.email, recipient.name || 'Applicant', initiator.name || 'your match') : Promise.resolve(false),
     ]);
-    await sendSmsBatch([initiator.phone, recipient.phone], `Intikhab-e-Zauj: Staff approved your proposal. A private chat is open for 48 hours.`);
+    await sendSmsBatch([initiator.phone, recipient.phone], `Intikhab-e-Zauj: Your proposal is confirmed. A private chat is open for 48 hours.`);
   } catch (e) {
-    console.error('❌ notifyProposalApproved:', e instanceof Error ? e.message : e);
+    console.error('❌ notifyChatOpened:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** Staff rejected the proposal → notify the initiator. */
+export async function notifyProposalRejected(db: Db, proposal: any, reason?: string): Promise<void> {
+  try {
+    const parties = await loadParties(db, proposal);
+    if (!parties) return;
+    const { initiator, recipient } = parties;
+    if (initiator.email) await sendProposalRejectedEmail(initiator.email, initiator.name || 'Applicant', recipient.name || 'your match', reason);
+    await sendSmsBatch([initiator.phone], `Intikhab-e-Zauj: Your proposal was reviewed and not taken forward. Open the app to explore other matches.`);
+  } catch (e) {
+    console.error('❌ notifyProposalRejected:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** Recipient declined the proposal → notify the initiator. */
+export async function notifyProposalDeclined(db: Db, proposal: any): Promise<void> {
+  try {
+    const parties = await loadParties(db, proposal);
+    if (!parties) return;
+    const { initiator, recipient } = parties;
+    if (initiator.email) await sendProposalDeclinedEmail(initiator.email, initiator.name || 'Applicant', recipient.name || 'your match');
+    await sendSmsBatch([initiator.phone], `Intikhab-e-Zauj: Your proposal was not accepted. Open the app to explore other matches.`);
+  } catch (e) {
+    console.error('❌ notifyProposalDeclined:', e instanceof Error ? e.message : e);
+  }
+}
+
+/** Initiator withdrew the proposal → notify the recipient. */
+export async function notifyProposalWithdrawn(db: Db, proposal: any): Promise<void> {
+  try {
+    if (proposal.type !== 'USER_PROPOSAL') return; // staff proposals have no pending recipient
+    const parties = await loadParties(db, proposal);
+    if (!parties) return;
+    const { initiator, recipient } = parties;
+    if (recipient.email) await sendProposalWithdrawnEmail(recipient.email, recipient.name || 'Applicant', initiator.name || 'a member');
+    await sendSmsBatch([recipient.phone], `Intikhab-e-Zauj: A proposal sent to you has been withdrawn. No action needed.`);
+  } catch (e) {
+    console.error('❌ notifyProposalWithdrawn:', e instanceof Error ? e.message : e);
   }
 }
 
