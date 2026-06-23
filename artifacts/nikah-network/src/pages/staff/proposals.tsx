@@ -93,6 +93,7 @@ export default function StaffProposals() {
                 <TableRow>
                   <TableHead>Initiator</TableHead>
                   <TableHead>Recipient</TableHead>
+                  <TableHead>Score</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Status</TableHead>
@@ -104,6 +105,15 @@ export default function StaffProposals() {
                   <TableRow key={p._id}>
                     <TableCell>{p.initiator?.name || "Unknown"}</TableCell>
                     <TableCell>{p.recipient?.name || "Unknown"}</TableCell>
+                    <TableCell>
+                      {typeof p.compatibilityScore === "number" ? (
+                        <Badge variant={p.compatibilityScore >= 70 ? "default" : p.compatibilityScore >= 50 ? "secondary" : "outline"}>
+                          {Math.round(p.compatibilityScore)}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[10px]">
                         {p.type === "STAFF_PROPOSAL" ? "Staff" : "User"}
