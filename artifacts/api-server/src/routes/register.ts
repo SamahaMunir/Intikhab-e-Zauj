@@ -107,6 +107,9 @@ emailVerified: false,
       bio: '',
       photo: '',
       
+      // ONBOARDING PROVENANCE
+      registeredBy: 'self',
+
       // COMPLETION & PAYMENT
       profileCompletion: 10,
       paymentStatus: 'pending',
