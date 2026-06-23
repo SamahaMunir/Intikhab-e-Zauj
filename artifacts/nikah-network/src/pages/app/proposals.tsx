@@ -9,15 +9,16 @@ import { formatDistanceToNow, parseISO } from "date-fns";
 import proposalService, { type Proposal } from "@/services/proposalService";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  approved: "default",
+  chat_active: "default",
+  family_proposal_stage: "default",
   completed: "default",
+  pending_staff_review: "secondary",
   pending_recipient: "secondary",
-  pending_staff: "secondary",
-  rejected: "destructive",
-  declined: "destructive",
+  mutual_interest_confirmed: "secondary",
+  rejected_by_staff: "destructive",
+  declined_by_recipient: "destructive",
   withdrawn: "outline",
   expired: "outline",
-  closed: "outline",
 };
 
 export default function Proposals() {
@@ -52,7 +53,7 @@ export default function Proposals() {
 
   const renderProposalCard = (p: Proposal, isReceived: boolean) => {
     const other = isReceived ? p.initiator : p.recipient;
-    const chatOpen = p.status === "approved" && p.chat?.status === "open";
+    const chatOpen = p.status === "chat_active" && p.chat?.status === "open";
 
     return (
       <Card key={p._id} className="hover-elevate">
