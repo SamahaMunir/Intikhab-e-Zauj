@@ -48,6 +48,12 @@ export default function ProposalDetail() {
   const canWithdraw = isInitiator && ["pending_staff_review", "pending_recipient"].includes(proposal.status);
   const isSuccess = proposal.status === "family_proposal_stage" || proposal.status === "completed";
 
+  // The other side may be a staff-managed profile (no login) — staff relay on its
+  // behalf, so set expectations that it won't reply in the chat directly.
+  const STAFF_SOURCES = ["staff_entry", "paper", "whatsapp", "walkin", "referral", "phone"];
+  const otherStaffManaged =
+    other?.registeredBy === "staff" || STAFF_SOURCES.includes(other?.source || "");
+
   const handleSend = async () => {
     const ok = await send(text);
     if (ok) setText("");
@@ -75,6 +81,13 @@ export default function ProposalDetail() {
             </CardHeader>
 
             <CardContent ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+              {chatOpen && otherStaffManaged && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs p-3">
+                  This match was arranged by our staff. {other?.name || "This person"} may not reply
+                  here directly — staff will relay on their behalf. Share your questions, then mark
+                  <strong> “I'm Interested” </strong> to proceed.
+                </div>
+              )}
               {proposal.status === "pending_staff_review" && (
                 <div className="h-full flex items-center justify-center text-center text-muted-foreground px-6">
                   {isInitiator
