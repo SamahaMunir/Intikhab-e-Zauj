@@ -29,6 +29,10 @@ const STAFF_SOURCES = ['staff_entry', 'paper', 'whatsapp', 'walkin', 'referral',
 const PAYMENT_OK = ['completed', 'waived'];
 
 function getProfileType(profile: any): 'staff' | 'user' {
+  // registeredBy is the authoritative signal (set on all staff-created profiles
+  // + backfilled by migration); source is the legacy fallback.
+  if (profile?.registeredBy === 'staff') return 'staff';
+  if (profile?.registeredBy === 'self') return 'user';
   return STAFF_SOURCES.includes(profile?.source) ? 'staff' : 'user';
 }
 
@@ -383,16 +387,18 @@ router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Requ
         const [userDoc, candidateDoc] = await Promise.all([
           db.collection('profiles').findOne(
             { _id: m.userId },
-            { projection: { name: 1, age: 1, city: 1, gender: 1, caste: 1, photo: 1, source: 1 } }
+            { projection: { name: 1, age: 1, city: 1, gender: 1, caste: 1, photo: 1, source: 1, registeredBy: 1 } }
           ),
           db.collection('profiles').findOne(
             { _id: m.candidateId },
-            { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1, source: 1 } }
+            { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1, source: 1, registeredBy: 1 } }
           ),
         ]);
 
-        const leftType  = (m.leftProfileType  as string | undefined) || getProfileType(userDoc);
-        const rightType = (m.rightProfileType as string | undefined) || getProfileType(candidateDoc);
+        // Always recompute from the live profile — stored types on old match docs
+        // may be stale (e.g. created before registeredBy existed).
+        const leftType  = getProfileType(userDoc);
+        const rightType = getProfileType(candidateDoc);
 
         return { ...m, user: userDoc, candidate: candidateDoc, leftProfileType: leftType, rightProfileType: rightType };
       })
