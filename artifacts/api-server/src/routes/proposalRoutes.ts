@@ -105,7 +105,7 @@ function detectContactInfo(text: string): string | null {
 
 const PROFILE_PROJECTION = {
   name: 1, age: 1, dob: 1, city: 1, gender: 1, caste: 1,
-  profession: 1, education: 1, photo: 1, height: 1, source: 1,
+  profession: 1, education: 1, photo: 1, height: 1, source: 1, registeredBy: 1,
 };
 
 /** Best-effort compatibility score for a proposal — by matchId, else by pair. */
@@ -527,14 +527,29 @@ const handleInterest = async (req: AuthRequest, res: Response): Promise<void> =>
     }
 
     const now = new Date();
-    const initiatorInterested = side === 'initiator' ? true : !!p.mutualInterest?.initiatorInterested;
-    const recipientInterested = side === 'recipient' ? true : !!p.mutualInterest?.recipientInterested;
+
+    // A staff-managed side has no login → it can never click "Interested". Staff
+    // already vouched for the match by creating/approving it, so treat a
+    // staff-managed side as implicitly interested. This lets the one human side's
+    // click complete the match instead of stalling until the chat expires.
+    const [initP, recipP] = await Promise.all([
+      db.collection('profiles').findOne({ _id: p.initiatorId }, { projection: { registeredBy: 1, source: 1 } }),
+      db.collection('profiles').findOne({ _id: p.recipientId }, { projection: { registeredBy: 1, source: 1 } }),
+    ]);
+    const initStaff = isStaffManaged(initP);
+    const recipStaff = isStaffManaged(recipP);
+
+    const initiatorInterested = side === 'initiator' ? true : (initStaff || !!p.mutualInterest?.initiatorInterested);
+    const recipientInterested = side === 'recipient' ? true : (recipStaff || !!p.mutualInterest?.recipientInterested);
     const bothInterested = initiatorInterested && recipientInterested;
 
     const set: any = {
       [`mutualInterest.${side}Interested`]: true,
       updatedAt: now,
     };
+    // Persist the implicit interest of any staff-managed side.
+    if (initStaff) set['mutualInterest.initiatorInterested'] = true;
+    if (recipStaff) set['mutualInterest.recipientInterested'] = true;
     if (bothInterested) {
       set.status = 'family_proposal_stage';
       set.completedAt = now;
