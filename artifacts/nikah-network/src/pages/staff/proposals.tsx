@@ -3,10 +3,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, MessageSquare } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import proposalService, { type Proposal, type ProposalStatus } from "@/services/proposalService";
 import InsightsModal from "@/components/matches/InsightsModal";
+import StaffChatModal from "@/components/StaffChatModal";
+
+const STAFF_SOURCES = ["staff_entry", "paper", "whatsapp", "walkin", "referral", "phone"];
+const isStaffManaged = (p?: { registeredBy?: string; source?: string }) =>
+  p?.registeredBy === "staff" || STAFF_SOURCES.includes(p?.source || "");
+const CHAT_STATUSES = ["chat_active", "family_proposal_stage", "completed", "expired"];
 
 const FILTERS: { label: string; value: ProposalStatus | "all" }[] = [
   { label: "Pending Review", value: "pending_staff_review" },
@@ -30,6 +36,7 @@ export default function StaffProposals() {
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const [insightsMatchId, setInsightsMatchId] = useState<string | null>(null);
+  const [chatProposal, setChatProposal] = useState<Proposal | null>(null);
 
   const load = async () => {
     try {
@@ -128,6 +135,11 @@ export default function StaffProposals() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-2 whitespace-nowrap">
+                      {CHAT_STATUSES.includes(p.status) && (
+                        <Button size="sm" variant="outline" onClick={() => setChatProposal(p)}>
+                          <MessageSquare className="w-4 h-4 mr-1" /> Chat
+                        </Button>
+                      )}
                       {p.matchId && (
                         <Button size="sm" variant="outline" onClick={() => setInsightsMatchId(p.matchId!)}>
                           <Sparkles className="w-4 h-4 mr-1" /> Insights
@@ -142,7 +154,7 @@ export default function StaffProposals() {
                             {actingId === p._id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve"}
                           </Button>
                         </>
-                      ) : !p.matchId ? (
+                      ) : (!p.matchId && !CHAT_STATUSES.includes(p.status)) ? (
                         <span className="text-xs text-muted-foreground">—</span>
                       ) : null}
                     </TableCell>
@@ -158,6 +170,23 @@ export default function StaffProposals() {
         matchId={insightsMatchId}
         open={insightsMatchId !== null}
         onClose={() => setInsightsMatchId(null)}
+      />
+
+      <StaffChatModal
+        proposalId={chatProposal?._id ?? null}
+        open={chatProposal !== null}
+        onClose={() => setChatProposal(null)}
+        initiatorName={chatProposal?.initiator?.name}
+        recipientName={chatProposal?.recipient?.name}
+        relayFor={
+          chatProposal
+            ? isStaffManaged(chatProposal.recipient)
+              ? chatProposal.recipient?.name
+              : isStaffManaged(chatProposal.initiator)
+              ? chatProposal.initiator?.name
+              : undefined
+            : undefined
+        }
       />
     </div>
   );
