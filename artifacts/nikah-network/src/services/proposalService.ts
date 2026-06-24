@@ -24,6 +24,8 @@ export interface ProfileSide {
   education?: string;
   photo?: string;
   height?: string;
+  registeredBy?: 'self' | 'staff';
+  source?: string;
 }
 
 export interface ProposalChat {
