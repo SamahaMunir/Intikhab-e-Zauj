@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { getToken } from '@/lib/auth';
 import { AlertCircle, Loader2, RefreshCw, Search, X, ScrollText } from "lucide-react";
 
 interface AuditLog {
@@ -41,7 +42,7 @@ export default function StaffAudit() {
   const [pendingActor, setPendingActor]       = useState('');
   const [pendingResource, setPendingResource] = useState('');
 
-  const token  = localStorage.getItem('token');
+  const token  = getToken('staff');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   const fetchAuditLogs = async (p = page) => {
