@@ -4,6 +4,8 @@
  * Mirrors matchingService auth convention: Bearer token from localStorage('token').
  */
 
+import { getToken } from '../lib/auth';
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export type ProposalType = 'USER_PROPOSAL' | 'STAFF_PROPOSAL';
@@ -48,16 +50,28 @@ export interface Proposal {
   notes?: string;
   justification?: string;
   questionResponses?: QuestionResponse[];
-  mutualInterest: { recipientAccepted: boolean; initiatorInterested: boolean; recipientInterested: boolean };
+  mutualInterest: {
+    recipientAccepted: boolean;
+    initiatorInterested: boolean;
+    recipientInterested: boolean;
+    initiatorConfirmedBy?: string;   // set when staff confirmed on this side's behalf
+    recipientConfirmedBy?: string;
+    initiatorConfirmedAt?: string;
+    recipientConfirmedAt?: string;
+  };
   chat: ProposalChat;
   familyEmail: { sent: boolean; sentAt?: string };
   reviewReason?: string;
+  conclusionNote?: string;
+  familyStageAt?: string;
+  completedAt?: string;
   createdAt: string;
   updatedAt: string;
   expiresAt: string;
   initiator?: ProfileSide;
   recipient?: ProfileSide;
   compatibilityScore?: number;
+  orphaned?: boolean;
 }
 
 export interface ChatMessage {
@@ -89,7 +103,7 @@ export interface CreateProposalInput {
 }
 
 function authHeaders(json = true): Record<string, string> {
-  const h: Record<string, string> = { Authorization: `Bearer ${localStorage.getItem('token') || ''}` };
+  const h: Record<string, string> = { Authorization: `Bearer ${getToken()}` };
   if (json) h['Content-Type'] = 'application/json';
   return h;
 }
@@ -172,6 +186,14 @@ class ProposalService {
   async staffReview(id: string, action: 'approve' | 'reject', reason?: string): Promise<any> {
     const res = await fetch(`${API_BASE}/api/staff/proposals/${id}/review`, {
       method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ action, reason }),
+    });
+    return parse(res);
+  }
+
+  /** Close out a family-stage proposal: 'completed' (success) or 'not_proceeded'. */
+  async conclude(id: string, outcome: 'completed' | 'not_proceeded', note?: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/api/staff/proposals/${id}/conclude`, {
+      method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ outcome, note }),
     });
     return parse(res);
   }
