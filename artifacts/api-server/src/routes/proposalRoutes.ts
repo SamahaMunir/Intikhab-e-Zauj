@@ -81,7 +81,7 @@ function approvalFields(decision: ApprovalDecision, now: Date): Record<string, a
     f.chat = { status: 'open', openedAt: now, closesAt: new Date(now.getTime() + CHAT_WINDOW_MS), messageCount: 0 };
   } else if (decision.status === 'family_proposal_stage') {
     f['mutualInterest.recipientAccepted'] = true;
-    f.completedAt = now; // both staff-managed → straight to family/offline stage
+    f.familyStageAt = now; // both staff-managed → straight to family/offline stage
   }
   return f;
 }
@@ -128,7 +128,10 @@ async function enrichProposal(db: any, p: any) {
     db.collection('profiles').findOne({ _id: p.recipientId }, { projection: PROFILE_PROJECTION }),
     lookupCompatibilityScore(db, p),
   ]);
-  return { ...p, initiator, recipient, compatibilityScore };
+  // A proposal is orphaned if either profile was deleted — stale history that
+  // should not surface in the staff queues.
+  const orphaned = !initiator || !recipient;
+  return { ...p, initiator, recipient, compatibilityScore, orphaned };
 }
 
 /** Is this account a participant (initiator/recipient/creator) or staff? */
@@ -169,14 +172,14 @@ async function settleExpiry(db: any, p: any): Promise<any> {
   const now = new Date();
   const bothInterested = !!(p.mutualInterest?.initiatorInterested && p.mutualInterest?.recipientInterested);
   const next = bothInterested
-    ? { status: 'family_proposal_stage', completedAt: now, 'chat.status': 'closed', updatedAt: now }
+    ? { status: 'family_proposal_stage', familyStageAt: now, 'chat.status': 'closed', updatedAt: now }
     : { status: 'expired', 'chat.status': 'expired', updatedAt: now };
 
   await db.collection('proposals').updateOne({ _id: p._id }, { $set: next });
   const updated = {
     ...p,
     status: next.status,
-    completedAt: (next as any).completedAt ?? p.completedAt,
+    familyStageAt: (next as any).familyStageAt ?? p.familyStageAt,
     chat: { ...p.chat, status: next['chat.status'] },
     updatedAt: now,
   };
@@ -213,8 +216,8 @@ userProposalRouter.post('/', authMiddleware, async (req: AuthRequest, res: Respo
       return;
     }
 
-    const initOid = toObjectId(getId(initiatorId));
-    const recipOid = toObjectId(getId(recipientId));
+    let initOid = toObjectId(getId(initiatorId));
+    let recipOid = toObjectId(getId(recipientId));
     if (!initOid || !recipOid) {
       res.status(400).json({ success: false, error: 'Valid initiatorId and recipientId required' });
       return;
@@ -227,13 +230,24 @@ userProposalRouter.post('/', authMiddleware, async (req: AuthRequest, res: Respo
     const db = await getDatabase();
     const profiles = db.collection('profiles');
 
-    const [initiator, recipient] = await Promise.all([
+    let [initiator, recipient] = await Promise.all([
       profiles.findOne({ _id: initOid }),
       profiles.findOne({ _id: recipOid }),
     ]);
     if (!initiator || !recipient) {
       res.status(404).json({ success: false, error: 'initiator or recipient profile not found' });
       return;
+    }
+
+    // Direction normalization (staff-mediated pairing): when staff pair a
+    // staff-managed (no-login) profile with a real applicant, the applicant is
+    // the one who must consent, so they must be the RECIPIENT. The staff-managed
+    // side becomes the initiator (staff proxies it). This makes the proposal land
+    // in the applicant's "Received" tab instead of vanishing into a no-login
+    // recipient. Only swap when exactly one side is staff-managed.
+    if (type === 'STAFF_PROPOSAL' && isStaffManaged(initiator) !== isStaffManaged(recipient) && !isStaffManaged(initiator)) {
+      [initOid, recipOid] = [recipOid, initOid];
+      [initiator, recipient] = [recipient, initiator];
     }
 
     // Hard-filter gate — a proposal may only be sent for a pair that passes the
@@ -528,31 +542,27 @@ const handleInterest = async (req: AuthRequest, res: Response): Promise<void> =>
 
     const now = new Date();
 
-    // A staff-managed side has no login → it can never click "Interested". Staff
-    // already vouched for the match by creating/approving it, so treat a
-    // staff-managed side as implicitly interested. This lets the one human side's
-    // click complete the match instead of stalling until the chat expires.
-    const [initP, recipP] = await Promise.all([
-      db.collection('profiles').findOne({ _id: p.initiatorId }, { projection: { registeredBy: 1, source: 1 } }),
-      db.collection('profiles').findOne({ _id: p.recipientId }, { projection: { registeredBy: 1, source: 1 } }),
-    ]);
-    const initStaff = isStaffManaged(initP);
-    const recipStaff = isStaffManaged(recipP);
+    // Interest is explicit per side. A staff-managed side has no login, so a staff
+    // member confirms it on their behalf (an audited proxy action) — never inferred
+    // silently, so there is a clear consent trail.
+    const actedAsParticipant = !!participantSide(req, p);
+    const proxiedByStaff = !actedAsParticipant; // staff confirmed on behalf of `side`
 
-    const initiatorInterested = side === 'initiator' ? true : (initStaff || !!p.mutualInterest?.initiatorInterested);
-    const recipientInterested = side === 'recipient' ? true : (recipStaff || !!p.mutualInterest?.recipientInterested);
+    const initiatorInterested = side === 'initiator' ? true : !!p.mutualInterest?.initiatorInterested;
+    const recipientInterested = side === 'recipient' ? true : !!p.mutualInterest?.recipientInterested;
     const bothInterested = initiatorInterested && recipientInterested;
 
     const set: any = {
       [`mutualInterest.${side}Interested`]: true,
       updatedAt: now,
     };
-    // Persist the implicit interest of any staff-managed side.
-    if (initStaff) set['mutualInterest.initiatorInterested'] = true;
-    if (recipStaff) set['mutualInterest.recipientInterested'] = true;
+    if (proxiedByStaff) {
+      set[`mutualInterest.${side}ConfirmedBy`] = req.user!.id; // who proxied this consent
+      set[`mutualInterest.${side}ConfirmedAt`] = now;
+    }
     if (bothInterested) {
       set.status = 'family_proposal_stage';
-      set.completedAt = now;
+      set.familyStageAt = now;
       set['chat.status'] = 'closed';
     }
 
@@ -563,7 +573,7 @@ const handleInterest = async (req: AuthRequest, res: Response): Promise<void> =>
       await notifyFamilyOnCompletion(db, {
         ...p,
         status: 'family_proposal_stage',
-        completedAt: now,
+        familyStageAt: now,
         mutualInterest: { ...p.mutualInterest, initiatorInterested, recipientInterested },
       });
     }
@@ -571,7 +581,9 @@ const handleInterest = async (req: AuthRequest, res: Response): Promise<void> =>
     await logAudit(
       req.user!.email, req.user!.id, req.user!.role as any,
       bothInterested ? 'family_proposal_stage' : 'interest_proposal',
-      'proposal', oid.toString(), `${side} interested`, { bothInterested }
+      'proposal', oid.toString(),
+      proxiedByStaff ? `Staff confirmed interest on behalf of ${side}` : `${side} interested`,
+      { bothInterested, side, proxiedByStaff }
     );
 
     res.json({
@@ -716,7 +728,9 @@ staffProposalRouter.get('/', async (req: AuthRequest, res: Response): Promise<vo
       .skip(skip)
       .limit(limit)
       .toArray();
-    const proposals = await Promise.all(raw.map((p) => enrichProposal(db, p)));
+    // Drop orphaned proposals (a profile was deleted) — stale history, not actionable.
+    const enriched = await Promise.all(raw.map((p) => enrichProposal(db, p)));
+    const proposals = enriched.filter((p) => !p.orphaned);
 
     res.json({
       success: true,
@@ -828,6 +842,65 @@ staffProposalRouter.patch('/:id/review', async (req: AuthRequest, res: Response)
     });
   } catch (error) {
     console.error('❌ Review proposal error:', error);
+    res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
+  }
+});
+
+/**
+ * PATCH /api/staff/proposals/:id/conclude  { outcome: 'completed' | 'not_proceeded', note? }
+ * Close out a family-stage proposal once the offline family process finishes —
+ * the terminal step the pipeline previously lacked.
+ *   completed     → status 'completed'  (success; permanently off the suggestion list)
+ *   not_proceeded → status 'withdrawn'  (didn't proceed; the pair may be suggested again)
+ */
+staffProposalRouter.patch('/:id/conclude', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const oid = toObjectId(getId(req.params.id));
+    const outcome = String((req.body || {}).outcome || '').toLowerCase();
+    const note = (req.body || {}).note as string | undefined;
+    if (!oid) {
+      res.status(400).json({ success: false, error: 'Invalid proposal id' });
+      return;
+    }
+    if (outcome !== 'completed' && outcome !== 'not_proceeded') {
+      res.status(400).json({ success: false, error: "outcome must be 'completed' or 'not_proceeded'" });
+      return;
+    }
+
+    const db = await getDatabase();
+    const p = await db.collection('proposals').findOne({ _id: oid });
+    if (!p) {
+      res.status(404).json({ success: false, error: 'Proposal not found' });
+      return;
+    }
+    if (p.status !== 'family_proposal_stage') {
+      res.status(409).json({ success: false, error: `Only a family-stage proposal can be concluded (current: '${p.status}')` });
+      return;
+    }
+
+    const now = new Date();
+    const set: any = { updatedAt: now };
+    if (outcome === 'completed') {
+      set.status = 'completed';
+      set.completedAt = now;
+    } else {
+      set.status = 'withdrawn';
+      set.withdrawnAt = now;
+    }
+    if (note) set.conclusionNote = note;
+
+    await db.collection('proposals').updateOne({ _id: oid }, { $set: set });
+
+    await logAudit(
+      req.user!.email, req.user!.id, req.user!.role as any,
+      outcome === 'completed' ? 'complete_proposal' : 'close_proposal',
+      'proposal', oid.toString(), note || (outcome === 'completed' ? 'Marked completed' : 'Closed — did not proceed'),
+      { outcome }
+    );
+
+    res.json({ success: true, message: `Proposal ${set.status}`, status: set.status });
+  } catch (error) {
+    console.error('❌ Conclude proposal error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
   }
 });
