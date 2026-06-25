@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
+import { getToken } from '@/lib/auth';
 
 interface AddNoteModalProps {
   isOpen: boolean;
@@ -38,7 +39,7 @@ export default function AddNoteModal({
     }
     setLoading(true);
     try {
-      const token = localStorage.getItem('token') || '';
+      const token = getToken('staff');
       const res = await fetch(`${API}/api/staff/profiles/${profileId}/note`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
