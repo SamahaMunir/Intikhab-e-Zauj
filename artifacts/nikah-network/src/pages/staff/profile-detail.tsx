@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useLocation } from 'wouter';
+import { getToken } from '@/lib/auth';
 import { ProfileView, type ProfileData } from '@/components/ProfileView';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,7 +27,7 @@ export default function StaffProfileDetail() {
   }, [profileId]);
 
   const fetchProfile = async () => {
-    const token = localStorage.getItem('token');
+    const token = getToken('staff');
     if (!token) { setLocation('/staff-login'); return; }
 
     setLoading(true);
@@ -48,7 +49,7 @@ export default function StaffProfileDetail() {
 
   const doAction = async (action: 'approve' | 'reject') => {
     if (action === 'reject' && !rejectionReason.trim()) return;
-    const token = localStorage.getItem('token');
+    const token = getToken('staff');
     if (!token) return;
 
     setActionLoading(true);
