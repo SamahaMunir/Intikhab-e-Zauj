@@ -2,27 +2,34 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Send } from "lucide-react";
-import proposalService, { type ChatMessage } from "@/services/proposalService";
+import { Loader2, Send, Heart, Check, Clock } from "lucide-react";
+import proposalService, { type ChatMessage, type Proposal } from "@/services/proposalService";
 
 /**
  * Staff chat / relay window. A staff-managed profile has no login, so staff
  * read the conversation here and reply on its behalf. Messages staff send are
  * stored with senderRole='staff' and appear to the applicant as the other side.
+ *
+ * When the other side is staff-managed, staff also explicitly confirm that side's
+ * interest here (an audited proxy action) — interest is never inferred silently.
  */
 export default function StaffChatModal({
-  proposalId, open, onClose, initiatorName, recipientName, relayFor,
+  proposalId, open, onClose, initiatorName, recipientName, relayFor, relaySide, onChanged,
 }: {
   proposalId: string | null;
   open: boolean;
   onClose: () => void;
   initiatorName?: string;
   recipientName?: string;
-  relayFor?: string; // name of the staff-managed side staff is relaying for, if any
+  relayFor?: string;                          // name of the staff-managed side, if any
+  relaySide?: "initiator" | "recipient";      // which side staff proxy for
+  onChanged?: () => void;                      // notify parent to refresh after an action
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -30,8 +37,14 @@ export default function StaffChatModal({
   const refresh = async () => {
     if (!proposalId) return;
     try {
-      const res = await proposalService.getMessages(proposalId);
-      setMessages(res.messages || []);
+      // Pull messages AND the proposal so staff see live interest state (who has
+      // already clicked "I'm Interested") without reopening the modal.
+      const [msgRes, propRes] = await Promise.all([
+        proposalService.getMessages(proposalId),
+        proposalService.get(proposalId).catch(() => null),
+      ]);
+      setMessages(msgRes.messages || []);
+      if (propRes?.proposal) setProposal(propRes.proposal);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load chat");
     } finally {
@@ -41,7 +54,7 @@ export default function StaffChatModal({
 
   useEffect(() => {
     if (!open || !proposalId) return;
-    setLoading(true); setError(null); setText("");
+    setLoading(true); setError(null); setText(""); setProposal(null);
     refresh();
     const t = setInterval(refresh, 8000);
     return () => clearInterval(t);
@@ -65,6 +78,45 @@ export default function StaffChatModal({
     }
   };
 
+  const confirmInterest = async () => {
+    if (!proposalId || !relaySide) return;
+    setConfirming(true); setError(null);
+    try {
+      await proposalService.interest(proposalId, relaySide);
+      await refresh();
+      onChanged?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not confirm interest");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  // Live interest state (from the polled proposal).
+  const mi = proposal?.mutualInterest;
+  const initiatorInterested = !!mi?.initiatorInterested;
+  const recipientInterested = !!mi?.recipientInterested;
+  const initiatorProxied = !!mi?.initiatorConfirmedBy;
+  const recipientProxied = !!mi?.recipientConfirmedBy;
+  const relaySideInterested = relaySide === "initiator" ? initiatorInterested : relaySide === "recipient" ? recipientInterested : false;
+  const initName = initiatorName || proposal?.initiator?.name || "Initiator";
+  const recipName = recipientName || proposal?.recipient?.name || "Recipient";
+
+  const InterestRow = ({ label, interested, proxied }: { label: string; interested: boolean; proxied: boolean }) => (
+    <div className="flex items-center justify-between text-xs">
+      <span className="truncate">{label}</span>
+      {interested ? (
+        <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold shrink-0">
+          <Check className="w-3.5 h-3.5" /> Interested{proxied ? " (staff-confirmed)" : ""}
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-muted-foreground shrink-0">
+          <Clock className="w-3.5 h-3.5" /> Waiting
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
@@ -74,9 +126,25 @@ export default function StaffChatModal({
           </DialogTitle>
         </DialogHeader>
 
+        {/* Live interest tracker — staff see the moment either party clicks "I'm Interested". */}
+        <div className="rounded-lg border bg-muted/40 p-2.5 space-y-1.5">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Interest</p>
+          <InterestRow label={initName} interested={initiatorInterested} proxied={initiatorProxied} />
+          <InterestRow label={recipName} interested={recipientInterested} proxied={recipientProxied} />
+          {initiatorInterested && recipientInterested && (
+            <p className="text-[11px] text-emerald-700 font-medium pt-0.5">Both interested → advanced to family stage.</p>
+          )}
+        </div>
+
         {relayFor && (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs p-2.5">
-            {relayFor} is a staff-managed profile (no login). Messages you send here are relayed on their behalf.
+          <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs p-2.5 space-y-2">
+            <p>{relayFor} is a staff-managed profile (no login). Messages you send here are relayed on their behalf.</p>
+            {relaySide && (
+              <Button size="sm" variant="outline" disabled={confirming || relaySideInterested} onClick={confirmInterest} className="w-full">
+                {confirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Heart className="w-4 h-4 mr-1" />}
+                {relaySideInterested ? `Interest confirmed for ${relayFor}` : `Confirm interest on behalf of ${relayFor}`}
+              </Button>
+            )}
           </div>
         )}
 
