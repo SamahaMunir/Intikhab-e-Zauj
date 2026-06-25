@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { getToken } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
@@ -54,7 +55,7 @@ export default function ProfileApproval() {
   const fetchPendingProfiles = async () => {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const token = localStorage.getItem('token');
+      const token = getToken('staff');
 
       if (!token) {
         alert('⚠️ Not authenticated! Please login.');
@@ -92,7 +93,7 @@ export default function ProfileApproval() {
     setActionLoading(true);
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const token = localStorage.getItem('token');
+      const token = getToken('staff');
 
       if (!token) {
         throw new Error('No authentication token');
@@ -142,7 +143,7 @@ export default function ProfileApproval() {
     setActionLoading(true);
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const token = localStorage.getItem('token');
+      const token = getToken('staff');
 
       if (!token) {
         throw new Error('No authentication token');
