@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
+import { getToken } from '@/lib/auth';
 
 interface Profile {
   _id: string;
@@ -42,7 +43,7 @@ export default function CreateMatchModal({ isOpen, onClose, profiles }: CreateMa
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('token') || '';
+      const token = getToken('staff');
       const res = await fetch(`${API}/api/matches/generate/${maleId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
