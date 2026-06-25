@@ -28,6 +28,28 @@ const STAFF_SOURCES = ['staff_entry', 'paper', 'whatsapp', 'walkin', 'referral',
 // the staff-entry default.
 const PAYMENT_OK = ['completed', 'waived'];
 
+// Once a pair enters the proposal pipeline (active OR moved forward to family/
+// completed), the match is no longer a "suggestion" — hide it from both the user
+// and staff match views. Terminal-negative proposals (rejected/declined/withdrawn/
+// expired) are intentionally excluded, so the match reappears and the pair can be
+// suggested again.
+const PROPOSAL_HIDE_STATUSES = [
+  'pending_staff_review', 'pending_recipient', 'mutual_interest_confirmed',
+  'chat_active', 'family_proposal_stage', 'completed',
+];
+async function pairsInProposalPipeline(db: any): Promise<Set<string>> {
+  const props = await db.collection('proposals')
+    .find({ status: { $in: PROPOSAL_HIDE_STATUSES } }, { projection: { initiatorId: 1, recipientId: 1 } })
+    .toArray();
+  const set = new Set<string>();
+  for (const p of props) {
+    if (p.initiatorId && p.recipientId) {
+      set.add([p.initiatorId.toString(), p.recipientId.toString()].sort().join('|'));
+    }
+  }
+  return set;
+}
+
 function getProfileType(profile: any): 'staff' | 'user' {
   // registeredBy is the authoritative signal (set on all staff-created profiles
   // + backfilled by migration); source is the legacy fallback.
@@ -99,9 +121,17 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
         bestByCandidate.set(cid, m);
       }
     }
-    const matches = Array.from(bestByCandidate.values()).sort((a, b) => b.score - a.score);
+    const deduped = Array.from(bestByCandidate.values()).sort((a, b) => b.score - a.score);
 
-    console.log(`✅ Found ${rawMatches.length} raw → ${matches.length} deduplicated matches`);
+    // Hide any pair that has already entered the proposal pipeline.
+    const hidden = await pairsInProposalPipeline(db);
+    const matches = deduped.filter((m) => {
+      const a = (m.userId?.toString?.() || m.userId || userIdStr) as string;
+      const b = (m.candidateId?.toString?.() || m.candidateId) as string;
+      return !hidden.has([a, b].sort().join('|'));
+    });
+
+    console.log(`✅ Found ${rawMatches.length} raw → ${matches.length} visible matches`);
 
     const enriched = await Promise.all(
       matches.map(async (m) => {
@@ -404,7 +434,9 @@ router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Requ
       })
     );
 
-    // Filter: exclude pure User↔User; deduplicate bidirectional pairs (keep highest score)
+    // Hide pairs already in the proposal pipeline; exclude pure User↔User;
+    // deduplicate bidirectional pairs (keep highest score).
+    const hidden = await pairsInProposalPipeline(db);
     const seen = new Set<string>();
     const staffRelevant: typeof enriched = [];
     for (const m of enriched) {
@@ -412,6 +444,7 @@ router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Requ
       const id1 = (m as any).userId?.toString() || '';
       const id2 = (m as any).candidateId?.toString() || '';
       const key = [id1, id2].sort().join('|');
+      if (hidden.has(key)) continue;       // already proposed → not a suggestion anymore
       if (seen.has(key)) continue;
       seen.add(key);
       staffRelevant.push(m);
