@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { getToken } from '@/lib/auth';
 import {
   Users, Clock, CheckCircle2, Heart, ArrowRight, UserPlus, ClipboardCheck,
   Sparkles, FileText, ShieldCheck, HeartHandshake,
@@ -13,7 +14,7 @@ export default function StaffDashboard() {
   const [profileStats, setProfileStats] = useState({ total: 0, pending: 0, approved: 0 });
   const [loading, setLoading] = useState(true);
 
-  const token = localStorage.getItem('token') || '';
+  const token = getToken('staff');
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
