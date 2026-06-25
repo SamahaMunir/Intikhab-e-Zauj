@@ -1,4 +1,6 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { getToken, getStoredUser } from "@/lib/auth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -124,7 +126,23 @@ function AppPortalRouter() {
 // ============================================================================
 // STAFF PORTAL ROUTER - Staff pages
 // ============================================================================
+/** Staff/admin only. A stale user session (or none) must not mount staff pages —
+ *  otherwise they fire /api/staff/* calls with a non-staff token and 403. Redirect
+ *  unauthorized visitors to the staff login instead. */
+function isStaffAuthorized(): boolean {
+  const token = getToken('staff');
+  const user = getStoredUser<{ role?: string }>('staff');
+  return !!token && !!user && (user.role === 'staff' || user.role === 'admin');
+}
+
 function StaffPortalRouter() {
+  const [, setLocation] = useLocation();
+  const authorized = isStaffAuthorized();
+  useEffect(() => {
+    if (!authorized) setLocation('/staff-login');
+  }, [authorized, setLocation]);
+  if (!authorized) return null;
+
   return (
     <StaffLayout>
       <Switch>
