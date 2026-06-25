@@ -10,6 +10,7 @@ import MatchScoreBadge from '../../components/matches/MatchScoreBadge';
 import ProposalModal, { ProposalMode, ProposalPayload } from '../../components/matches/ProposalModal';
 import InsightsModal from '../../components/matches/InsightsModal';
 import proposalService from '../../services/proposalService';
+import { getToken } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
 type ProfileType = 'user' | 'staff';
@@ -60,9 +61,10 @@ export default function StaffMatches() {
   const [typeFilter,  setTypeFilter]  = useState<'all' | 'staff-staff' | 'staff-user'>('all');
 
   const [proposalModal, setProposalModal] = useState<
-    { mode: ProposalMode; name?: string; id?: string; initiatorId?: string; recipientId?: string } | null
+    { mode: ProposalMode; name?: string; id?: string; initiatorId?: string; recipientId?: string; matchId?: string } | null
   >(null);
   const [insightsMatchId, setInsightsMatchId] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const users = useStore(s => s.users);
   const staffOptions = useMemo(
     () => users.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ id: u.id, name: u.name })),
@@ -71,21 +73,28 @@ export default function StaffMatches() {
   const submitProposal = async (payload: ProposalPayload) => {
     const initiatorId = proposalModal?.initiatorId;
     const recipientId = proposalModal?.recipientId;
+    const matchId = proposalModal?.matchId;
     if (!initiatorId || !recipientId) return;
+    setError(null);
     if (payload.type === 'USER_PROPOSAL') {
       await proposalService.create({
-        type: 'USER_PROPOSAL', initiatorId, recipientId,
+        type: 'USER_PROPOSAL', initiatorId, recipientId, matchId,
         message: payload.message, matchNotes: payload.matchNotes, compatibilityReason: payload.compatibilityReason,
       });
     } else {
       await proposalService.create({
-        type: 'STAFF_PROPOSAL', initiatorId, recipientId,
+        type: 'STAFF_PROPOSAL', initiatorId, recipientId, matchId,
         notes: payload.notes, justification: payload.justification,
       });
     }
+    // Proposal created → this pair has entered the pipeline. Remove its card
+    // immediately (no refetch needed) and confirm.
+    if (matchId) setMatches(prev => prev.filter(m => m._id !== matchId));
+    setSuccess('Proposal created successfully. This match has been removed from suggestions.');
+    setTimeout(() => setSuccess(null), 5000);
   };
 
-  const token = localStorage.getItem('token') || '';
+  const token = getToken('staff');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
@@ -204,6 +213,9 @@ export default function StaffMatches() {
       {error && (
         <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">{error}</div>
       )}
+      {success && (
+        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-[#059669] text-sm font-semibold">{success}</div>
+      )}
 
       {/* Type filter tabs */}
       <div className="flex gap-2 flex-wrap items-center">
@@ -321,6 +333,7 @@ export default function StaffMatches() {
                         id: recipient?._id ?? maleProfile?._id,
                         initiatorId: maleProfile?._id,
                         recipientId: femaleProfile?._id,
+                        matchId: m._id,
                       })}
                       className="flex-1 h-12 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669] text-white
                                  font-bold flex items-center justify-center gap-2 shadow-md
