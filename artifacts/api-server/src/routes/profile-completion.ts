@@ -215,6 +215,13 @@ router.get(
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
+      // A staff/admin token carries a non-ObjectId id (e.g. "admin") and has no
+      // applicant profile. Reject cleanly so the client clears it and redirects
+      // to login, instead of throwing → 500 loop.
+      if (!ObjectId.isValid(req.user.id)) {
+        res.status(401).json({ error: 'This endpoint is for applicant accounts only.' });
+        return;
+      }
       const db   = await getDatabase();
       const proj = { projection: { password: 0, verificationToken: 0, verificationTokenExpiry: 0 } };
       const oid  = new ObjectId(req.user.id);
