@@ -40,8 +40,9 @@ const Matches: React.FC = () => {
   const profileComplete = profileCompletion >= 100;
 
   // Single source for match data — backend matching engine via API.
-  const { matches, isLoading, isGenerating, error, generate } = useMatches(userId, profileComplete);
+  const { matches, isLoading, isGenerating, error, generate, removeCandidate } = useMatches(userId, profileComplete);
   const generateMatches = generate;
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Filter + sort (highest compatibility first)
   const visible = useMemo(() => {
@@ -74,16 +75,21 @@ const Matches: React.FC = () => {
   };
   const submitProposal = async (payload: ProposalPayload) => {
     if (payload.type !== 'USER_PROPOSAL' || !userId || !proposalTarget?.id) return;
+    const candidateId = proposalTarget.id;
     await proposalService.create({
       type: 'USER_PROPOSAL',
       initiatorId: userId,
-      recipientId: proposalTarget.id,
+      recipientId: candidateId,
       matchId: proposalTarget.matchId,
       message: payload.message,
       matchNotes: payload.matchNotes,
       compatibilityReason: payload.compatibilityReason,
       questionResponses: payload.questionResponses,
     });
+    // Proposal sent → pair has entered the pipeline; drop the card immediately.
+    removeCandidate(candidateId);
+    setSuccess('Proposal sent. This match has been removed from your suggestions.');
+    setTimeout(() => setSuccess(null), 5000);
   };
   const filterCount = activeFilterCount(filters);
 
@@ -154,6 +160,10 @@ const Matches: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {success && (
+        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-[#059669] text-sm font-semibold">{success}</div>
+      )}
 
       {/* Active filter chips */}
       {filterCount > 0 && (
