@@ -17,6 +17,7 @@
 
 import { useState, useRef } from 'react';
 import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
+import { getToken } from '@/lib/auth';
 import SearchableSelect from '@/components/SearchableSelect';
 import PhoneInput from '@/components/PhoneInput';
 import {
@@ -175,7 +176,7 @@ export default function StaffDataEntry() {
     try {
       const qs = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
       const r = await fetch(`${API}/api/profile/check-duplicate?${qs}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        headers: { Authorization: `Bearer ${getToken('staff')}` },
       });
       const d = await r.json();
       if (d.duplicate) return { field: d.field, message: d.message };
@@ -220,7 +221,7 @@ export default function StaffDataEntry() {
   // ── Submit ────────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!validateStep(4)) return;
-    const token = localStorage.getItem('token');
+    const token = getToken('staff');
     if (!token) { setSubmitError('Not authenticated. Please log in.'); return; }
 
     // Pre-flight duplicate check: phone, CNIC, parent phones, photo
