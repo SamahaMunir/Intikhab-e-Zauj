@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { getToken } from '@/lib/auth';
 import { AlertCircle, Copy, Trash2, Lock, Unlock, Users, UserCheck, MailPlus, Send } from 'lucide-react';
 
 interface StaffMember {
@@ -26,7 +27,7 @@ export default function AdminPanel() {
   useEffect(() => {
     // Check if user is authenticated as admin
     const user = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
+    const token = getToken('staff');
 
     if (!user || !token) {
       setLocation('/staff-login');
@@ -43,7 +44,7 @@ export default function AdminPanel() {
   }, []);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  const token = localStorage.getItem('token');
+  const token = getToken('staff');
 
   async function fetchStaff() {
     try {
