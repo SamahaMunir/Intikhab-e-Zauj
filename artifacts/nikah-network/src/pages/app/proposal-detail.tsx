@@ -21,7 +21,7 @@ export default function ProposalDetail() {
 
   const userId = useMemo(() => getUserId(), []);
 
-  const { proposal, loading, acting, error, respond, withdraw, interest } = useProposal(id);
+  const { proposal, loading, acting, error, respond, withdraw, interest, refresh } = useProposal(id);
 
   const chatOpen = proposal?.status === "chat_active" && proposal?.chat?.status === "open";
   const { messages, sending, send } = useChatMessages(id, !!chatOpen);
@@ -30,6 +30,14 @@ export default function ProposalDetail() {
   const [text, setText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }); }, [messages.length]);
+
+  // Poll the proposal while the chat is open so the other side's interest (incl.
+  // a staff-confirmed proxy for a staff-managed profile) shows up live.
+  useEffect(() => {
+    if (!chatOpen) return;
+    const t = setInterval(refresh, 8000);
+    return () => clearInterval(t);
+  }, [chatOpen, refresh]);
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -43,6 +51,9 @@ export default function ProposalDetail() {
   const mySideInterested = isInitiator
     ? proposal.mutualInterest?.initiatorInterested
     : proposal.mutualInterest?.recipientInterested;
+  const otherSideInterested = isInitiator
+    ? proposal.mutualInterest?.recipientInterested
+    : proposal.mutualInterest?.initiatorInterested;
 
   const isRecipientPending = proposal.status === "pending_recipient" && !isInitiator;
   const canWithdraw = isInitiator && ["pending_staff_review", "pending_recipient"].includes(proposal.status);
@@ -169,6 +180,15 @@ export default function ProposalDetail() {
                   <Button variant="outline" className="w-full" disabled={acting} onClick={() => withdraw()}>
                     Withdraw Proposal
                   </Button>
+                )}
+                {chatOpen && otherSideInterested && (
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm p-3 flex items-start gap-2">
+                    <Heart className="w-4 h-4 mt-0.5 shrink-0 fill-emerald-600 text-emerald-600" />
+                    <span>
+                      <strong>{other?.name || "The other person"}</strong> has expressed interest.
+                      {!mySideInterested && " Mark “I'm Interested” to proceed."}
+                    </span>
+                  </div>
                 )}
                 {chatOpen && (
                   <Button className="w-full" disabled={acting || mySideInterested} onClick={() => interest()}>
