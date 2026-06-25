@@ -3,6 +3,8 @@
  * Handles all API calls to matching endpoints
  */
 
+import { getToken } from '../lib/auth';
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface Match {
@@ -31,7 +33,7 @@ class MatchingService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${getToken()}`,
       },
       body: JSON.stringify({ genderHint }),
     });
@@ -48,7 +50,7 @@ class MatchingService {
       `${API_BASE}/api/matches?userId=${userId}&status=suggested`,
       {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${getToken()}`,
         },
       }
     );
@@ -63,7 +65,7 @@ class MatchingService {
   async getMatchDetails(matchId: string): Promise<Match> {
     const response = await fetch(`${API_BASE}/api/matches/${matchId}`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${getToken()}`,
       },
     });
 
@@ -81,7 +83,7 @@ class MatchingService {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${getToken()}`,
         },
       }
     );
@@ -100,7 +102,7 @@ class MatchingService {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${getToken()}`,
         },
         body: JSON.stringify({ reason }),
       }
@@ -118,7 +120,7 @@ class MatchingService {
       `${API_BASE}/api/staff/matches/debug/${userId}`,
       {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${getToken()}`,
         },
       }
     );
