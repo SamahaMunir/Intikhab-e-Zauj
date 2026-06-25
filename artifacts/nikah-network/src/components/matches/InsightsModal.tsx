@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, Sparkles, Loader2, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { getToken } from '../../lib/auth';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -46,7 +47,7 @@ export default function InsightsModal({ matchId, open, onClose }: { matchId: str
   const fetchInsights = async (withAI: boolean) => {
     const qs = withAI ? '?includeAI=true&includeRAG=true' : '?includeRAG=true';
     const r = await fetch(`${API}/api/staff/matches/${matchId}/insights${qs}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      headers: { Authorization: `Bearer ${getToken()}` },
     });
     const d: InsightsResponse = await r.json();
     if (!r.ok) throw new Error(d.error || 'Failed to load insights');
