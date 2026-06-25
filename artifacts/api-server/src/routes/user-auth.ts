@@ -146,6 +146,11 @@ router.get('/whoami', authMiddleware, async (req: AuthRequest, res: Response): P
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+    // Staff/admin tokens carry a non-ObjectId id and have no applicant profile.
+    if (!ObjectId.isValid(req.user.id)) {
+      res.status(401).json({ error: 'This endpoint is for applicant accounts only.' });
+      return;
+    }
     const db = await getDatabase();
     const profile = await db.collection('profiles').findOne({ _id: new ObjectId(req.user.id) });
     if (!profile) {
