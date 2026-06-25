@@ -25,6 +25,8 @@ export interface UseMatches {
   reload: () => Promise<void>;
   /** Same as reload but flagged as an explicit user-triggered regenerate. */
   generate: () => Promise<void>;
+  /** Optimistically drop a candidate (e.g. after a proposal is sent). */
+  removeCandidate: (candidateId: string) => void;
 }
 
 /**
@@ -66,5 +68,7 @@ export function useMatches(userId: string | undefined, enabled = true): UseMatch
     error,
     reload: () => fetchMatches(false),
     generate: () => fetchMatches(true),
+    removeCandidate: (candidateId: string) =>
+      setMatches(prev => prev.filter(m => (m.candidateId || m.candidate?._id) !== candidateId)),
   };
 }
