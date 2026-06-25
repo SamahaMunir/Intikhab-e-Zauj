@@ -22,9 +22,9 @@ export async function sweepExpiredChats(db: Db): Promise<{ completed: number; ex
     if (both) {
       await db.collection('proposals').updateOne(
         { _id: p._id },
-        { $set: { status: 'family_proposal_stage', completedAt: now, 'chat.status': 'closed', updatedAt: now } }
+        { $set: { status: 'family_proposal_stage', familyStageAt: now, 'chat.status': 'closed', updatedAt: now } }
       );
-      await notifyFamilyOnCompletion(db, { ...p, status: 'family_proposal_stage', completedAt: now });
+      await notifyFamilyOnCompletion(db, { ...p, status: 'family_proposal_stage', familyStageAt: now });
       completed++;
     } else {
       await db.collection('proposals').updateOne(
