@@ -3,22 +3,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, MessageSquare } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
+import { Link } from "wouter";
 import proposalService, { type Proposal, type ProposalStatus } from "@/services/proposalService";
 import InsightsModal from "@/components/matches/InsightsModal";
-import StaffChatModal from "@/components/StaffChatModal";
 
-const STAFF_SOURCES = ["staff_entry", "paper", "whatsapp", "walkin", "referral", "phone"];
-const isStaffManaged = (p?: { registeredBy?: string; source?: string }) =>
-  p?.registeredBy === "staff" || STAFF_SOURCES.includes(p?.source || "");
-const CHAT_STATUSES = ["chat_active", "family_proposal_stage", "completed", "expired"];
+// Insights help staff decide before/while a proposal is live. Once it's concluded
+// (completed) or otherwise terminal, the recommendation is irrelevant — hide it.
+const TERMINAL_STATUSES = ["completed", "withdrawn", "expired", "declined_by_recipient", "rejected_by_staff"];
 
 const FILTERS: { label: string; value: ProposalStatus | "all" }[] = [
   { label: "Pending Review", value: "pending_staff_review" },
   { label: "Awaiting Recipient", value: "pending_recipient" },
   { label: "Chat Active", value: "chat_active" },
   { label: "Family Stage", value: "family_proposal_stage" },
+  { label: "Completed", value: "completed" },
   { label: "All", value: "all" },
 ];
 
@@ -36,7 +36,6 @@ export default function StaffProposals() {
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const [insightsMatchId, setInsightsMatchId] = useState<string | null>(null);
-  const [chatProposal, setChatProposal] = useState<Proposal | null>(null);
 
   const load = async () => {
     try {
@@ -62,6 +61,21 @@ export default function StaffProposals() {
     setActingId(id);
     try {
       await proposalService.staffReview(id, action, reason);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const conclude = async (id: string, outcome: "completed" | "not_proceeded") => {
+    const verb = outcome === "completed" ? "mark this match COMPLETED (success)" : "close this match as NOT PROCEEDED";
+    if (!window.confirm(`Are you sure you want to ${verb}?`)) return;
+    const note = window.prompt("Add a closing note (optional):") || undefined;
+    setActingId(id);
+    try {
+      await proposalService.conclude(id, outcome, note);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
@@ -135,12 +149,14 @@ export default function StaffProposals() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-2 whitespace-nowrap">
-                      {CHAT_STATUSES.includes(p.status) && (
-                        <Button size="sm" variant="outline" onClick={() => setChatProposal(p)}>
-                          <MessageSquare className="w-4 h-4 mr-1" /> Chat
-                        </Button>
+                      {p.status === "chat_active" && (
+                        <Link href="/staff/messages">
+                          <Button size="sm" variant="ghost" className="text-muted-foreground">
+                            In Ongoing Chats →
+                          </Button>
+                        </Link>
                       )}
-                      {p.matchId && (
+                      {p.matchId && !TERMINAL_STATUSES.includes(p.status) && (
                         <Button size="sm" variant="outline" onClick={() => setInsightsMatchId(p.matchId!)}>
                           <Sparkles className="w-4 h-4 mr-1" /> Insights
                         </Button>
@@ -154,7 +170,18 @@ export default function StaffProposals() {
                             {actingId === p._id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Approve"}
                           </Button>
                         </>
-                      ) : (!p.matchId && !CHAT_STATUSES.includes(p.status)) ? (
+                      ) : p.status === "family_proposal_stage" ? (
+                        <>
+                          <Button size="sm" variant="outline" disabled={actingId === p._id}
+                            onClick={() => conclude(p._id, "not_proceeded")}>
+                            Not Proceeded
+                          </Button>
+                          <Button size="sm" disabled={actingId === p._id}
+                            onClick={() => conclude(p._id, "completed")}>
+                            {actingId === p._id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark Completed"}
+                          </Button>
+                        </>
+                      ) : (!p.matchId && p.status !== "chat_active") ? (
                         <span className="text-xs text-muted-foreground">—</span>
                       ) : null}
                     </TableCell>
@@ -170,23 +197,6 @@ export default function StaffProposals() {
         matchId={insightsMatchId}
         open={insightsMatchId !== null}
         onClose={() => setInsightsMatchId(null)}
-      />
-
-      <StaffChatModal
-        proposalId={chatProposal?._id ?? null}
-        open={chatProposal !== null}
-        onClose={() => setChatProposal(null)}
-        initiatorName={chatProposal?.initiator?.name}
-        recipientName={chatProposal?.recipient?.name}
-        relayFor={
-          chatProposal
-            ? isStaffManaged(chatProposal.recipient)
-              ? chatProposal.recipient?.name
-              : isStaffManaged(chatProposal.initiator)
-              ? chatProposal.initiator?.name
-              : undefined
-            : undefined
-        }
       />
     </div>
   );
