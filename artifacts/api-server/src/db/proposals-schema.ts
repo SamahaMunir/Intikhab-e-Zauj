@@ -102,7 +102,8 @@ export interface Proposal {
   reviewReason?: string;
   respondedAt?: Date;          // recipient accept/decline time
   withdrawnAt?: Date;
-  completedAt?: Date;
+  familyStageAt?: Date;        // entered family_proposal_stage (offline negotiation begins)
+  completedAt?: Date;          // staff concluded the match as completed (success)
 
   createdAt: Date;
   updatedAt: Date;
