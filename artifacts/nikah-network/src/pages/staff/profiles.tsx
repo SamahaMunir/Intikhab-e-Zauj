@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useState, useEffect } from "react";
+import { getToken } from '@/lib/auth';
 import StatusBadge from "@/components/ui/StatusBadge";
 import AddNoteModal from "@/components/AddNoteModal";
 import ProfileImageCard from "@/components/matches/ProfileImageCard";
@@ -64,7 +65,7 @@ export default function StaffProfiles() {
   const fetchProfiles = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = getToken('staff');
       if (!token) { alert('Not authenticated. Please login.'); return; }
 
       const res = await fetch(`${API}/api/staff/profiles`, {
@@ -84,7 +85,7 @@ export default function StaffProfiles() {
     if (!selectedProfile || !action) return;
     setActionLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken('staff');
       if (!token) throw new Error('No authentication token');
 
       const endpoint = action === 'approve'
