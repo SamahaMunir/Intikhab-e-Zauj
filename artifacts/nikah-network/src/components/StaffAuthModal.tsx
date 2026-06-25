@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useStore } from '@/lib/store';
+import { setSession } from '@/lib/auth';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import {
   AuthModalShell, NeuSocialRow, NEU_INPUT, NEU_LABEL, NEU_BTN,
@@ -30,8 +31,8 @@ export default function StaffAuthModal() {
       });
       const data = await response.json();
       if (response.ok && data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // Staff realm — kept separate from any applicant session in the same browser.
+        setSession('staff', data.token, data.user);
         const staffUser = users.find(
           u => u.email === data.user.email && (u.role === 'staff' || u.role === 'admin')
         );
