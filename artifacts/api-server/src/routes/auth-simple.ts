@@ -1,3 +1,16 @@
+/**
+ * AUTH-SIMPLE ROUTES — mounted at /auth (see src/index.ts). Quick/dev auth.
+ * Endpoint map (verified against frontend usage):
+ *   POST /auth/register-simple        — DEAD — no source caller. Safe to remove.
+ *   POST /auth/verify-auto            — LIVE — Caller: pages/verify-auto.tsx
+ *                                       (auto-verify → profile wizard).
+ *   GET  /auth/test-verification-link — LIVE but DEV/TEST ONLY. Caller:
+ *                                       pages/test-verification.tsx. NOTE: a
+ *                                       duplicate of this exists in
+ *                                       auditLogsRoutes.ts (that copy is dead).
+ *                                       Do not expose in production.
+ * Real (non-dev) flows live in register.ts (register/verify-email).
+ */
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
