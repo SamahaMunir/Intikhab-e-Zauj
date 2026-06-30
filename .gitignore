@@ -55,3 +55,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Scratch / throwaway dev files (keep repo clean)
+structure.txt
+body.json
+*.scratch.*
+add-user-profile.js
