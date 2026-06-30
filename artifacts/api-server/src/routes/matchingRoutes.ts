@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId, type Db } from 'mongodb';
 import { getDatabase } from '../db/connection';
 import { applyHardFilters, calculateScore } from '../lib/matching';
 import { buildInsights } from '../lib/insights';
@@ -37,7 +37,7 @@ const PROPOSAL_HIDE_STATUSES = [
   'pending_staff_review', 'pending_recipient', 'mutual_interest_confirmed',
   'chat_active', 'family_proposal_stage', 'completed',
 ];
-async function pairsInProposalPipeline(db: any): Promise<Set<string>> {
+async function pairsInProposalPipeline(db: Db): Promise<Set<string>> {
   const props = await db.collection('proposals')
     .find({ status: { $in: PROPOSAL_HIDE_STATUSES } }, { projection: { initiatorId: 1, recipientId: 1 } })
     .toArray();

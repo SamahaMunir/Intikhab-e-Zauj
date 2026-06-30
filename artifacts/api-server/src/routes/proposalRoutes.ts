@@ -1,5 +1,5 @@
 import express, { Response } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId, type Db } from 'mongodb';
 import { getDatabase } from '../db/connection';
 import { logAudit } from '../db/auditLogs';
 import { authMiddleware, type AuthRequest } from '../middleware/auth';
@@ -109,7 +109,7 @@ const PROFILE_PROJECTION = {
 };
 
 /** Best-effort compatibility score for a proposal — by matchId, else by pair. */
-async function lookupCompatibilityScore(db: any, p: any): Promise<number | undefined> {
+async function lookupCompatibilityScore(db: Db, p: any): Promise<number | undefined> {
   let m = p.matchId ? await db.collection('matches').findOne({ _id: p.matchId }) : null;
   if (!m) {
     m = await db.collection('matches').findOne({
@@ -122,7 +122,7 @@ async function lookupCompatibilityScore(db: any, p: any): Promise<number | undef
   return (m?.scoreBreakdown?.total ?? m?.score) as number | undefined;
 }
 
-async function enrichProposal(db: any, p: any) {
+async function enrichProposal(db: Db, p: any) {
   const [initiator, recipient, compatibilityScore] = await Promise.all([
     db.collection('profiles').findOne({ _id: p.initiatorId }, { projection: PROFILE_PROJECTION }),
     db.collection('profiles').findOne({ _id: p.recipientId }, { projection: PROFILE_PROJECTION }),
@@ -164,7 +164,7 @@ function participantSide(req: AuthRequest, p: any): 'initiator' | 'recipient' | 
  * normally transitions immediately on the 2nd "interested" click; this is the
  * safety net.) Persists + returns the up-to-date proposal doc.
  */
-async function settleExpiry(db: any, p: any): Promise<any> {
+async function settleExpiry(db: Db, p: any): Promise<any> {
   if (p.status !== 'chat_active' || p.chat?.status !== 'open') return p;
   const closesAt = p.chat?.closesAt ? new Date(p.chat.closesAt) : null;
   if (!closesAt || closesAt.getTime() > Date.now()) return p;
@@ -196,9 +196,11 @@ export const userProposalRouter = express.Router();
 
 /**
  * POST /api/proposals
- * Create a proposal.
- *   USER_PROPOSAL  → status pending_recipient (recipient must accept).
- *   STAFF_PROPOSAL → status approved, chat open 48h (skips accept + review).
+ * Create a proposal (staff pre-screen model).
+ *   USER_PROPOSAL  → status pending_staff_review (staff screen BEFORE the
+ *                    recipient can see it; on approve → pending_recipient).
+ *   STAFF_PROPOSAL → pre-vetted; post-approval state resolved by each side's
+ *                    autonomy (pending_recipient | chat_active | family stage).
  */
 userProposalRouter.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
