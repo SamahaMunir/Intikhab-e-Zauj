@@ -12,7 +12,7 @@
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
-import { generateToken, JWTPayload } from '../utils/jwt';
+import { buildSession } from '../utils/authSession';
 import { verifyPassword } from '../utils/password';
 import { logAudit } from '../db/auditLogs';
 import { authMiddleware, type AuthRequest } from '../middleware/auth';
@@ -85,15 +85,19 @@ if (!verifyPassword(password, profile.password)) {
       return;
     }
 
-    // ✅ GENERATE JWT (7 days expiry)
-    const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
+    // ✅ GENERATE SESSION (shared builder — same token/user contract as staff login)
+    const session = buildSession({
       id: profile._id.toString(),
       email: profile.email,
       name: profile.name || 'User',
       role: profile.role || 'applicant',
-    };
-
-    const token = generateToken(payload);
+      extra: {
+        gender: profile.gender || '',          // ← required for wizard + matching
+        profileCompletion: profile.profileCompletion || 0,
+        paymentStatus: profile.paymentStatus || 'pending',
+        profileStatus: profile.profileStatus || 'pending',
+      },
+    });
 
     // ✅ UPDATE LAST LOGIN
     await profilesCollection.updateOne(
@@ -120,21 +124,7 @@ if (!verifyPassword(password, profile.password)) {
 
     console.log(`✅ User logged in: ${email} (role: ${profile.role})`);
 
-    res.json({
-      success: true,
-      token,
-      user: {
-        _id: profile._id.toString(),
-        email: profile.email,
-        name: profile.name,
-        role: profile.role || 'applicant',
-        gender: profile.gender || '',          // ← required for wizard + matching
-        profileCompletion: profile.profileCompletion || 0,
-        paymentStatus: profile.paymentStatus || 'pending',
-        profileStatus: profile.profileStatus || 'pending',
-      },
-      expiresIn: '7d',
-    });
+    res.json(session);
   } catch (error) {
     console.error('❌ Login error:', error);
     res.status(500).json({

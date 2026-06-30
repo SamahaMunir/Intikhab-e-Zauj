@@ -13,7 +13,7 @@
  * payload/role shapes compatible.
  */
 import { Router, Request, Response } from 'express';
-import { generateToken, JWTPayload } from '../utils/jwt';
+import { buildSession } from '../utils/authSession';
 import { logAudit } from '../db/auditLogs';
 import { getStaffByEmail, updateLastLogin } from '../db/staff';
 import { verifyPassword } from '../utils/password';
@@ -53,28 +53,26 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const payload: Omit<JWTPayload, 'iat' | 'exp'> = {
-      id: email.split('@')[0],
+    // Canonical id = staff's Mongo ObjectId (NOT the email local-part), so the
+    // token contract matches applicant login and downstream ObjectId(req.user.id)
+    // works (e.g. proposal reviewedBy).
+    const staffId = staff._id!.toString();
+    const session = buildSession({
+      id: staffId,
       email: staff.email,
       name: staff.name,
       role: staff.role,
-    };
-    const token = generateToken(payload);
+    });
 
     await updateLastLogin(email);
     await logAudit(
-      email, payload.id, staff.role, 'login', 'auth', email,
+      email, staffId, staff.role, 'login', 'auth', email,
       'Staff logged in', { userAgent: req.get('user-agent') }
     );
 
     console.log(`✓ User logged in: ${email}`);
 
-    res.json({
-      success: true,
-      token,
-      user: { id: payload.id, email: staff.email, name: staff.name, role: staff.role },
-      expiresIn: '24h',
-    });
+    res.json(session);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed', message: error instanceof Error ? error.message : 'Unknown error' });
