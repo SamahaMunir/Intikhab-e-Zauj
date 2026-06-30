@@ -1,3 +1,17 @@
+/**
+ * AUTH ROUTES — mounted at /auth (see src/index.ts). One of four auth files;
+ * paths do NOT collide. Endpoint map (verified against frontend usage):
+ *   POST /auth/login   — LIVE — STAFF login. Callers: contexts/AuthContext.tsx,
+ *                        components/StaffAuthModal.tsx
+ *   POST /auth/logout  — unused by FE (it just clears localStorage); kept as a
+ *                        harmless convention.
+ *   GET  /auth/me      — DEAD — no caller. FE uses /auth/whoami (user-auth.ts)
+ *                        and /api/profile/me instead. Safe to remove.
+ * Related auth files: user-auth.ts (applicant login/whoami), register.ts
+ * (register/verify), auth-simple.ts (auto-verify/dev). NOTE: staff login here
+ * and applicant login in user-auth.ts are two parallel flows — keep their JWT
+ * payload/role shapes compatible.
+ */
 import { Router, Request, Response } from 'express';
 import { generateToken, JWTPayload } from '../utils/jwt';
 import { logAudit } from '../db/auditLogs';

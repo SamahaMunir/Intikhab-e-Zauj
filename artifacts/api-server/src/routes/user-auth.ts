@@ -1,3 +1,14 @@
+/**
+ * USER-AUTH ROUTES — mounted at /auth (see src/index.ts). Applicant-side auth.
+ * Endpoint map (verified against frontend usage):
+ *   POST   /auth/login-user      — LIVE — APPLICANT login. Caller:
+ *                                  components/UserAuthModal.tsx
+ *   GET    /auth/whoami          — LIVE — current user. Caller: lib/currentUser.ts
+ *   DELETE /auth/delete-account  — auth-gated account deletion (real feature);
+ *                                  confirm it's wired from the settings UI.
+ * Sibling: auth.ts holds STAFF /auth/login. The two logins are parallel flows —
+ * keep their JWT payload/role shapes compatible.
+ */
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';

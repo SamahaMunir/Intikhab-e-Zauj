@@ -1,3 +1,15 @@
+/**
+ * REGISTER ROUTES — mounted at /auth (see src/index.ts). Sign-up + email verify.
+ * Endpoint map (verified against frontend usage):
+ *   POST /auth/register             — LIVE — Caller: components/UserAuthModal.tsx
+ *   POST /auth/verify-email         — LIVE — Caller: pages/verify-email.tsx
+ *   POST /auth/resend-verification  — uncalled by FE. The FE link
+ *                                     `/resend-verification` (verify-email.tsx)
+ *                                     points to a page route that does NOT exist
+ *                                     in App.tsx → broken link. Fix the link or
+ *                                     remove this endpoint.
+ * Sibling verify flow: auth-simple.ts /auth/verify-auto (auto/dev variant).
+ */
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
