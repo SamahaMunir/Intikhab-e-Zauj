@@ -476,7 +476,9 @@ router.get('/debug/:userId', authMiddleware, async (req: Request, res: Response)
       return;
     }
 
-    const candidates = await db.collection('profiles').find({}).toArray();
+    // Exclude staff/admin users — they share the profiles collection but are not
+    // matchable candidates.
+    const candidates = await db.collection('profiles').find({ role: { $nin: ['staff', 'admin'] } }).toArray();
     const results: any = {
       user: { id: user._id, name: user.name },
       totalCandidates: candidates.length,
