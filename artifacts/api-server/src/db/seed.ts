@@ -10,9 +10,12 @@ export async function seedTestData(db: Db) {
   try {
     console.log('🌱 Seeding initial staff...');
 
-    const staffCol = db.collection('staff');
-    if (await staffCol.countDocuments() === 0) {
-      await staffCol.insertOne({
+    const profilesCol = db.collection('profiles');
+
+    // Staff/admin now live in the shared `profiles` collection (role-based).
+    const staffMeta = { source: 'staff_entry', registeredBy: 'staff', emailVerified: true, active: true };
+    if (await profilesCol.countDocuments({ role: { $in: ['staff', 'admin'] } }) === 0) {
+      await profilesCol.insertOne({
         email: 'admin@intikhab.com',
         name: 'Admin User',
         password: hashPassword('admin123'),
@@ -21,8 +24,9 @@ export async function seedTestData(db: Db) {
         status: 'active',
         createdAt: new Date(),
         createdBy: 'system',
+        ...staffMeta,
       });
-      await staffCol.insertOne({
+      await profilesCol.insertOne({
         email: 'staff@nikahnetwork.pk',
         name: 'Ayesha Staff',
         password: hashPassword('staff123'),
@@ -31,13 +35,12 @@ export async function seedTestData(db: Db) {
         status: 'active',
         createdAt: new Date(),
         createdBy: 'system',
+        ...staffMeta,
       });
-      console.log('✓ Initial staff seeded');
+      console.log('✓ Initial staff seeded (in profiles)');
     } else {
       console.log('✓ Staff already exists, skipping');
     }
-
-    const profilesCol = db.collection('profiles');
     const existingCount = await profilesCol.countDocuments({ role: 'applicant' });
 
     if (existingCount >= 15) {
