@@ -27,11 +27,13 @@ if (!['GOOGLE_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'DEEPSEEK_API_KEY
 }
 const OPTIONAL: Record<string, string> = {
   EMAIL_USER: 'email notifications',
-  SMS_API_KEY: 'SMS notifications',
   JAZZCASH_MERCHANT_ID: 'JazzCash payments',
   CLOUDINARY_CLOUD_NAME: 'photo uploads (Cloudinary)',
 };
 const inactive = Object.entries(OPTIONAL).filter(([k]) => !process.env[k]).map(([, label]) => label);
+// SMS is active if a sending mode is chosen (real gateway or the console test mode).
+const smsProvider = (process.env.SMS_PROVIDER || 'none').toLowerCase();
+if (!['jazz', 'generic', 'console'].includes(smsProvider)) inactive.push('SMS notifications');
 if (inactive.length) {
-  console.warn(`⚠ Inactive integrations (no key set): ${inactive.join(', ')}`);
+  console.warn(`⚠ Inactive integrations: ${inactive.join(', ')}`);
 }

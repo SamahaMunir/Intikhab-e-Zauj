@@ -14,7 +14,9 @@
  * Until SMS_PROVIDER + credentials are set, sends are logged and reported as
  * not-sent (sent:false); the caller treats that as a soft failure, never throws.
  *
- *   SMS_PROVIDER     = jazz | generic   (anything else → disabled)
+ *   SMS_PROVIDER     = jazz | generic | console   (anything else → disabled)
+ *                      'console' = free test mode: logs the message, reports
+ *                      sent:true (no gateway, no cost).
  *   SMS_API_URL      = https://gateway.example.com/api/sendsms
  *   SMS_API_ID       = account username / api id
  *   SMS_API_PASSWORD = account password   (or use SMS_API_KEY for key-based gw)
@@ -62,6 +64,14 @@ export async function sendSms(rawTo: string, message: string): Promise<SmsResult
     // No gateway configured — log intent so it's visible in dev/staging.
     console.log(`📱 [SMS:disabled] → ${to}: ${message.slice(0, 120)}${message.length > 120 ? '…' : ''}`);
     return { to, sent: false, provider, error: 'sms_provider_not_configured' };
+  }
+
+  if (provider === 'console') {
+    // Free test mode — no real gateway. Print the full message and report success
+    // so the whole flow (family stage, etc.) behaves as if delivered. Use for
+    // local/dev testing; switch SMS_PROVIDER to a real gateway before launch.
+    console.log(`📱 [SMS:console] → ${to}: ${message}`);
+    return { to, sent: true, provider, providerId: 'console' };
   }
 
   // ── Jazz Business / generic Pakistani HTTP gateway ──────────────────────────
