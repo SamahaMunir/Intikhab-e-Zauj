@@ -219,6 +219,18 @@ export async function notifyFamilyOnCompletion(db: Db, proposal: any): Promise<v
       'Mutual match — family notified',
       { emailsSent, smsAttempted: smsResults.length, smsSent, score: score ?? null }
     );
+
+    // Families were not reached by SMS (gateway disabled/failed, or no family
+    // mobiles on file) → flag it so staff can follow up by phone. Visible in the
+    // audit log; the proposal still advanced normally.
+    if (smsSent === 0) {
+      await logAudit(
+        'system', 'system', 'staff',
+        'family_sms_undelivered', 'proposal', proposal._id.toString(),
+        'Family SMS not delivered — staff should contact the families manually',
+        { smsAttempted: smsResults.length, reason: smsResults[0]?.error || 'no_family_mobiles' }
+      );
+    }
   } catch (error) {
     // Notification failure must never break the proposal flow
     console.error('❌ notifyFamilyOnCompletion error:', error instanceof Error ? error.message : error);
