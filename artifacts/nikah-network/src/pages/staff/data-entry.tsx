@@ -17,7 +17,7 @@
 
 import { useState, useRef } from 'react';
 import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
-import { getToken } from '@/lib/auth';
+import { getToken, getStoredUser } from '@/lib/auth';
 import SearchableSelect from '@/components/SearchableSelect';
 import PhoneInput from '@/components/PhoneInput';
 import {
@@ -245,7 +245,7 @@ export default function StaffDataEntry() {
     setLoading(true);
     setSubmitError(null);
     try {
-      const staffUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const staffUser = getStoredUser<{ email?: string }>('staff') || {};
       const payload = {
         ...formData,
         // Map field names to match backend create-user endpoint
