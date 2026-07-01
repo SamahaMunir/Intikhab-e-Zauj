@@ -8,15 +8,14 @@
  *   GET  /auth/me      — DEAD — no caller. FE uses /auth/whoami (user-auth.ts)
  *                        and /api/profile/me instead. Safe to remove.
  * Related auth files: user-auth.ts (applicant login/whoami), register.ts
- * (register/verify), auth-simple.ts (auto-verify/dev). NOTE: staff login here
- * and applicant login in user-auth.ts are two parallel flows — keep their JWT
- * payload/role shapes compatible.
+ * (register/verify), auth-simple.ts (auto-verify/dev). NOTE: /auth/login and
+ * user-auth's /auth/login-user now delegate to ONE shared lib/authenticate.ts —
+ * a single login implementation for staff + applicants (both live in profiles).
+ * The two URLs remain as aliases for frontend back-compat.
  */
 import { Router, Request, Response } from 'express';
-import { buildSession } from '../utils/authSession';
 import { logAudit } from '../db/auditLogs';
-import { getStaffByEmail, updateLastLogin } from '../db/staff';
-import { verifyPassword } from '../utils/password';
+import { authenticate } from '../lib/authenticate';
 
 const router = Router();
 
@@ -27,52 +26,19 @@ const router = Router();
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      res.status(400).json({ error: 'Invalid request', message: 'Email and password required' });
+    const result = await authenticate(email, password);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error, message: result.error });
       return;
     }
 
-    const staff = await getStaffByEmail(email);
-    if (!staff) {
-      res.status(401).json({ error: 'Invalid credentials', message: 'Email not found' });
-      return;
-    }
-
-    if (staff.status !== 'active') {
-      res.status(401).json({ error: 'Account inactive', message: 'Your staff account has been deactivated' });
-      return;
-    }
-
-    // Verify password — stored as "salt.hash" (verifyPassword handles both hashed and legacy plain)
-    const passwordOk = staff.password?.includes('.')
-      ? verifyPassword(password, staff.password)
-      : staff.password === password;
-    if (!passwordOk) {
-      res.status(401).json({ error: 'Invalid credentials', message: 'Password incorrect' });
-      return;
-    }
-
-    // Canonical id = staff's Mongo ObjectId (NOT the email local-part), so the
-    // token contract matches applicant login and downstream ObjectId(req.user.id)
-    // works (e.g. proposal reviewedBy).
-    const staffId = staff._id!.toString();
-    const session = buildSession({
-      id: staffId,
-      email: staff.email,
-      name: staff.name,
-      role: staff.role,
-    });
-
-    await updateLastLogin(email);
     await logAudit(
-      email, staffId, staff.role, 'login', 'auth', email,
-      'Staff logged in', { userAgent: req.get('user-agent') }
+      result.user.email, result.user.id, result.user.role as any, 'login', 'auth', result.user.email,
+      'User logged in', { userAgent: req.get('user-agent') }
     );
+    console.log(`✓ User logged in: ${result.user.email} (role: ${result.user.role})`);
 
-    console.log(`✓ User logged in: ${email}`);
-
-    res.json(session);
+    res.json(result.session);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed', message: error instanceof Error ? error.message : 'Unknown error' });
