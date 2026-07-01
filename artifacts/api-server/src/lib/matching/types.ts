@@ -38,6 +38,35 @@ export interface ScoreBreakdown {
 /** Alias used by API consumers. */
 export type MatchScore = ScoreBreakdown;
 
+/**
+ * Tunable per-dimension max points. Staff can edit these (see the config API);
+ * they should sum to 100 for a 0–100 score. calculateScore scales each dimension
+ * by weight/DEFAULT, so at DEFAULT_WEIGHTS the output is unchanged.
+ */
+export interface ScoreWeights {
+  caste: number;
+  profession: number;
+  ageGap: number;
+  city: number;
+  height: number;
+  houseStatus: number;
+  houseArea: number;
+}
+
+export const DEFAULT_WEIGHTS: ScoreWeights = {
+  caste: 25,
+  profession: 15,
+  ageGap: 15,
+  city: 15,
+  height: 10,
+  houseStatus: 10,
+  houseArea: 10,
+};
+
+export const WEIGHT_KEYS: (keyof ScoreWeights)[] = [
+  'caste', 'profession', 'ageGap', 'city', 'height', 'houseStatus', 'houseArea',
+];
+
 export interface HardFilterRejection {
   reason: string;
 }

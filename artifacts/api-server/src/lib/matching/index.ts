@@ -4,10 +4,12 @@
  */
 export { calculateScore } from './calculateScore';
 export { applyHardFilters } from './applyHardFilters';
+export { DEFAULT_WEIGHTS, WEIGHT_KEYS } from './types';
 export type {
   Profile,
   ScoreBreakdown,
   MatchScore,
+  ScoreWeights,
   HardFilterResult,
   HardFilterRejection,
 } from './types';

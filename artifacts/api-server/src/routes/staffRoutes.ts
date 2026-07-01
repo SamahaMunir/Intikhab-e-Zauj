@@ -12,6 +12,7 @@ import {
 } from '../db/staff';
 import { logAudit } from '../db/auditLogs';
 import { getDatabase } from '../db/connection';
+import { getScoreWeights, setScoreWeights, validateWeights } from '../db/config';
 import { sendStaffInviteEmail, sendProfileApprovalEmail, sendProfileRejectionEmail } from '../utils/email';
 
 const router = Router();
@@ -53,6 +54,46 @@ async function guardDestructive(
   }
   return null;
 }
+
+/**
+ * GET /api/staff/config/weights  (admin only)
+ * Current matching score weights (falls back to defaults if never set).
+ */
+router.get('/config/weights', authMiddleware, adminOnly, async (_req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const db = await getDatabase();
+    const weights = await getScoreWeights(db);
+    res.json({ success: true, weights });
+  } catch (error) {
+    console.error('Error fetching weights:', error);
+    res.status(500).json({ error: 'Failed to fetch weights' });
+  }
+});
+
+/**
+ * PUT /api/staff/config/weights  (admin only)
+ * Update matching score weights. Body: { caste, profession, ageGap, city, height, houseStatus, houseArea }.
+ */
+router.put('/config/weights', authMiddleware, adminOnly, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const parsed = validateWeights(req.body?.weights ?? req.body);
+    if ('error' in parsed) return res.status(400).json({ error: parsed.error });
+
+    const db = await getDatabase();
+    await setScoreWeights(db, parsed.weights);
+
+    await logAudit(
+      req.user!.email, req.user!.id, 'admin',
+      'update_score_weights', 'config', 'scoreWeights',
+      'Matching weights updated', parsed.weights
+    );
+
+    res.json({ success: true, weights: parsed.weights });
+  } catch (error) {
+    console.error('Error updating weights:', error);
+    res.status(500).json({ error: 'Failed to update weights' });
+  }
+});
 
 /**
  * POST /api/staff/invite

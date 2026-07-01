@@ -1,4 +1,4 @@
-import type { Profile, ScoreBreakdown } from './types';
+import { DEFAULT_WEIGHTS, WEIGHT_KEYS, type Profile, type ScoreBreakdown, type ScoreWeights } from './types';
 
 function getAge(profile: any): number {
   if (profile.age && Number(profile.age) > 0) return Number(profile.age);
@@ -15,10 +15,18 @@ function getAge(profile: any): number {
 
 /**
  * Hybrid rule-based weighted scorer (0–100). Pure function — no I/O.
- * Caste 25 · Profession 15 · AgeGap 15 · City 15 · Height 10 · HouseStatus 10 · HouseArea 10.
+ * Default: Caste 25 · Profession 15 · AgeGap 15 · City 15 · Height 10 · HouseStatus 10 · HouseArea 10.
  * Missing data falls back to neutral partial credit rather than 0.
+ *
+ * `weights` lets staff retune each dimension's max (see the config API). Each raw
+ * dimension score is computed against DEFAULT_WEIGHTS, then scaled by
+ * weight/DEFAULT — so passing DEFAULT_WEIGHTS reproduces the original output.
  */
-export function calculateScore(user: Profile, candidate: Profile): ScoreBreakdown {
+export function calculateScore(
+  user: Profile,
+  candidate: Profile,
+  weights: ScoreWeights = DEFAULT_WEIGHTS
+): ScoreBreakdown {
   const breakdown: ScoreBreakdown = {
     caste: 0, profession: 0, ageGap: 0, city: 0,
     height: 0, houseStatus: 0, houseArea: 0, total: 0,
@@ -127,6 +135,12 @@ export function calculateScore(user: Profile, candidate: Profile): ScoreBreakdow
     breakdown.houseArea = 5; // one side missing → neutral
   } else {
     breakdown.houseArea = 5; // both missing → neutral
+  }
+
+  // Scale each raw dimension (computed against DEFAULT_WEIGHTS) by the configured
+  // weight. At DEFAULT_WEIGHTS this is a no-op (factor = 1).
+  for (const k of WEIGHT_KEYS) {
+    breakdown[k] = Math.round(breakdown[k] * (weights[k] / DEFAULT_WEIGHTS[k]));
   }
 
   breakdown.total = Math.round(
