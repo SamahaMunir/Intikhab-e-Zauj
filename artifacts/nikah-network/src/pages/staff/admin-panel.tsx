@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { getToken } from '@/lib/auth';
+import { getToken, getStoredUser } from '@/lib/auth';
 import { AlertCircle, Copy, Trash2, Lock, Unlock, Users, UserCheck, MailPlus, Send } from 'lucide-react';
 
 interface StaffMember {
@@ -25,8 +25,9 @@ export default function AdminPanel() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    // Check if user is authenticated as admin
-    const user = localStorage.getItem('user');
+    // Check if user is authenticated as admin — read from the STAFF realm
+    // (staff_user / staff_token), not the applicant realm.
+    const user = getStoredUser<{ role?: string }>('staff');
     const token = getToken('staff');
 
     if (!user || !token) {
@@ -34,8 +35,7 @@ export default function AdminPanel() {
       return;
     }
 
-    const parsedUser = JSON.parse(user);
-    if (parsedUser.role !== 'admin') {
+    if (user.role !== 'admin') {
       setLocation('/staff/dashboard');
       return;
     }
