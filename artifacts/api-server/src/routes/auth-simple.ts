@@ -213,6 +213,11 @@ router.post('/verify-auto', async (req: Request, res: Response) => {
  */
 router.get('/test-verification-link', async (req: Request, res: Response) => {
   try {
+    // Dev/test helper only — must never be reachable in production.
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
     const { email } = req.query;
 
     if (!email || typeof email !== 'string') {
