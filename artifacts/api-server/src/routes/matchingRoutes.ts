@@ -6,6 +6,7 @@ import { buildInsights } from '../lib/insights';
 import { retrieveSimilarMatches, statsFromSimilar, toSimilarCard } from '../lib/ragRetrieval';
 import { summarizeInsightsWithRAG } from '../lib/llmInsights';
 import { getCostStats } from '../lib/cost-tracker';
+import { getScoreWeights } from '../db/config';
 import { authMiddleware, staffOnlyMiddleware } from '../middleware/auth';
 
 // Ownership guard: a non-staff user may only act on their own userId.
@@ -259,10 +260,11 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
     }
     console.log(`  ✅ ${passed} pass | ❌ ${rejected} rejected by hard filters`);
 
+    const weights = await getScoreWeights(db);
     const records: any[] = [];
     for (const c of candidates) {
       if (applyHardFilters(user, c).passes) {
-        const scoreObj = calculateScore(user, c);
+        const scoreObj = calculateScore(user, c, weights);
         records.push({
           userId: oid,
           candidateId: c._id,
@@ -332,6 +334,7 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
     console.log(`🔧 generate-all-staff: found ${staffProfiles.length} staff profiles`);
 
     let totalGenerated = 0;
+    const weights = await getScoreWeights(db);
 
     for (const staffProfile of staffProfiles) {
       const oppositeGender = staffProfile.gender === 'male' ? 'female' : 'male';
@@ -355,7 +358,7 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
       const bulkOps: any[] = [];
       for (const c of candidates) {
         if (applyHardFilters(staffProfile, c).passes) {
-          const scoreObj = calculateScore(staffProfile, c);
+          const scoreObj = calculateScore(staffProfile, c, weights);
           const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
           bulkOps.push({
             updateOne: {
@@ -596,7 +599,8 @@ router.get('/:matchId/insights', authMiddleware, staffOnlyMiddleware, async (req
     const includeAI  = String(req.query.includeAI || '') === 'true';
     const includeRAG = String(req.query.includeRAG || '') !== 'false'; // default on
 
-    const score = calculateScore(user, candidate);
+    const weights = await getScoreWeights(db);
+    const score = calculateScore(user, candidate, weights);
     const hardFilter = applyHardFilters(user, candidate);
 
     const male   = user.gender === 'male' ? user : candidate;
