@@ -13,6 +13,7 @@ import {
 import { logAudit } from '../db/auditLogs';
 import { getDatabase } from '../db/connection';
 import { getScoreWeights, setScoreWeights, validateWeights } from '../db/config';
+import { sendSms } from '../utils/sms';
 import { sendStaffInviteEmail, sendProfileApprovalEmail, sendProfileRejectionEmail } from '../utils/email';
 
 const router = Router();
@@ -54,6 +55,31 @@ async function guardDestructive(
   }
   return null;
 }
+
+/**
+ * POST /api/staff/test-sms  (admin only)  { to }
+ * Send a test SMS to verify the configured gateway. Returns the adapter result
+ * so you can see exactly why a send failed (disabled / bad creds / gateway error).
+ */
+router.post('/test-sms', authMiddleware, adminOnly, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const to = String(req.body?.to || '').trim();
+    if (!to) return res.status(400).json({ error: 'to (mobile number) required, e.g. 03001234567' });
+
+    const result = await sendSms(to, 'Intikhab-e-Zauj: test message — your SMS gateway is working.');
+
+    await logAudit(
+      req.user!.email, req.user!.id, 'admin',
+      'test_sms', 'config', to,
+      `Test SMS ${result.sent ? 'sent' : 'failed'}`, result as any
+    );
+
+    res.json({ success: result.sent, result });
+  } catch (error) {
+    console.error('Error sending test SMS:', error);
+    res.status(500).json({ error: 'Failed to send test SMS' });
+  }
+});
 
 /**
  * GET /api/staff/config/weights  (admin only)
