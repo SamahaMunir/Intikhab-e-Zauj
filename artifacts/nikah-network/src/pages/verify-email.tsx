@@ -16,6 +16,7 @@ export default function VerifyEmail() {
   const [success, setSuccess] = useState(false);
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
+  const [info, setInfo] = useState('');
 
   useEffect(() => {
     // Get token from URL params
@@ -79,6 +80,31 @@ export default function VerifyEmail() {
     await verifyEmail(email, token);
   };
 
+  const handleResend = async () => {
+    setError('');
+    setInfo('');
+    if (!email) {
+      setError('Enter your email address first');
+      return;
+    }
+    setLoading(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiUrl}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Could not resend verification');
+      setInfo('Verification link resent — please check your email.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend verification');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (success) {
     return (
       <div className="min-h-screen bg-linear-to-br from-green-100 to-emerald-100 flex items-center justify-center p-4">
@@ -132,6 +158,13 @@ export default function VerifyEmail() {
               </Alert>
             )}
 
+            {info && (
+              <Alert>
+                <CheckCircle2 className="w-4 h-4" />
+                <AlertDescription>{info}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-900">
               <p className="font-semibold mb-2">📧 Check Your Email</p>
               <p>We've sent a verification link to your email address. Click the link to verify your account.</p>
@@ -175,9 +208,10 @@ export default function VerifyEmail() {
 
             <div className="text-center text-sm text-muted-foreground">
               Didn't receive the email?{' '}
-              <a href="/resend-verification" className="text-primary hover:underline font-semibold">
+              <button type="button" onClick={handleResend} disabled={loading}
+                className="text-primary hover:underline font-semibold disabled:opacity-50">
                 Resend Link
-              </a>
+              </button>
             </div>
           </form>
         </CardContent>
