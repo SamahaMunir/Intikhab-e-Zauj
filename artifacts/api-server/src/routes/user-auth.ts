@@ -1,8 +1,10 @@
 /**
  * USER-AUTH ROUTES — mounted at /auth (see src/index.ts). Applicant-side auth.
  * Endpoint map (verified against frontend usage):
- *   POST   /auth/login-user      — LIVE — APPLICANT login. Caller:
- *                                  components/UserAuthModal.tsx
+ *   POST   /auth/login-user      — LIVE — applicant login. Caller:
+ *                                  components/UserAuthModal.tsx. Delegates to the
+ *                                  shared lib/authenticate.ts (same path as
+ *                                  /auth/login); works for any role.
  *   GET    /auth/whoami          — LIVE — current user. Caller: lib/currentUser.ts
  *   DELETE /auth/delete-account  — auth-gated account deletion (real feature);
  *                                  confirm it's wired from the settings UI.
@@ -12,8 +14,8 @@
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
-import { buildSession } from '../utils/authSession';
 import { verifyPassword } from '../utils/password';
+import { authenticate } from '../lib/authenticate';
 import { logAudit } from '../db/auditLogs';
 import { authMiddleware, type AuthRequest } from '../middleware/auth';
 
@@ -36,95 +38,27 @@ router.post('/login-user', async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const db = await getDatabase();
-    // ✅ FIX: Use 'profiles' collection for all user types
-    const profilesCollection = db.collection('profiles');
-
-    // ✅ FIND USER (applicant or staff)
-    const profile = await profilesCollection.findOne({ email });
-
-    if (!profile) {
-      res.status(401).json({
-        error: 'Invalid credentials',
-        message: 'Email or password incorrect',
-      });
-      return;
-    }
-// ✅ VERIFY PASSWORD - with null check
-if (!profile.password) {
-  res.status(401).json({
-    error: 'Invalid credentials',
-    message: 'Account not properly configured. Please register again.',
-  });
-  return;
-}
-
-if (!verifyPassword(password, profile.password)) {
-  res.status(401).json({
-    error: 'Invalid credentials',
-    message: 'Email or password incorrect',
-  });
-  return;
-}
-
-    // ✅ CHECK IF EMAIL VERIFIED
-    if (!profile.emailVerified) {
-      res.status(403).json({
-        error: 'Email not verified',
-        message: 'Please verify your email to login',
-      });
+    // Delegates to the shared authenticate() — same single login path as
+    // /auth/login. Kept as an alias so existing frontend clients don't break.
+    const result = await authenticate(email, password);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error, message: result.error });
       return;
     }
 
-    // ✅ CHECK IF ACCOUNT ACTIVE
-    if (!profile.active) {
-      res.status(403).json({
-        error: 'Account inactive',
-        message: 'Your account has been deactivated',
-      });
-      return;
-    }
-
-    // ✅ GENERATE SESSION (shared builder — same token/user contract as staff login)
-    const session = buildSession({
-      id: profile._id.toString(),
-      email: profile.email,
-      name: profile.name || 'User',
-      role: profile.role || 'applicant',
-      extra: {
-        gender: profile.gender || '',          // ← required for wizard + matching
-        profileCompletion: profile.profileCompletion || 0,
-        paymentStatus: profile.paymentStatus || 'pending',
-        profileStatus: profile.profileStatus || 'pending',
-      },
-    });
-
-    // ✅ UPDATE LAST LOGIN
-    await profilesCollection.updateOne(
-      { _id: profile._id },
-      { $set: { lastLogin: new Date() } }
-    );
-
-    // ✅ LOG AUDIT
     try {
       await logAudit(
-        email,
-        profile._id.toString(),
-        profile.role || 'applicant',
-        'user_login',
-        'profiles',
-        email,
-        'User logged in',
-        { userAgent: req.get('user-agent'), role: profile.role }
+        result.user.email, result.user.id, result.user.role as any,
+        'user_login', 'profiles', result.user.email,
+        'User logged in', { userAgent: req.get('user-agent'), role: result.user.role }
       );
     } catch (auditError) {
       console.warn('⚠️ Audit logging failed:', auditError);
-      // Don't block login if audit fails
     }
 
-    console.log(`✅ User logged in: ${email} (role: ${profile.role})`);
+    console.log(`✅ User logged in: ${email} (role: ${result.user.role})`);
 
-    res.json(session);
+    res.json(result.session);
   } catch (error) {
     console.error('❌ Login error:', error);
     res.status(500).json({
