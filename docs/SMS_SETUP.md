@@ -17,7 +17,20 @@ gateway is configured** — the adapter runs in `disabled` mode and logs
 Turn SMS on by setting the env vars below in `artifacts/api-server/.env.local`,
 then restart the server.
 
-## Env vars
+## Free test mode (no gateway, no cost)
+
+To test the whole flow without paying for a gateway, set just:
+
+```ini
+SMS_PROVIDER=console
+```
+
+In this mode every SMS is **printed to the server log** (`📱 [SMS:console] → …`)
+and reported as `sent:true`, so the family-stage flow behaves as if delivered.
+Nothing is sent to real phones. Switch `SMS_PROVIDER` to `jazz`/`generic` with
+real credentials (below) before launch.
+
+## Env vars (real gateway)
 
 Pakistani SMS goes through Jazz Business bulk-SMS or an aggregator (VeevoTech,
 Eocean, Twilio…). Almost all use the same query-string HTTP API, so one config
