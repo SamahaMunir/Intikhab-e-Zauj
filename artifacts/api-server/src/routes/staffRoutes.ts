@@ -30,6 +30,31 @@ function adminOnly(req: AuthRequest, res: Response, next: Function) {
 }
 
 /**
+ * Guard destructive staff actions. You cannot act on your own account, and you
+ * cannot remove/deactivate the last active admin (that would lock everyone out
+ * of staff management). Returns an error message, or null if the action is OK.
+ */
+async function guardDestructive(
+  req: AuthRequest,
+  email: string,
+  action: 'remove' | 'deactivate'
+): Promise<string | null> {
+  if (email === req.user!.email) return `You cannot ${action} your own account.`;
+  const all = await getAllStaff();
+  const target = all.find((s) => s.email === email);
+  if (!target) return null; // not found → let the handler return its 404
+  if (target.role === 'admin') {
+    const otherActiveAdmins = all.filter(
+      (s) => s.role === 'admin' && s.status === 'active' && s.email !== email
+    ).length;
+    if (otherActiveAdmins === 0) {
+      return `Cannot ${action} the last admin — the center would lose staff management access.`;
+    }
+  }
+  return null;
+}
+
+/**
  * POST /api/staff/invite
  * Send invite to new staff member (admin only)
  */
@@ -185,6 +210,9 @@ router.post(
         return res.status(400).json({ error: 'Email required' });
       }
 
+      const block = await guardDestructive(req, email, 'deactivate');
+      if (block) return res.status(400).json({ error: block });
+
       const success = await deactivateStaff(email);
 
       if (!success) {
@@ -270,6 +298,9 @@ router.post(
       if (!email) {
         return res.status(400).json({ error: 'Email required' });
       }
+
+      const block = await guardDestructive(req, email, 'remove');
+      if (block) return res.status(400).json({ error: block });
 
       const success = await deleteStaff(email);
 

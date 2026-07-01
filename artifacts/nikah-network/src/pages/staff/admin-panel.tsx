@@ -45,6 +45,7 @@ export default function AdminPanel() {
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const token = getToken('staff');
+  const currentEmail = getStoredUser<{ email?: string }>('staff')?.email;
 
   async function fetchStaff() {
     try {
@@ -192,6 +193,9 @@ export default function AdminPanel() {
     invited:  staff.filter(s => s.status === 'invited').length,
   };
 
+  // Active admin count — used to protect the last admin from removal/deactivation.
+  const activeAdminCount = staff.filter(s => s.role === 'admin' && s.status === 'active').length;
+
   const inputCls =
     'w-full h-11 px-4 rounded-xl bg-[#F4F6F5] border border-gray-200 text-sm text-[#1C1917] ' +
     'placeholder-gray-400 focus:outline-none focus:border-[#10B981] focus:bg-white transition-colors';
@@ -304,7 +308,12 @@ export default function AdminPanel() {
           <p className="text-center py-10 text-gray-400">No staff members yet.</p>
         ) : (
           <div className="space-y-2.5">
-            {staff.map((member) => (
+            {staff.map((member) => {
+              const isSelf = member.email === currentEmail;
+              // Protect the last active admin (and never let an admin act on self).
+              const lastActiveAdmin = member.role === 'admin' && member.status === 'active' && activeAdminCount <= 1;
+              const canModify = !isSelf && !lastActiveAdmin;
+              return (
               <div key={member.email}
                 className="flex items-center gap-4 p-4 rounded-xl border border-gray-100
                            hover:border-gray-200 hover:shadow-sm transition-all">
@@ -339,27 +348,32 @@ export default function AdminPanel() {
                       Resend
                     </button>
                   )}
-                  {member.status === 'active' ? (
-                    <button onClick={() => deactivateStaff(member.email)} title="Deactivate"
-                      className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center
-                                 text-gray-500 hover:bg-gray-50 transition-colors">
-                      <Lock className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <button onClick={() => activateStaff(member.email)} title="Activate"
-                      className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center
-                                 text-[#10B981] hover:bg-emerald-50 transition-colors">
-                      <Unlock className="w-4 h-4" />
+                  {member.status === 'active'
+                    ? canModify && (
+                      <button onClick={() => deactivateStaff(member.email)} title="Deactivate"
+                        className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center
+                                   text-gray-500 hover:bg-gray-50 transition-colors">
+                        <Lock className="w-4 h-4" />
+                      </button>
+                    )
+                    : !isSelf && (
+                      <button onClick={() => activateStaff(member.email)} title="Activate"
+                        className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center
+                                   text-[#10B981] hover:bg-emerald-50 transition-colors">
+                        <Unlock className="w-4 h-4" />
+                      </button>
+                    )}
+                  {canModify && (
+                    <button onClick={() => removeStaff(member.email)} title="Remove"
+                      className="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center
+                                 hover:bg-red-100 transition-colors">
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-                  <button onClick={() => removeStaff(member.email)} title="Remove"
-                    className="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center
-                               hover:bg-red-100 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
