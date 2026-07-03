@@ -29,6 +29,16 @@ const STAFF_SOURCES = ['staff_entry', 'paper', 'whatsapp', 'walkin', 'referral',
 // the staff-entry default.
 const PAYMENT_OK = ['completed', 'waived'];
 
+// Staff/admin ACCOUNTS share the `profiles` collection but are NEVER matchable
+// people (a matchable profile is an applicant — role 'applicant' or legacy/no
+// role). Their registeredBy:'staff'/source:'staff_entry' would otherwise make
+// getProfileType() and the staff-created-profile queries treat them as matches.
+const STAFF_ACCOUNT_ROLES = ['staff', 'admin'];
+const NOT_STAFF_ACCOUNT = { role: { $nin: STAFF_ACCOUNT_ROLES } };
+function isStaffAccount(p: any): boolean {
+  return !!p && STAFF_ACCOUNT_ROLES.includes(p.role);
+}
+
 // Once a pair enters the proposal pipeline (active OR moved forward to family/
 // completed), the match is no longer a "suggestion" — hide it from both the user
 // and staff match views. Terminal-negative proposals (rejected/declined/withdrawn/
@@ -138,13 +148,16 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
       matches.map(async (m) => {
         const candidate = await db.collection('profiles').findOne(
           { _id: m.candidateId },
-          { projection: { name: 1, age: 1, dob: 1, city: 1, profession: 1, caste: 1, gender: 1, education: 1, photo: 1, height: 1, houseStatus: 1 } }
+          { projection: { name: 1, age: 1, dob: 1, city: 1, profession: 1, caste: 1, gender: 1, education: 1, photo: 1, height: 1, houseStatus: 1, role: 1 } }
         );
         return { ...m, candidate };
       })
     );
+    // Drop any match whose candidate is a staff/admin account (defensive — hides
+    // bad matches generated before the staff-account guards were added).
+    const cleanEnriched = enriched.filter((m) => m.candidate && !isStaffAccount(m.candidate));
 
-    res.json({ success: true, total: enriched.length, matches: enriched });
+    res.json({ success: true, total: cleanEnriched.length, matches: cleanEnriched });
   } catch (error) {
     console.error('❌ Get matches error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });
@@ -243,6 +256,7 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
         gender: oppositeGender,               // ← DB-level gender filter, not just hard-filter
         profileStatus: 'approved',
         paymentStatus: { $in: PAYMENT_OK },   // paid OR waived (staff-created)
+        ...NOT_STAFF_ACCOUNT,                 // never match against staff/admin accounts
       })
       .toArray();
 
@@ -302,6 +316,7 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
     const patched = await db.collection('profiles').updateMany(
       {
         source: { $in: STAFF_SOURCES },
+        ...NOT_STAFF_ACCOUNT,   // don't auto-approve staff/admin accounts
         $or: [
           { profileStatus: { $ne: 'approved' } },
           { profileCompletion: { $lt: 100 } },
@@ -326,6 +341,7 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
     const staffProfiles = await db.collection('profiles')
       .find({
         source: { $in: STAFF_SOURCES },
+        ...NOT_STAFF_ACCOUNT,   // staff-CREATED applicants only, not staff accounts
         profileStatus: 'approved',
         profileCompletion: { $gte: 100 },
       })
@@ -344,6 +360,7 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
         .find({
           _id: { $ne: staffProfile._id },
           gender: oppositeGender,
+          ...NOT_STAFF_ACCOUNT,   // never match against staff/admin accounts
           profileStatus: 'approved',
           paymentStatus: { $in: PAYMENT_OK },   // paid OR waived (staff-created)
         })
@@ -420,11 +437,11 @@ router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Requ
         const [userDoc, candidateDoc] = await Promise.all([
           db.collection('profiles').findOne(
             { _id: m.userId },
-            { projection: { name: 1, age: 1, city: 1, gender: 1, caste: 1, photo: 1, source: 1, registeredBy: 1 } }
+            { projection: { name: 1, age: 1, city: 1, gender: 1, caste: 1, photo: 1, source: 1, registeredBy: 1, role: 1 } }
           ),
           db.collection('profiles').findOne(
             { _id: m.candidateId },
-            { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1, source: 1, registeredBy: 1 } }
+            { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1, source: 1, registeredBy: 1, role: 1 } }
           ),
         ]);
 
@@ -443,6 +460,8 @@ router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Requ
     const seen = new Set<string>();
     const staffRelevant: typeof enriched = [];
     for (const m of enriched) {
+      // Skip matches involving a staff/admin ACCOUNT (not a matchable person).
+      if (isStaffAccount(m.user) || isStaffAccount(m.candidate)) continue;
       if (m.leftProfileType !== 'staff' && m.rightProfileType !== 'staff') continue;
       const id1 = (m as any).userId?.toString() || '';
       const id2 = (m as any).candidateId?.toString() || '';
