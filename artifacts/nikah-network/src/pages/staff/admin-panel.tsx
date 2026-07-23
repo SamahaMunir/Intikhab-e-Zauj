@@ -223,28 +223,31 @@ export default function AdminPanel() {
       {/* ── Stat chips ── */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Staff', value: counts.total,   icon: Users,     grad: 'from-emerald-50', ring: 'bg-[#10B981]' },
-          { label: 'Active',      value: counts.active,  icon: UserCheck, grad: 'from-sky-50',     ring: 'bg-sky-500'   },
-          { label: 'Invited',     value: counts.invited, icon: MailPlus,  grad: 'from-amber-50',   ring: 'bg-[#D97706]' },
+          { label: 'Total Staff', value: counts.total,   icon: Users,     grad: 'from-primary/5',    ring: 'bg-primary'    },
+          { label: 'Active',      value: counts.active,  icon: UserCheck, grad: 'from-sky-500/5',    ring: 'bg-sky-500'    },
+          { label: 'Invited',     value: counts.invited, icon: MailPlus,  grad: 'from-amber-500/5',  ring: 'bg-amber-500'  },
         ].map(s => {
           const Icon = s.icon;
           return (
             <div key={s.label}
-                 className={`relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm
-                             p-5 bg-linear-to-br ${s.grad} to-white`}>
+                 className={`relative overflow-hidden rounded-2xl border border-border shadow-sm
+                             p-5 bg-linear-to-br ${s.grad} to-card`}>
               <div className={`w-10 h-10 rounded-full ${s.ring} flex items-center justify-center mb-4 shadow-sm`}>
                 <Icon className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
-              <div className="text-sm font-medium text-gray-500">{s.label}</div>
-              <div className="text-3xl font-bold text-[#1C1917] mt-0.5">{s.value}</div>
+              <div className="text-sm font-medium text-muted-foreground">{s.label}</div>
+              <div className="text-3xl font-bold text-foreground mt-0.5">{s.value}</div>
             </div>
           );
         })}
       </div>
 
       {/* ── Invite form ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-lg font-bold text-[#1C1917] mb-5">Invite New Staff Member</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Invite New Staff Member</CardTitle>
+        </CardHeader>
+        <CardContent>
         <form onSubmit={inviteStaff} className="space-y-4">
           <div className="grid sm:grid-cols-3 gap-4">
             <div>
@@ -271,44 +274,44 @@ export default function AdminPanel() {
           </div>
 
           {error && (
-            <div className="flex gap-2 text-sm text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl">
+            <div className="flex gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-xl">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
             </div>
           )}
 
           {success && (
-            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl space-y-2">
-              <p className="text-sm text-[#10B981] font-bold">✓ Invite sent!</p>
+            <div className="bg-primary/10 border border-primary/20 p-4 rounded-xl space-y-2">
+              <p className="text-sm text-primary font-bold">✓ Invite sent!</p>
               <div className="flex gap-2">
-                <code className="bg-white border border-gray-100 p-2.5 rounded-lg text-xs flex-1 overflow-auto">
+                <code className="bg-background border border-border p-2.5 rounded-lg text-xs flex-1 overflow-auto">
                   {success.replace('Invite link: ', '')}
                 </code>
-                <button type="button"
-                  onClick={() => copyLink(success.replace('Invite link: ', ''))}
-                  className="px-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                  <Copy className="w-4 h-4 text-gray-500" />
-                </button>
+                <Button type="button" variant="outline" size="icon"
+                  onClick={() => copyLink(success.replace('Invite link: ', ''))}>
+                  <Copy className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           )}
 
-          <button type="submit" disabled={loading}
-            className="h-11 px-6 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white text-sm font-bold
-                       transition-colors disabled:opacity-60 flex items-center gap-2">
+          <Button type="submit" disabled={loading} size="lg" className="rounded-xl">
             <Send className="w-4 h-4" />
             {loading ? 'Sending…' : 'Send Invite'}
-          </button>
+          </Button>
         </form>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ── Staff list ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-lg font-bold text-[#1C1917] mb-5">
-          Staff Members <span className="text-gray-400 font-medium">({staff.length})</span>
-        </h2>
-
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">
+            Staff Members <span className="text-muted-foreground font-medium">({staff.length})</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
         {staff.length === 0 ? (
-          <p className="text-center py-10 text-gray-400">No staff members yet.</p>
+          <p className="text-center py-10 text-muted-foreground">No staff members yet.</p>
         ) : (
           <div className="space-y-2.5">
             {staff.map((member) => {
@@ -318,26 +321,24 @@ export default function AdminPanel() {
               const canModify = !isSelf && !lastActiveAdmin;
               return (
               <div key={member.email}
-                className="flex items-center gap-4 p-4 rounded-xl border border-gray-100
-                           hover:border-gray-200 hover:shadow-sm transition-all">
+                className="flex items-center gap-4 p-4 rounded-xl border border-border
+                           hover:border-primary/30 hover:shadow-sm transition-all">
                 {/* Avatar */}
-                <div className="w-11 h-11 rounded-full bg-emerald-50 text-[#10B981] flex items-center
+                <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center
                                 justify-center text-base font-bold shrink-0">
                   {member.name?.charAt(0).toUpperCase() || '?'}
                 </div>
                 {/* Identity */}
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[#1C1917] truncate">{member.name}</p>
-                  <p className="text-sm text-gray-400 truncate">{member.email}</p>
+                  <p className="font-bold text-foreground truncate">{member.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                 </div>
                 {/* Badges */}
                 <div className="hidden sm:flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold capitalize bg-gray-100 text-gray-600">
-                    {member.role}
-                  </span>
+                  <Badge variant="secondary" className="capitalize">{member.role}</Badge>
                   {statusPill(member.status)}
                   {!member.passwordSet && (
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-[#D97706]">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600">
                       pending setup
                     </span>
                   )}
@@ -345,33 +346,28 @@ export default function AdminPanel() {
                 {/* Actions */}
                 <div className="flex gap-1.5 shrink-0">
                   {member.status === 'invited' && (
-                    <button onClick={() => resendInvite(member.email)}
-                      className="h-9 px-3 rounded-lg border border-gray-200 text-xs font-bold text-gray-600
-                                 hover:bg-gray-50 transition-colors">
+                    <Button onClick={() => resendInvite(member.email)} variant="outline" size="sm">
                       Resend
-                    </button>
+                    </Button>
                   )}
                   {member.status === 'active'
                     ? canModify && (
-                      <button onClick={() => deactivateStaff(member.email)} title="Deactivate"
-                        className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center
-                                   text-gray-500 hover:bg-gray-50 transition-colors">
+                      <Button onClick={() => deactivateStaff(member.email)} title="Deactivate"
+                        variant="outline" size="icon">
                         <Lock className="w-4 h-4" />
-                      </button>
+                      </Button>
                     )
                     : !isSelf && (
-                      <button onClick={() => activateStaff(member.email)} title="Activate"
-                        className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center
-                                   text-[#10B981] hover:bg-emerald-50 transition-colors">
+                      <Button onClick={() => activateStaff(member.email)} title="Activate"
+                        variant="outline" size="icon" className="text-primary">
                         <Unlock className="w-4 h-4" />
-                      </button>
+                      </Button>
                     )}
                   {canModify && (
-                    <button onClick={() => removeStaff(member.email)} title="Remove"
-                      className="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center
-                                 hover:bg-red-100 transition-colors">
+                    <Button onClick={() => removeStaff(member.email)} title="Remove"
+                      variant="destructive" size="icon">
                       <Trash2 className="w-4 h-4" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -379,7 +375,8 @@ export default function AdminPanel() {
             })}
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
