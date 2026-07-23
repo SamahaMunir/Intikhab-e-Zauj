@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { getToken, getStoredUser } from '@/lib/auth';
 import { AlertCircle, Copy, Trash2, Lock, Unlock, Users, UserCheck, MailPlus, Send } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface StaffMember {
   email: string;
@@ -197,15 +200,15 @@ export default function AdminPanel() {
   const activeAdminCount = staff.filter(s => s.role === 'admin' && s.status === 'active').length;
 
   const inputCls =
-    'w-full h-11 px-4 rounded-xl bg-[#F4F6F5] border border-gray-200 text-sm text-[#1C1917] ' +
-    'placeholder-gray-400 focus:outline-none focus:border-[#10B981] focus:bg-white transition-colors';
-  const labelCls = 'block text-sm font-semibold text-[#1C1917] mb-1.5';
+    'w-full h-11 px-4 rounded-xl bg-muted border border-border text-sm text-foreground ' +
+    'placeholder-muted-foreground focus:outline-none focus:border-primary focus:bg-background transition-colors';
+  const labelCls = 'block text-sm font-semibold text-foreground mb-1.5';
 
   const statusPill = (status: StaffMember['status']) => {
     const map = {
-      active:   'bg-emerald-50 text-[#10B981]',
-      invited:  'bg-sky-50 text-sky-600',
-      inactive: 'bg-gray-100 text-gray-500',
+      active:   'bg-primary/10 text-primary',
+      invited:  'bg-sky-500/10 text-sky-600',
+      inactive: 'bg-muted text-muted-foreground',
     };
     return (
       <span className={`px-2.5 py-1 rounded-full text-xs font-bold capitalize ${map[status]}`}>
