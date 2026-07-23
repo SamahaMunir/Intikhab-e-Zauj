@@ -313,7 +313,7 @@ export default function AdminPanel() {
         {staff.length === 0 ? (
           <p className="text-center py-10 text-muted-foreground">No staff members yet.</p>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {staff.map((member) => {
               const isSelf = member.email === currentEmail;
               // Protect the last active admin (and never let an admin act on self).
@@ -344,9 +344,9 @@ export default function AdminPanel() {
                   )}
                 </div>
                 {/* Actions */}
-                <div className="flex gap-1.5 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {member.status === 'invited' && (
-                    <Button onClick={() => resendInvite(member.email)} variant="outline" size="sm">
+                    <Button onClick={() => resendInvite(member.email)} variant="outline" size="sm" className="h-9">
                       Resend
                     </Button>
                   )}
