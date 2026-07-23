@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   Users, RefreshCw, Search, LayoutGrid, List,
-  User as UserIcon, Eye, StickyNote, Loader2, Check, X, Clock, Trash2,
+  User as UserIcon, Eye, StickyNote, Loader2, Check, X, Trash2,
 } from "lucide-react";
 
 interface Profile {
@@ -153,8 +153,8 @@ export default function StaffProfiles() {
   ];
 
   const inputCls =
-    'h-11 px-4 rounded-xl bg-muted border border-gray-200 text-sm text-foreground ' +
-    'placeholder-gray-400 focus:outline-none focus:border-primary focus:bg-white transition-colors';
+    'h-11 px-4 rounded-xl bg-background border border-border text-sm text-foreground ' +
+    'placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors';
 
   if (loading) {
     return (
@@ -170,38 +170,34 @@ export default function StaffProfiles() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
             <Users className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-foreground">Recommended Profiles</h1>
-              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-primary">Islamic Matrimonial</span>
-              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-50 text-[#D97706]">Family-Friendly</span>
-            </div>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h1 className="text-2xl font-bold text-foreground">Applicant Profiles</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Manage and review applicant profiles · <span className="font-semibold text-foreground">{counts.all}</span> total
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {/* View mode toggle */}
-          <div className="flex rounded-xl border border-gray-200 overflow-hidden bg-white">
+          <div className="flex rounded-xl border border-border overflow-hidden bg-card">
             {([
               { mode: 'card',  icon: LayoutGrid },
               { mode: 'table', icon: List },
             ] as const).map(({ mode, icon: Icon }) => (
               <button key={mode} onClick={() => setViewMode(mode)}
                 className={`p-2.5 transition-colors ${
-                  viewMode === mode ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'
+                  viewMode === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                 }`} aria-label={`${mode} view`}>
                 <Icon className="w-5 h-5" />
               </button>
             ))}
           </div>
           <button onClick={fetchProfiles}
-            className="flex items-center gap-2 h-11 px-4 rounded-xl border border-gray-200 bg-white
-                       text-sm font-bold text-foreground hover:bg-gray-50 transition-colors">
+            className="flex items-center gap-2 h-11 px-4 rounded-xl border border-border bg-card
+                       text-sm font-bold text-foreground hover:bg-muted transition-colors">
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
         </div>
@@ -213,8 +209,8 @@ export default function StaffProfiles() {
           <button key={key} onClick={() => setFilter(key)}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
               filter === key
-                ? "bg-primary text-white"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-emerald-50 hover:text-primary"
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground border border-border hover:bg-muted hover:text-foreground"
             }`}>
             {label}
           </button>
@@ -222,25 +218,25 @@ export default function StaffProfiles() {
       </div>
 
       {/* Search + Filter bar (live) */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-4">
         {/* Search */}
         <div className="relative">
-          <Search className="w-4 h-4 text-primary absolute left-4 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or location…"
-            className="w-full h-12 pl-11 pr-5 rounded-xl bg-emerald-50/60 border border-emerald-100 text-sm
-                       text-foreground placeholder-primary/60 focus:outline-none focus:border-primary
-                       focus:bg-white transition-colors"
+            className="w-full h-12 pl-11 pr-5 rounded-xl bg-background border border-border text-sm
+                       text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary
+                       focus:ring-1 focus:ring-primary/30 transition-colors"
           />
         </div>
 
         {/* Filter fields w/ labels */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-1">Age</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide ml-1">Age</span>
             <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)} className={inputCls + ' cursor-pointer'}>
               <option value="">Any age</option>
               <option value="under25">Under 25</option>
@@ -251,37 +247,28 @@ export default function StaffProfiles() {
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-1">Location</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide ml-1">Location</span>
             <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
               placeholder="Any city" className={inputCls} />
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-1">Education</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide ml-1">Education</span>
             <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
               placeholder="Any degree" className={inputCls} />
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide ml-1">Status</span>
-            <select value={filter} onChange={e => setFilter(e.target.value as typeof filter)} className={inputCls + ' cursor-pointer'}>
-              <option value="all">All status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-            </select>
           </label>
         </div>
 
         {/* Result count + clear */}
-        <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="text-sm font-semibold text-gray-500">
-            <span className="text-primary font-bold">{filtered.length}</span> result{filtered.length !== 1 ? 's' : ''}
-            {hasActiveFilters && <span className="text-gray-400"> · filtered from {profiles.length}</span>}
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-border mt-1">
+          <span className="text-sm font-semibold text-muted-foreground pt-3">
+            <span className="text-foreground font-bold">{filtered.length}</span> result{filtered.length !== 1 ? 's' : ''}
+            {hasActiveFilters && <span className="text-muted-foreground"> · filtered from {profiles.length}</span>}
           </span>
           {hasActiveFilters && (
             <button onClick={clearFilters}
-              className="flex items-center gap-1.5 h-9 px-4 rounded-xl border border-gray-200 bg-white text-gray-600
-                         hover:bg-gray-50 text-sm font-bold transition-colors">
+              className="flex items-center gap-1.5 h-9 px-4 rounded-xl border border-border bg-card text-muted-foreground
+                         hover:bg-muted hover:text-foreground text-sm font-bold transition-colors mt-3">
               <X className="w-4 h-4" /> Clear filters
             </button>
           )}
@@ -290,21 +277,21 @@ export default function StaffProfiles() {
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
-          <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-          <p className="font-bold text-gray-500">No profiles found</p>
+        <div className="text-center py-16 bg-card rounded-2xl border border-dashed border-border">
+          <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="font-bold text-muted-foreground">No profiles found</p>
         </div>
       )}
 
       {/* ── Table view ── */}
       {viewMode === 'table' && filtered.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-muted border-b border-gray-100">
+                <tr className="bg-muted border-b border-border">
                   {['Name', 'Age', 'Location', 'Status', 'Joined', 'Actions'].map((h, i) => (
-                    <th key={h} className={`px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${i === 5 ? 'text-right' : ''}`}>
+                    <th key={h} className={`px-5 py-3.5 text-xs font-bold text-muted-foreground uppercase tracking-wide whitespace-nowrap ${i === 5 ? 'text-right' : ''}`}>
                       {h}
                     </th>
                   ))}
@@ -313,8 +300,8 @@ export default function StaffProfiles() {
               <tbody>
                 {filtered.map((profile, idx) => (
                   <tr key={profile._id}
-                    className={`border-b border-gray-50 hover:bg-muted transition-colors ${
-                      idx % 2 ? 'bg-white' : 'bg-gray-50/30'
+                    className={`border-b border-border hover:bg-muted transition-colors ${
+                      idx % 2 ? 'bg-card' : 'bg-muted/30'
                     }`}>
                     {/* Name */}
                     <td className="px-5 py-3.5">
@@ -324,19 +311,19 @@ export default function StaffProfiles() {
                             <img src={profile.photo} alt={profile.name} className="w-full h-full object-cover"
                               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           ) : (
-                            <UserIcon className="w-4 h-4 text-gray-300" />
+                            <UserIcon className="w-4 h-4 text-muted-foreground" />
                           )}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-foreground truncate">{profile.name}</p>
-                          <p className="text-xs text-gray-400 truncate">{profile.email}</p>
+                          <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-sm font-semibold text-foreground">{profile.age ?? '—'}</td>
-                    <td className="px-5 py-3.5 text-sm text-gray-600">{profile.city || '—'}</td>
+                    <td className="px-5 py-3.5 text-sm text-muted-foreground">{profile.city || '—'}</td>
                     <td className="px-5 py-3.5"><StatusBadge status={profile.profileStatus} /></td>
-                    <td className="px-5 py-3.5 text-sm text-gray-500 whitespace-nowrap">
+                    <td className="px-5 py-3.5 text-sm text-muted-foreground whitespace-nowrap">
                       {new Date(profile.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-5 py-3.5">
@@ -349,7 +336,7 @@ export default function StaffProfiles() {
                         {profile.profileStatus === 'pending' ? (
                           <>
                             <button onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
-                              className="h-9 px-3.5 rounded-lg border border-primary text-primary bg-white hover:bg-emerald-50 text-xs font-bold transition-colors">
+                              className="h-9 px-3.5 rounded-lg border border-primary text-primary bg-card hover:bg-primary/10 text-xs font-bold transition-colors">
                               Approve
                             </button>
                             <button onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
@@ -364,7 +351,7 @@ export default function StaffProfiles() {
                           </button>
                         )}
                         <button onClick={() => setNoteModal({ profileId: profile._id, profileName: profile.name, existing: profile.notes || '' })}
-                          className="h-9 px-3.5 rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 text-xs font-bold transition-colors">
+                          className="h-9 px-3.5 rounded-lg border border-border text-muted-foreground bg-card hover:bg-muted text-xs font-bold transition-colors">
                           Note
                         </button>
                       </div>
@@ -381,12 +368,6 @@ export default function StaffProfiles() {
       {viewMode === 'card' && filtered.length > 0 && (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map(profile => {
-            const sb = {
-              approved: { Icon: Check, cls: 'bg-primary text-white' },
-              rejected: { Icon: X,     cls: 'bg-red-500 text-white' },
-              pending:  { Icon: Clock, cls: 'bg-[#D97706] text-white' },
-            }[profile.profileStatus] ?? { Icon: Clock, cls: 'bg-gray-400 text-white' };
-
             const lines = [
               profile.education,
               profile.profession,
@@ -399,12 +380,7 @@ export default function StaffProfiles() {
               <ProfileImageCard key={profile._id}
                 photo={profile.photo} name={profile.name} age={profile.age} lines={lines}
                 heightClass="h-80" onClick={() => setLocation(`/staff/profiles/${profile._id}`)}
-                topRight={
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md ${sb.cls}`}
-                       title={profile.profileStatus}>
-                    <sb.Icon className="w-5 h-5" />
-                  </div>
-                }
+                topRight={<StatusBadge status={profile.profileStatus} />}
                 footer={
                   <div className="space-y-2">
                     <div className="flex gap-2">
@@ -424,8 +400,8 @@ export default function StaffProfiles() {
                     {profile.profileStatus === 'pending' ? (
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
-                          className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-emerald-50
-                                     text-primary hover:bg-emerald-100 text-sm font-bold transition-colors">
+                          className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-primary/10
+                                     text-primary hover:bg-primary/20 text-sm font-bold transition-colors">
                           <Check className="w-4 h-4" /> Approve
                         </button>
                         <button onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
@@ -476,7 +452,7 @@ export default function StaffProfiles() {
           <div className="space-y-3 py-2">
             <div className="rounded-xl bg-muted px-5 py-4">
               <p className="text-base font-bold text-foreground">{selectedProfile?.name}</p>
-              <p className="text-sm text-gray-500">{selectedProfile?.email}</p>
+              <p className="text-sm text-muted-foreground">{selectedProfile?.email}</p>
             </div>
 
             {action === 'reject' && (
@@ -498,8 +474,8 @@ export default function StaffProfiles() {
 
           <DialogFooter className="gap-2">
             <button onClick={() => setAction(null)} disabled={actionLoading}
-              className="h-11 px-6 rounded-xl border border-gray-200 text-sm font-bold
-                         text-gray-600 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50">
+              className="h-11 px-6 rounded-xl border border-border text-sm font-bold
+                         text-muted-foreground bg-card hover:bg-muted transition-colors disabled:opacity-50">
               Cancel
             </button>
             <button onClick={submitAction}
