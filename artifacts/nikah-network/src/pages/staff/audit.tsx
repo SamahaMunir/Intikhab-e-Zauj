@@ -99,8 +99,8 @@ export default function StaffAudit() {
   const hasFilters = filterAction || filterActor || filterResource;
 
   const inputCls =
-    'h-11 px-4 rounded-xl bg-[#F4F6F5] border border-gray-200 text-sm text-[#1C1917] ' +
-    'placeholder-gray-400 focus:outline-none focus:border-[#10B981] focus:bg-white transition-colors';
+    'h-11 px-4 rounded-xl bg-muted border border-gray-200 text-sm text-foreground ' +
+    'placeholder-gray-400 focus:outline-none focus:border-primary focus:bg-white transition-colors';
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -109,20 +109,20 @@ export default function StaffAudit() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
-            <ScrollText className="w-6 h-6 text-[#10B981]" />
+            <ScrollText className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[#1C1917]">Audit Logs</h1>
+            <h1 className="text-2xl font-bold text-foreground">Audit Logs</h1>
             <p className="text-sm text-gray-500">
-              Immutable record of all staff actions · <span className="font-semibold text-[#1C1917]">{total}</span> total
+              Immutable record of all staff actions · <span className="font-semibold text-foreground">{total}</span> total
             </p>
           </div>
         </div>
         <button
           onClick={() => fetchAuditLogs(page)}
           disabled={isLoading}
-          className="flex items-center gap-2 h-11 px-5 rounded-xl bg-[#10B981] text-white
-                     hover:bg-[#059669] disabled:opacity-50 text-sm font-bold transition-colors"
+          className="flex items-center gap-2 h-11 px-5 rounded-xl bg-primary text-white
+                     hover:bg-primary disabled:opacity-50 text-sm font-bold transition-colors"
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
@@ -162,8 +162,8 @@ export default function StaffAudit() {
 
           <div className="flex gap-2">
             <button onClick={applyTextFilters}
-              className="flex items-center gap-1.5 h-11 px-5 bg-[#10B981] text-white rounded-xl
-                         hover:bg-[#059669] text-sm font-bold transition-colors">
+              className="flex items-center gap-1.5 h-11 px-5 bg-primary text-white rounded-xl
+                         hover:bg-primary text-sm font-bold transition-colors">
               <Search className="w-4 h-4" /> Apply
             </button>
             {hasFilters && (
@@ -176,7 +176,7 @@ export default function StaffAudit() {
           </div>
         </div>
         {hasFilters && (
-          <p className="text-xs text-[#10B981] mt-3 font-semibold">
+          <p className="text-xs text-primary mt-3 font-semibold">
             Filtering by:
             {filterAction   && <span className="ml-1">action="{filterAction}"</span>}
             {filterActor    && <span className="ml-1">actor="{filterActor}"</span>}
@@ -200,7 +200,7 @@ export default function StaffAudit() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-[#10B981]" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <span className="ml-2 text-gray-500">Loading audit logs…</span>
           </div>
         ) : logs.length === 0 ? (
@@ -209,7 +209,7 @@ export default function StaffAudit() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-[#F4F6F5] border-b border-gray-100">
+                <tr className="bg-muted border-b border-gray-100">
                   {['Timestamp', 'Actor', 'Action', 'Resource', 'ID', 'Reason / Note'].map(h => (
                     <th key={h} className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                       {h}
@@ -220,18 +220,18 @@ export default function StaffAudit() {
               <tbody>
                 {logs.map((log, idx) => (
                   <tr key={log._id || idx}
-                      className={`border-b border-gray-50 hover:bg-[#F4F6F5] transition-colors ${
+                      className={`border-b border-gray-50 hover:bg-muted transition-colors ${
                         idx % 2 ? 'bg-white' : 'bg-gray-50/30'
                       }`}>
                     <td className="px-5 py-3.5 text-xs text-gray-500 whitespace-nowrap">
                       {format(new Date(log.createdAt), "MMM d, yyyy HH:mm:ss")}
                     </td>
                     <td className="px-5 py-3.5">
-                      <div className="text-sm font-semibold text-[#1C1917]">{log.actorEmail}</div>
+                      <div className="text-sm font-semibold text-foreground">{log.actorEmail}</div>
                       <div className="text-xs text-gray-400 capitalize">{log.actorRole}</div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[#10B981] capitalize whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-primary capitalize whitespace-nowrap">
                         {log.action.replace(/_/g, ' ')}
                       </span>
                     </td>
@@ -263,7 +263,7 @@ export default function StaffAudit() {
               className="h-9 px-4 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 text-sm font-semibold transition-colors">
               Previous
             </button>
-            <span className="px-3 font-semibold text-[#1C1917]">Page {page + 1} / {totalPages}</span>
+            <span className="px-3 font-semibold text-foreground">Page {page + 1} / {totalPages}</span>
             <button disabled={page >= totalPages - 1} onClick={() => goPage(page + 1)}
               className="h-9 px-4 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 text-sm font-semibold transition-colors">
               Next

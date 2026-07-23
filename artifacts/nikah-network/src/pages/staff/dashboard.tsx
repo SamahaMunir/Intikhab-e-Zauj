@@ -40,7 +40,7 @@ export default function StaffDashboard() {
 
   // Pastel stat cards (reference "My Task" style)
   const stats = [
-    { label: 'Total Profiles',   value: val(profileStats.total),    icon: Users,        grad: 'from-emerald-50', ring: 'bg-[#10B981]' },
+    { label: 'Total Profiles',   value: val(profileStats.total),    icon: Users,        grad: 'from-emerald-50', ring: 'bg-primary' },
     { label: 'Pending Approval', value: val(profileStats.pending),  icon: Clock,        grad: 'from-amber-50',   ring: 'bg-[#D97706]' },
     { label: 'Approved',         value: val(profileStats.approved), icon: CheckCircle2, grad: 'from-sky-50',     ring: 'bg-sky-500'   },
     { label: 'Total Matches',    value: val(matchStats.total),      icon: Heart,        grad: 'from-violet-50',  ring: 'bg-violet-500'},
@@ -48,12 +48,12 @@ export default function StaffDashboard() {
 
   // Quick action tiles (reference "Recommended Categories" style)
   const tiles = [
-    { label: 'Data Entry',       icon: UserPlus,       to: '/staff/data-entry',       color: 'text-[#10B981]' },
+    { label: 'Data Entry',       icon: UserPlus,       to: '/staff/data-entry',       color: 'text-primary' },
     { label: 'Approvals',        icon: ClipboardCheck, to: '/staff/profile-approval', color: 'text-[#D97706]' },
     { label: 'Matches',          icon: Sparkles,       to: '/staff/matches',          color: 'text-violet-500' },
     { label: 'Profiles',         icon: Users,          to: '/staff/profiles',         color: 'text-sky-500' },
     { label: 'Proposals',        icon: FileText,       to: '/staff/proposals',        color: 'text-rose-500' },
-    { label: 'Q&A Moderation',   icon: ShieldCheck,    to: '/staff/messages',         color: 'text-[#10B981]' },
+    { label: 'Q&A Moderation',   icon: ShieldCheck,    to: '/staff/messages',         color: 'text-primary' },
     { label: 'Counselling',      icon: HeartHandshake, to: '/staff/counselling',      color: 'text-[#D97706]' },
     { label: 'Audit Logs',       icon: ClipboardCheck, to: '/staff/audit',            color: 'text-gray-500' },
   ];
@@ -74,7 +74,7 @@ export default function StaffDashboard() {
                 <Icon className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
               <div className="text-sm font-medium text-gray-500">{s.label}</div>
-              <div className="text-3xl font-bold text-[#1C1917] mt-0.5">{s.value}</div>
+              <div className="text-3xl font-bold text-foreground mt-0.5">{s.value}</div>
             </div>
           );
         })}
@@ -82,20 +82,20 @@ export default function StaffDashboard() {
 
       {/* ── Quick action tiles ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-lg font-bold text-[#1C1917] mb-5">Quick Actions</h2>
+        <h2 className="text-lg font-bold text-foreground mb-5">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {tiles.map(t => {
             const Icon = t.icon;
             return (
               <button key={t.label} onClick={() => setLocation(t.to)}
                 className="flex items-center gap-3 p-4 rounded-xl border border-gray-100
-                           hover:border-[#10B981] hover:bg-emerald-50/50 transition-colors text-left group">
+                           hover:border-primary hover:bg-emerald-50/50 transition-colors text-left group">
                 <div className="w-10 h-10 rounded-xl bg-gray-50 group-hover:bg-white
                                 flex items-center justify-center shrink-0 transition-colors">
                   <Icon className={`w-5 h-5 ${t.color}`} aria-hidden="true" />
                 </div>
-                <span className="text-sm font-semibold text-[#1C1917] flex-1">{t.label}</span>
-                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#10B981] transition-colors" />
+                <span className="text-sm font-semibold text-foreground flex-1">{t.label}</span>
+                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors" />
               </button>
             );
           })}
@@ -108,21 +108,21 @@ export default function StaffDashboard() {
         {/* Pending highlight */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-[#1C1917]">Needs Attention</h2>
+            <h2 className="text-lg font-bold text-foreground">Needs Attention</h2>
             <Clock className="w-5 h-5 text-[#D97706]" />
           </div>
           <div className="flex-1 space-y-3">
             <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50">
-              <span className="text-sm font-semibold text-[#1C1917]">Pending approval</span>
+              <span className="text-sm font-semibold text-foreground">Pending approval</span>
               <span className="text-lg font-bold text-[#D97706]">{val(profileStats.pending)}</span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50">
-              <span className="text-sm font-semibold text-[#1C1917]">Suggested matches</span>
-              <span className="text-lg font-bold text-[#10B981]">{val(matchStats.suggested)}</span>
+              <span className="text-sm font-semibold text-foreground">Suggested matches</span>
+              <span className="text-lg font-bold text-primary">{val(matchStats.suggested)}</span>
             </div>
           </div>
           <button onClick={() => setLocation('/staff/profile-approval')}
-            className="mt-4 h-11 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white
+            className="mt-4 h-11 rounded-xl bg-primary hover:bg-primary text-white
                        text-sm font-bold transition-colors flex items-center justify-center gap-2">
             Review Now <ArrowRight className="w-4 h-4" />
           </button>
@@ -130,7 +130,7 @@ export default function StaffDashboard() {
 
         {/* Workflow */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-[#1C1917] mb-5">Staff Workflow</h2>
+          <h2 className="text-lg font-bold text-foreground mb-5">Staff Workflow</h2>
           <ol className="space-y-4">
             {[
               ['Data Entry',         'Create profiles from WhatsApp, paper forms, or walk-ins'],
@@ -140,12 +140,12 @@ export default function StaffDashboard() {
               ['Match Generation',   'Matches auto-generate on approval using our algorithm'],
             ].map(([title, desc], i) => (
               <li key={i} className="flex items-start gap-4">
-                <span className="shrink-0 w-7 h-7 rounded-full bg-emerald-50 text-[#10B981]
+                <span className="shrink-0 w-7 h-7 rounded-full bg-emerald-50 text-primary
                                  flex items-center justify-center text-sm font-bold mt-0.5">
                   {i + 1}
                 </span>
                 <div>
-                  <span className="font-bold text-[#1C1917]">{title}:</span>
+                  <span className="font-bold text-foreground">{title}:</span>
                   <span className="ml-2 text-sm text-gray-500">{desc}</span>
                 </div>
               </li>

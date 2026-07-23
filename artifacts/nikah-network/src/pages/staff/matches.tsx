@@ -48,7 +48,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 function pairBadge(both: boolean) {
   return both
     ? <span className="px-3 py-1 text-xs font-bold rounded-full bg-violet-50 text-violet-600">Staff ↔ Staff</span>
-    : <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-50 text-[#10B981]">Staff ↔ User</span>;
+    : <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-50 text-primary">Staff ↔ User</span>;
 }
 
 export default function StaffMatches() {
@@ -147,7 +147,7 @@ export default function StaffMatches() {
   const isStaffStaff = (m: MatchRecord) => m.leftProfileType === 'staff' && m.rightProfileType === 'staff';
   const isStaffUser  = (m: MatchRecord) => (m.leftProfileType === 'staff') !== (m.rightProfileType === 'staff');
   const stats = [
-    { label: 'Total Matches',     value: matches.length,                                              icon: Users,       grad: 'from-emerald-50', ring: 'text-[#10B981]' },
+    { label: 'Total Matches',     value: matches.length,                                              icon: Users,       grad: 'from-emerald-50', ring: 'text-primary' },
     { label: 'Staff ↔ Staff',     value: matches.filter(isStaffStaff).length,                          icon: ShieldCheck, grad: 'from-violet-50',  ring: 'text-violet-500' },
     { label: 'Staff ↔ User',      value: matches.filter(isStaffUser).length,                           icon: UserCheck,   grad: 'from-sky-50',     ring: 'text-sky-500' },
     { label: 'High Compatibility', value: matches.filter(m => (m.scoreBreakdown?.total ?? m.score) >= 75).length, icon: Star, grad: 'from-amber-50', ring: 'text-[#D97706]' },
@@ -156,7 +156,7 @@ export default function StaffMatches() {
   if (loading) return (
     <div className="flex justify-center items-center min-h-64">
       <div className="text-center">
-        <Loader2 className="w-9 h-9 animate-spin text-[#10B981] mx-auto mb-3" />
+        <Loader2 className="w-9 h-9 animate-spin text-primary mx-auto mb-3" />
         <p className="text-gray-500 text-sm">Loading staff matches…</p>
       </div>
     </div>
@@ -174,18 +174,18 @@ export default function StaffMatches() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#1C1917]">Matches</h1>
+          <h1 className="text-2xl font-bold text-foreground">Matches</h1>
           <p className="text-sm text-gray-500">Manage and review proposed matches</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-gray-500 mr-1">{matches.length} Matches</span>
           <button onClick={load}
             className="flex items-center gap-2 h-11 px-4 rounded-xl border border-gray-200 bg-white
-                       text-sm font-bold text-[#1C1917] hover:bg-gray-50 transition-colors">
+                       text-sm font-bold text-foreground hover:bg-gray-50 transition-colors">
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
           <button onClick={generateStaffMatches} disabled={generating}
-            className="flex items-center gap-2 h-11 px-5 rounded-xl bg-[#10B981] hover:bg-[#059669]
+            className="flex items-center gap-2 h-11 px-5 rounded-xl bg-primary hover:bg-primary
                        text-white text-sm font-bold transition-colors disabled:opacity-50">
             <Sparkles className="w-4 h-4" />
             {generating ? 'Generating…' : 'Generate Matches'}
@@ -204,7 +204,7 @@ export default function StaffMatches() {
                 <Icon className={`w-6 h-6 ${s.ring}`} />
               </div>
               <div className="text-sm font-semibold text-gray-500">{s.label}</div>
-              <div className="text-4xl font-black text-[#1C1917] mt-1">{s.value}</div>
+              <div className="text-4xl font-black text-foreground mt-1">{s.value}</div>
             </div>
           );
         })}
@@ -214,7 +214,7 @@ export default function StaffMatches() {
         <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">{error}</div>
       )}
       {success && (
-        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-[#059669] text-sm font-semibold">{success}</div>
+        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-primary text-sm font-semibold">{success}</div>
       )}
 
       {/* Type filter tabs */}
@@ -228,8 +228,8 @@ export default function StaffMatches() {
           <button key={key} onClick={() => setTypeFilter(key)}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
               typeFilter === key
-                ? 'bg-[#10B981] text-white'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-emerald-50 hover:text-[#10B981]'
+                ? 'bg-primary text-white'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-emerald-50 hover:text-primary'
             }`}>
             {label}
           </button>
@@ -270,8 +270,8 @@ export default function StaffMatches() {
 
               {/* Card header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
-                <h3 className="font-bold text-lg text-[#1C1917] flex items-center gap-2.5">
-                  <Heart className="w-5 h-5 text-[#10B981]" />
+                <h3 className="font-bold text-lg text-foreground flex items-center gap-2.5">
+                  <Heart className="w-5 h-5 text-primary" />
                   {pairName}
                 </h3>
                 {pairBadge(bothStaff)}
@@ -290,8 +290,8 @@ export default function StaffMatches() {
                       onClick={side.id ? () => setLocation(`/staff/profiles/${side.id}`) : undefined}
                       footer={side.id ? (
                         <button onClick={() => setLocation(`/staff/profiles/${side.id}`)}
-                          className="w-full h-11 rounded-xl border border-[#E8DED3] text-[#1C1917] text-sm font-bold
-                                     flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-[#10B981] transition-colors">
+                          className="w-full h-11 rounded-xl border border-[#E8DED3] text-foreground text-sm font-bold
+                                     flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-primary transition-colors">
                           View Profile <ArrowUpRight className="w-4 h-4" />
                         </button>
                       ) : undefined}
@@ -335,7 +335,7 @@ export default function StaffMatches() {
                         recipientId: femaleProfile?._id,
                         matchId: m._id,
                       })}
-                      className="flex-1 h-12 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669] text-white
+                      className="flex-1 h-12 rounded-xl bg-linear-to-r from-primary to-primary text-white
                                  font-bold flex items-center justify-center gap-2 shadow-md
                                  hover:shadow-lg hover:brightness-105 active:scale-[0.99] transition-all
                                  disabled:opacity-50 disabled:hover:shadow-md">
@@ -350,7 +350,7 @@ export default function StaffMatches() {
                 <div className="border-t border-gray-100">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : m._id)}
-                    className="w-full px-5 py-3 text-left text-sm text-[#10B981] font-bold
+                    className="w-full px-5 py-3 text-left text-sm text-primary font-bold
                                hover:bg-emerald-50/50 flex items-center gap-2 transition-colors">
                     {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     Compatibility Breakdown — 100-point scoring

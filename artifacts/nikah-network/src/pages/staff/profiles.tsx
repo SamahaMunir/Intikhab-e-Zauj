@@ -153,13 +153,13 @@ export default function StaffProfiles() {
   ];
 
   const inputCls =
-    'h-11 px-4 rounded-xl bg-[#F4F6F5] border border-gray-200 text-sm text-[#1C1917] ' +
-    'placeholder-gray-400 focus:outline-none focus:border-[#10B981] focus:bg-white transition-colors';
+    'h-11 px-4 rounded-xl bg-muted border border-gray-200 text-sm text-foreground ' +
+    'placeholder-gray-400 focus:outline-none focus:border-primary focus:bg-white transition-colors';
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-9 h-9 animate-spin text-[#10B981]" />
+        <Loader2 className="w-9 h-9 animate-spin text-primary" />
       </div>
     );
   }
@@ -171,16 +171,16 @@ export default function StaffProfiles() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
-            <Users className="w-6 h-6 text-[#10B981]" />
+            <Users className="w-6 h-6 text-primary" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-[#1C1917]">Recommended Profiles</h1>
-              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-[#10B981]">Islamic Matrimonial</span>
+              <h1 className="text-2xl font-bold text-foreground">Recommended Profiles</h1>
+              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-primary">Islamic Matrimonial</span>
               <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-50 text-[#D97706]">Family-Friendly</span>
             </div>
             <p className="text-sm text-gray-500 mt-0.5">
-              Manage and review applicant profiles · <span className="font-semibold text-[#1C1917]">{counts.all}</span> total
+              Manage and review applicant profiles · <span className="font-semibold text-foreground">{counts.all}</span> total
             </p>
           </div>
         </div>
@@ -193,7 +193,7 @@ export default function StaffProfiles() {
             ] as const).map(({ mode, icon: Icon }) => (
               <button key={mode} onClick={() => setViewMode(mode)}
                 className={`p-2.5 transition-colors ${
-                  viewMode === mode ? 'bg-[#10B981] text-white' : 'text-gray-500 hover:bg-gray-50'
+                  viewMode === mode ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'
                 }`} aria-label={`${mode} view`}>
                 <Icon className="w-5 h-5" />
               </button>
@@ -201,7 +201,7 @@ export default function StaffProfiles() {
           </div>
           <button onClick={fetchProfiles}
             className="flex items-center gap-2 h-11 px-4 rounded-xl border border-gray-200 bg-white
-                       text-sm font-bold text-[#1C1917] hover:bg-gray-50 transition-colors">
+                       text-sm font-bold text-foreground hover:bg-gray-50 transition-colors">
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
         </div>
@@ -213,8 +213,8 @@ export default function StaffProfiles() {
           <button key={key} onClick={() => setFilter(key)}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
               filter === key
-                ? "bg-[#10B981] text-white"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-emerald-50 hover:text-[#10B981]"
+                ? "bg-primary text-white"
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-emerald-50 hover:text-primary"
             }`}>
             {label}
           </button>
@@ -225,14 +225,14 @@ export default function StaffProfiles() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
         {/* Search */}
         <div className="relative">
-          <Search className="w-4 h-4 text-[#10B981] absolute left-4 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-primary absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or location…"
             className="w-full h-12 pl-11 pr-5 rounded-xl bg-emerald-50/60 border border-emerald-100 text-sm
-                       text-[#1C1917] placeholder-[#10B981]/60 focus:outline-none focus:border-[#10B981]
+                       text-foreground placeholder-primary/60 focus:outline-none focus:border-primary
                        focus:bg-white transition-colors"
           />
         </div>
@@ -275,7 +275,7 @@ export default function StaffProfiles() {
         {/* Result count + clear */}
         <div className="flex items-center justify-between gap-2 pt-1">
           <span className="text-sm font-semibold text-gray-500">
-            <span className="text-[#10B981] font-bold">{filtered.length}</span> result{filtered.length !== 1 ? 's' : ''}
+            <span className="text-primary font-bold">{filtered.length}</span> result{filtered.length !== 1 ? 's' : ''}
             {hasActiveFilters && <span className="text-gray-400"> · filtered from {profiles.length}</span>}
           </span>
           {hasActiveFilters && (
@@ -302,7 +302,7 @@ export default function StaffProfiles() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-[#F4F6F5] border-b border-gray-100">
+                <tr className="bg-muted border-b border-gray-100">
                   {['Name', 'Age', 'Location', 'Status', 'Joined', 'Actions'].map((h, i) => (
                     <th key={h} className={`px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap ${i === 5 ? 'text-right' : ''}`}>
                       {h}
@@ -313,13 +313,13 @@ export default function StaffProfiles() {
               <tbody>
                 {filtered.map((profile, idx) => (
                   <tr key={profile._id}
-                    className={`border-b border-gray-50 hover:bg-[#F4F6F5] transition-colors ${
+                    className={`border-b border-gray-50 hover:bg-muted transition-colors ${
                       idx % 2 ? 'bg-white' : 'bg-gray-50/30'
                     }`}>
                     {/* Name */}
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-[#F4F6F5] shrink-0 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-muted shrink-0 flex items-center justify-center">
                           {profile.photo ? (
                             <img src={profile.photo} alt={profile.name} className="w-full h-full object-cover"
                               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -328,12 +328,12 @@ export default function StaffProfiles() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-[#1C1917] truncate">{profile.name}</p>
+                          <p className="text-sm font-bold text-foreground truncate">{profile.name}</p>
                           <p className="text-xs text-gray-400 truncate">{profile.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-sm font-semibold text-[#1C1917]">{profile.age ?? '—'}</td>
+                    <td className="px-5 py-3.5 text-sm font-semibold text-foreground">{profile.age ?? '—'}</td>
                     <td className="px-5 py-3.5 text-sm text-gray-600">{profile.city || '—'}</td>
                     <td className="px-5 py-3.5"><StatusBadge status={profile.profileStatus} /></td>
                     <td className="px-5 py-3.5 text-sm text-gray-500 whitespace-nowrap">
@@ -342,14 +342,14 @@ export default function StaffProfiles() {
                     <td className="px-5 py-3.5">
                       <div className="flex justify-end gap-2 flex-wrap">
                         <Link href={`/staff/profiles/${profile._id}`}>
-                          <button className="h-9 px-3.5 rounded-lg bg-[#10B981] hover:bg-[#059669] text-white text-xs font-bold transition-colors">
+                          <button className="h-9 px-3.5 rounded-lg bg-primary hover:bg-primary text-white text-xs font-bold transition-colors">
                             View
                           </button>
                         </Link>
                         {profile.profileStatus === 'pending' ? (
                           <>
                             <button onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
-                              className="h-9 px-3.5 rounded-lg border border-[#10B981] text-[#10B981] bg-white hover:bg-emerald-50 text-xs font-bold transition-colors">
+                              className="h-9 px-3.5 rounded-lg border border-primary text-primary bg-white hover:bg-emerald-50 text-xs font-bold transition-colors">
                               Approve
                             </button>
                             <button onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
@@ -382,7 +382,7 @@ export default function StaffProfiles() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map(profile => {
             const sb = {
-              approved: { Icon: Check, cls: 'bg-[#10B981] text-white' },
+              approved: { Icon: Check, cls: 'bg-primary text-white' },
               rejected: { Icon: X,     cls: 'bg-red-500 text-white' },
               pending:  { Icon: Clock, cls: 'bg-[#D97706] text-white' },
             }[profile.profileStatus] ?? { Icon: Clock, cls: 'bg-gray-400 text-white' };
@@ -409,15 +409,15 @@ export default function StaffProfiles() {
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       <Link href={`/staff/profiles/${profile._id}`} className="flex-1">
-                        <button className="w-full h-11 rounded-xl bg-linear-to-r from-[#10B981] to-[#059669]
+                        <button className="w-full h-11 rounded-xl bg-linear-to-r from-primary to-primary
                                            text-white text-sm font-bold flex items-center justify-center gap-1.5
                                            shadow-sm hover:shadow-md hover:brightness-105 transition-all">
                           <Eye className="w-4 h-4" /> View Profile
                         </button>
                       </Link>
                       <button onClick={() => setNoteModal({ profileId: profile._id, profileName: profile.name, existing: profile.notes || '' })}
-                        className="h-11 px-4 rounded-xl border border-[#E8DED3] text-[#1C1917] text-sm font-bold
-                                   flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-[#10B981] transition-colors">
+                        className="h-11 px-4 rounded-xl border border-[#E8DED3] text-foreground text-sm font-bold
+                                   flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-primary transition-colors">
                         <StickyNote className="w-4 h-4" /> Note
                       </button>
                     </div>
@@ -425,7 +425,7 @@ export default function StaffProfiles() {
                       <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => { setSelectedProfile(profile); setAction('approve'); setReason(''); }}
                           className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-emerald-50
-                                     text-[#10B981] hover:bg-emerald-100 text-sm font-bold transition-colors">
+                                     text-primary hover:bg-emerald-100 text-sm font-bold transition-colors">
                           <Check className="w-4 h-4" /> Approve
                         </button>
                         <button onClick={() => { setSelectedProfile(profile); setAction('reject'); setReason(''); }}
@@ -468,14 +468,14 @@ export default function StaffProfiles() {
       <Dialog open={action !== null} onOpenChange={(open) => !open && setAction(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-[#1C1917]">
+            <DialogTitle className="text-xl font-bold text-foreground">
               {action === 'approve' ? 'Approve Profile' : 'Reject & Delete Profile'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3 py-2">
-            <div className="rounded-xl bg-[#F4F6F5] px-5 py-4">
-              <p className="text-base font-bold text-[#1C1917]">{selectedProfile?.name}</p>
+            <div className="rounded-xl bg-muted px-5 py-4">
+              <p className="text-base font-bold text-foreground">{selectedProfile?.name}</p>
               <p className="text-sm text-gray-500">{selectedProfile?.email}</p>
             </div>
 
@@ -485,7 +485,7 @@ export default function StaffProfiles() {
                   <Trash2 className="w-4 h-4 shrink-0 mt-0.5" />
                   Rejecting permanently deletes this profile. This cannot be undone.
                 </div>
-                <label className="block text-sm font-bold text-[#1C1917] mb-2">Reason</label>
+                <label className="block text-sm font-bold text-foreground mb-2">Reason</label>
                 <Textarea
                   placeholder="Explain why the profile is being rejected/removed…"
                   value={reason}
@@ -505,7 +505,7 @@ export default function StaffProfiles() {
             <button onClick={submitAction}
               disabled={actionLoading || (action === 'reject' && !reason.trim())}
               className={`h-11 px-6 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-50 ${
-                action === 'approve' ? 'bg-[#10B981] hover:bg-[#059669]' : 'bg-red-600 hover:bg-red-700'
+                action === 'approve' ? 'bg-primary hover:bg-primary' : 'bg-red-600 hover:bg-red-700'
               }`}>
               {actionLoading ? 'Processing…' : action === 'approve' ? 'Approve' : 'Reject & Delete'}
             </button>
