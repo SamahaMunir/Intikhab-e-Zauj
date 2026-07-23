@@ -286,12 +286,12 @@ export default function StaffDataEntry() {
   };
 
   // ── UI helpers ────────────────────────────────────────────────────────────────
-  const _base = 'mt-2 block w-full bg-[#FDF8F3] border-2 rounded-md text-base focus:outline-none focus:border-[#10B981] transition-colors placeholder:text-[#9CA3AF]';
+  const _base = 'mt-2 block w-full bg-[#FDF8F3] border-2 rounded-md text-base focus:outline-none focus:border-primary transition-colors placeholder:text-[#9CA3AF]';
   const ic = (err?: string) =>
     `${_base} min-h-12.5 px-4 py-3 ${err ? 'border-[#EF4444]' : 'border-[#E8DED3]'}`;
   const tc = (err?: string) =>
     `${_base} min-h-30 px-4 py-3 resize-y ${err ? 'border-[#EF4444]' : 'border-[#E8DED3]'}`;
-  const lc = 'block text-lg font-bold text-[#1C1917] mb-2';
+  const lc = 'block text-lg font-bold text-foreground mb-2';
   const errEl = (msg?: string) => msg
     ? <p className="mt-1.5 text-sm font-semibold text-[#EF4444]">{msg}</p>
     : null;
@@ -306,7 +306,7 @@ export default function StaffDataEntry() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-[#1C1917]">Offline Profile Entry</h1>
+        <h1 className="text-3xl font-bold text-foreground">Offline Profile Entry</h1>
         <p className="text-base text-gray-500 mt-1">Register applicants from WhatsApp, paper forms, or walk-ins</p>
       </div>
 
@@ -317,13 +317,13 @@ export default function StaffDataEntry() {
           <span>{Math.round((step / TOTAL_STEPS) * 100)}%</span>
         </div>
         <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full bg-[#10B981] transition-all" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
+          <div className="h-full bg-primary transition-all" style={{ width: `${(step / TOTAL_STEPS) * 100}%` }} />
         </div>
       </div>
 
       {success && (
-        <div className="mb-5 p-5 bg-emerald-50 border-2 border-[#10B981] rounded-xl
-                        text-[#10B981] text-base font-semibold">
+        <div className="mb-5 p-5 bg-emerald-50 border-2 border-primary rounded-xl
+                        text-primary text-base font-semibold">
           Profile created successfully — pending approval.
         </div>
       )}
@@ -337,7 +337,7 @@ export default function StaffDataEntry() {
         {/* ── STEP 0: Staff Meta ────────────────────────────────────────────── */}
         {step === 0 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#1C1917]">Staff Information</h2>
+            <h2 className="text-2xl font-bold text-foreground">Staff Information</h2>
 
             <div data-error={fieldErrors.source ? 'true' : undefined}>
               <label className={lc}>Data Source <span className="text-red-500">*</span></label>
@@ -371,7 +371,7 @@ export default function StaffDataEntry() {
         {/* ── STEP 1: Personal Details (same as wizard step 1) ─────────────── */}
         {step === 1 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#1C1917]">Personal Details</h2>
+            <h2 className="text-2xl font-bold text-foreground">Personal Details</h2>
 
             {/* Name */}
             <div data-error={fieldErrors.name ? 'true' : undefined}>
@@ -537,7 +537,7 @@ export default function StaffDataEntry() {
         {/* ── STEP 2: Education & Employment (same as wizard step 2) ────────── */}
         {step === 2 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#1C1917]">Education & Employment</h2>
+            <h2 className="text-2xl font-bold text-foreground">Education & Employment</h2>
 
             <SearchableSelect label="Educational Qualification *" name="education"
               value={formData.education} options={EDUCATION_LEVELS} required
@@ -593,7 +593,7 @@ export default function StaffDataEntry() {
         {/* ── STEP 3: Family & Residence (same as wizard step 3) ───────────── */}
         {step === 3 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#1C1917]">Family & Residence</h2>
+            <h2 className="text-2xl font-bold text-foreground">Family & Residence</h2>
 
             <SearchableSelect label="City *" name="city" value={formData.city}
               options={CITIES} allowCustom required
@@ -607,7 +607,7 @@ export default function StaffDataEntry() {
               helperText="Select area or type full address." />
 
             <div className="border-t pt-4">
-              <h3 className="text-xl font-bold text-[#1C1917] mb-4">Parents Information</h3>
+              <h3 className="text-xl font-bold text-foreground mb-4">Parents Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={lc}>Father's Name</label>
@@ -637,7 +637,7 @@ export default function StaffDataEntry() {
             </div>
 
             <div className="border-t pt-4">
-              <h3 className="text-xl font-bold text-[#1C1917] mb-4">Siblings Information</h3>
+              <h3 className="text-xl font-bold text-foreground mb-4">Siblings Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={lc}>Total Brothers</label>
@@ -684,10 +684,10 @@ export default function StaffDataEntry() {
         {/* ── STEP 4: Home & Requirements (same as wizard step 4) ──────────── */}
         {step === 4 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-[#1C1917]">Home & Requirements</h2>
+            <h2 className="text-2xl font-bold text-foreground">Home & Requirements</h2>
 
             <div className="border-t pt-4">
-              <h3 className="text-xl font-bold text-[#1C1917] mb-4">House Details</h3>
+              <h3 className="text-xl font-bold text-foreground mb-4">House Details</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={lc}>Home Status</label>
@@ -716,7 +716,7 @@ export default function StaffDataEntry() {
             </div>
 
             <div className="border-t pt-4">
-              <h3 className="text-xl font-bold text-[#1C1917] mb-4">Match Requirements</h3>
+              <h3 className="text-xl font-bold text-foreground mb-4">Match Requirements</h3>
               <div>
                 <label className={lc}>Desired Criteria for Match</label>
                 <textarea name="matchCriteria" value={formData.matchCriteria} onChange={handleInputChange}
@@ -742,7 +742,7 @@ export default function StaffDataEntry() {
             </div>
 
             <div className="border-t pt-4">
-              <h3 className="text-xl font-bold text-[#1C1917] mb-4">Reference</h3>
+              <h3 className="text-xl font-bold text-foreground mb-4">Reference</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={lc}>Reference Name</label>
@@ -766,14 +766,14 @@ export default function StaffDataEntry() {
           onClick={() => setStep(s => Math.max(0, s - 1))}
           disabled={step === 0}
           className="min-h-12.5 px-8 rounded-xl border-2 border-gray-200 text-base font-bold
-                     text-[#1C1917] bg-white hover:bg-[#FDF8F3] transition-colors disabled:opacity-50"
+                     text-foreground bg-white hover:bg-[#FDF8F3] transition-colors disabled:opacity-50"
         >
           Previous
         </button>
         {step < TOTAL_STEPS ? (
           <button
             onClick={handleNext}
-            className="min-h-12.5 px-8 rounded-xl bg-[#10B981] hover:bg-[#059669]
+            className="min-h-12.5 px-8 rounded-xl bg-primary hover:bg-primary
                        text-white text-base font-bold transition-colors"
           >
             Next
@@ -782,7 +782,7 @@ export default function StaffDataEntry() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="min-h-12.5 px-8 rounded-xl bg-[#10B981] hover:bg-[#059669]
+            className="min-h-12.5 px-8 rounded-xl bg-primary hover:bg-primary
                        text-white text-base font-bold transition-colors disabled:opacity-50"
           >
             {loading ? 'Creating Profile…' : 'Create Profile'}
