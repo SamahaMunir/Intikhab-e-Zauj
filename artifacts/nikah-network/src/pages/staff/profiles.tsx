@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Users, RefreshCw, Search, LayoutGrid, List,
   User as UserIcon, Eye, StickyNote, Loader2, Check, X, Trash2, SlidersHorizontal,
@@ -53,7 +54,6 @@ export default function StaffProfiles() {
   const [ageFilter,      setAgeFilter]      = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [educationFilter, setEducationFilter] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const advCount = [ageFilter, locationFilter, educationFilter].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -228,41 +228,61 @@ export default function StaffProfiles() {
                 {label}
               </button>
             ))}
-            <button onClick={() => setShowFilters(v => !v)}
-              className={`px-3.5 h-11 rounded-xl text-sm font-bold transition-colors border inline-flex items-center gap-1.5 ${
-                showFilters || advCount
-                  ? "bg-primary/10 text-primary border-primary/30"
-                  : "bg-card text-muted-foreground border-border hover:text-foreground"
-              }`}>
-              <SlidersHorizontal className="w-4 h-4" /> Filters
-              {advCount > 0 && (
-                <span className="ml-0.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold inline-flex items-center justify-center">
-                  {advCount}
-                </span>
-              )}
-            </button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className={`px-3.5 h-11 rounded-xl text-sm font-bold transition-colors border inline-flex items-center gap-1.5 ${
+                    advCount
+                      ? "bg-primary/10 text-primary border-primary/30"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground"
+                  }`}>
+                  <SlidersHorizontal className="w-4 h-4" /> Filters
+                  {advCount > 0 && (
+                    <span className="ml-0.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold inline-flex items-center justify-center">
+                      {advCount}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 space-y-3">
+                <p className="text-sm font-bold text-foreground">Filters</p>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Age</span>
+                  <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)}
+                    className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary cursor-pointer">
+                    <option value="">Any age</option>
+                    <option value="under25">Under 25</option>
+                    <option value="25-30">25 – 30</option>
+                    <option value="31-35">31 – 35</option>
+                    <option value="36+">36 +</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">City</span>
+                  <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
+                    placeholder="Any city"
+                    className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Education</span>
+                  <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
+                    placeholder="Any degree"
+                    className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+                </label>
+
+                {advCount > 0 && (
+                  <button onClick={() => { setAgeFilter(''); setLocationFilter(''); setEducationFilter(''); }}
+                    className="text-sm text-muted-foreground hover:text-foreground font-bold inline-flex items-center gap-1 transition-colors">
+                    <X className="w-4 h-4" /> Clear these
+                  </button>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
-
-        {/* Advanced filters — collapsible */}
-        {showFilters && (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)}
-              className="h-9 px-3 rounded-lg bg-card border border-border text-foreground focus:outline-none focus:border-primary cursor-pointer">
-              <option value="">Any age</option>
-              <option value="under25">Under 25</option>
-              <option value="25-30">25 – 30</option>
-              <option value="31-35">31 – 35</option>
-              <option value="36+">36 +</option>
-            </select>
-            <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
-              placeholder="City"
-              className="h-9 px-3 w-32 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
-            <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
-              placeholder="Education"
-              className="h-9 px-3 w-32 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
-          </div>
-        )}
 
         {/* Result count + clear */}
         <div className="flex items-center gap-2 text-sm">
