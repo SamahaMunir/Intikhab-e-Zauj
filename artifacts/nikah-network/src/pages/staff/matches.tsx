@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import {
   Heart, RefreshCw, Sparkles, ChevronDown, ChevronRight,
-  Send, Loader2, Users, ShieldCheck, UserCheck, Star, ArrowUpRight,
+  Send, Loader2, Users, ShieldCheck, UserCheck, Star,
 } from 'lucide-react';
 import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
 import ProfileImageCard from '../../components/matches/ProfileImageCard';
@@ -252,7 +252,7 @@ export default function StaffMatches() {
       )}
 
       {/* Match cards */}
-      <div className="space-y-5">
+      <div className="space-y-4">
         {filtered.map(m => {
           const score      = m.scoreBreakdown?.total ?? m.score;
           const isExpanded = expandedId === m._id;
@@ -269,45 +269,38 @@ export default function StaffMatches() {
             <div key={m._id} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
 
               {/* Card header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                <h3 className="font-bold text-lg text-foreground flex items-center gap-2.5">
-                  <Heart className="w-5 h-5 text-primary" />
+              <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+                <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-primary shrink-0" />
                   {pairName}
                 </h3>
                 {pairBadge(bothStaff)}
               </div>
 
               {/* Paired profile cards with center match badge */}
-              <div className="relative p-5">
-                <div className="grid sm:grid-cols-2 gap-4 sm:gap-16">
+              <div className="relative p-4">
+                <div className="grid sm:grid-cols-2 gap-3 sm:gap-12">
                   {([
                     { p: maleProfile,   id: maleProfile?._id,   label: 'View Groom', type: maleType   as ProfileType },
                     { p: femaleProfile, id: femaleProfile?._id, label: 'View Bride', type: femaleType as ProfileType },
                   ]).map((side, i) => (
                     <ProfileImageCard key={i}
                       photo={side.p?.photo} name={side.p?.name || 'Unknown'} age={side.p?.age}
-                      lines={sideLines(side.p)} heightClass="aspect-3/4"
+                      lines={sideLines(side.p)} heightClass="h-52 sm:h-60"
                       onClick={side.id ? () => setLocation(`/staff/profiles/${side.id}`) : undefined}
-                      footer={side.id ? (
-                        <button onClick={() => setLocation(`/staff/profiles/${side.id}`)}
-                          className="w-full h-11 rounded-xl border border-[#E8DED3] text-foreground text-sm font-bold
-                                     flex items-center justify-center gap-1.5 hover:bg-[#FDF8F3] hover:border-primary transition-colors">
-                          View Profile <ArrowUpRight className="w-4 h-4" />
-                        </button>
-                      ) : undefined}
                     />
                   ))}
                 </div>
 
                 {/* Center match badge (desktop) */}
-                <div className="hidden sm:block absolute top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-10" aria-hidden="true">
-                  <MatchScoreBadge score={score} size={84} />
+                <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10" aria-hidden="true">
+                  <MatchScoreBadge score={score} size={72} />
                 </div>
               </div>
 
               {/* Mobile match badge */}
               <div className="sm:hidden flex justify-center -mt-1 pb-2">
-                <MatchScoreBadge score={score} size={72} />
+                <MatchScoreBadge score={score} size={64} />
               </div>
 
               {/* Single proposal action */}
@@ -317,11 +310,11 @@ export default function StaffMatches() {
                 const recipient = maleType === 'user' ? maleProfile : femaleProfile;
                 const canPropose = !!maleProfile?._id && !!femaleProfile?._id;
                 return (
-                  <div className="px-5 pb-5 flex gap-3">
+                  <div className="px-4 pb-4 flex gap-2.5">
                     <button
                       onClick={() => setInsightsMatchId(m._id)}
-                      className="h-12 px-4 rounded-xl border border-violet-200 text-violet-700 bg-violet-50
-                                 font-bold flex items-center justify-center gap-2 hover:bg-violet-100
+                      className="h-10 px-3.5 rounded-xl border border-violet-200 text-violet-700 bg-violet-50
+                                 text-sm font-bold flex items-center justify-center gap-2 hover:bg-violet-100
                                  active:scale-[0.99] transition-all shrink-0">
                       <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">AI Insights</span>
                     </button>
@@ -335,10 +328,10 @@ export default function StaffMatches() {
                         recipientId: femaleProfile?._id,
                         matchId: m._id,
                       })}
-                      className="flex-1 h-12 rounded-xl bg-linear-to-r from-primary to-primary text-white
-                                 font-bold flex items-center justify-center gap-2 shadow-md
-                                 hover:shadow-lg hover:brightness-105 active:scale-[0.99] transition-all
-                                 disabled:opacity-50 disabled:hover:shadow-md">
+                      className="flex-1 h-10 rounded-xl bg-primary text-white text-sm
+                                 font-bold flex items-center justify-center gap-2 shadow-sm
+                                 hover:brightness-105 active:scale-[0.99] transition-all
+                                 disabled:opacity-50">
                       <Send className="w-4 h-4" /> {label}
                     </button>
                   </div>
@@ -350,13 +343,13 @@ export default function StaffMatches() {
                 <div className="border-t border-border">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : m._id)}
-                    className="w-full px-5 py-3 text-left text-sm text-primary font-bold
-                               hover:bg-primary/10/50 flex items-center gap-2 transition-colors">
+                    className="w-full px-4 py-2.5 text-left text-sm text-primary font-bold
+                               hover:bg-primary/5 flex items-center gap-2 transition-colors">
                     {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     Compatibility Breakdown — 100-point scoring
                   </button>
                   {isExpanded && (
-                    <div className="px-5 pb-5">
+                    <div className="px-4 pb-4">
                       <ScoreBreakdownPanel scoreBreakdown={m.scoreBreakdown} />
                     </div>
                   )}
