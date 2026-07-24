@@ -5,7 +5,6 @@ import {
   Send, Loader2, Users, ShieldCheck, UserCheck, Star,
 } from 'lucide-react';
 import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
-import ProfileImageCard from '../../components/matches/ProfileImageCard';
 import MatchScoreBadge from '../../components/matches/MatchScoreBadge';
 import ProposalModal, { ProposalMode, ProposalPayload } from '../../components/matches/ProposalModal';
 import InsightsModal from '../../components/matches/InsightsModal';
@@ -199,12 +198,12 @@ export default function StaffMatches() {
           const Icon = s.icon;
           return (
             <div key={s.label}
-              className={`rounded-2xl border border-border shadow-sm p-6 bg-linear-to-br ${s.grad} to-card`}>
-              <div className="w-12 h-12 rounded-2xl bg-card shadow-sm flex items-center justify-center mb-4">
-                <Icon className={`w-6 h-6 ${s.ring}`} />
+              className={`rounded-2xl border border-border shadow-sm p-5 bg-linear-to-br ${s.grad} to-card`}>
+              <div className="w-11 h-11 rounded-2xl bg-card shadow-sm flex items-center justify-center mb-3">
+                <Icon className={`w-5 h-5 ${s.ring}`} />
               </div>
               <div className="text-sm font-semibold text-muted-foreground">{s.label}</div>
-              <div className="text-4xl font-black text-foreground mt-1">{s.value}</div>
+              <div className="text-3xl font-bold text-foreground mt-1">{s.value}</div>
             </div>
           );
         })}
@@ -252,7 +251,7 @@ export default function StaffMatches() {
       )}
 
       {/* Match cards */}
-      <div className="space-y-4">
+      <div className="max-w-2xl mx-auto space-y-4">
         {filtered.map(m => {
           const score      = m.scoreBreakdown?.total ?? m.score;
           const isExpanded = expandedId === m._id;
@@ -263,38 +262,60 @@ export default function StaffMatches() {
           const maleType      = m.user?.gender === 'male' ? (m.leftProfileType  ?? 'user') : (m.rightProfileType ?? 'user');
           const femaleType    = m.user?.gender === 'male' ? (m.rightProfileType ?? 'user') : (m.leftProfileType  ?? 'user');
           const bothStaff     = maleType === 'staff' && femaleType === 'staff';
-          const pairName      = `${maleProfile?.name?.split(' ')[0] || 'Unknown'} & ${femaleProfile?.name?.split(' ')[0] || 'Unknown'}`;
 
           return (
-            <div key={m._id} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div key={m._id}
+              className="bg-card border border-border rounded-2xl shadow-sm
+                         hover:shadow-md transition-shadow p-5">
 
-              {/* Card header */}
-              <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-                <h3 className="font-bold text-base text-foreground flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-primary shrink-0" />
-                  {pairName}
-                </h3>
-                {pairBadge(bothStaff)}
-              </div>
-
-              {/* Paired profile cards with center match badge */}
-              <div className="relative p-4">
-                <div className="grid sm:grid-cols-2 gap-3 sm:gap-12">
+              {/* Paired portraits with overlapping center match badge */}
+              <div className="relative">
+                <div className="flex items-stretch justify-center gap-2 sm:gap-6">
                   {([
-                    { p: maleProfile,   id: maleProfile?._id,   label: 'View Groom', type: maleType   as ProfileType },
-                    { p: femaleProfile, id: femaleProfile?._id, label: 'View Bride', type: femaleType as ProfileType },
-                  ]).map((side, i) => (
-                    <ProfileImageCard key={i}
-                      photo={side.p?.photo} name={side.p?.name || 'Unknown'} age={side.p?.age}
-                      lines={sideLines(side.p)} heightClass="h-52 sm:h-60"
-                      onClick={side.id ? () => setLocation(`/staff/profiles/${side.id}`) : undefined}
-                    />
-                  ))}
+                    { p: maleProfile,   id: maleProfile?._id,   type: maleType   as ProfileType },
+                    { p: femaleProfile, id: femaleProfile?._id, type: femaleType as ProfileType },
+                  ]).map((side, i) => {
+                    const clickable = !!side.id;
+                    return (
+                      <div key={i}
+                        role={clickable ? 'button' : undefined}
+                        tabIndex={clickable ? 0 : undefined}
+                        onClick={clickable ? () => setLocation(`/staff/profiles/${side.id}`) : undefined}
+                        onKeyDown={clickable ? (e => e.key === 'Enter' && setLocation(`/staff/profiles/${side.id}`)) : undefined}
+                        className={`group relative w-full max-w-[200px] aspect-[4/5] rounded-2xl overflow-hidden
+                                    bg-muted ${clickable ? 'cursor-pointer' : ''}`}
+                        aria-label={`${side.p?.name || 'Unknown'}${side.p?.age ? `, ${side.p.age}` : ''}`}>
+                        {side.p?.photo ? (
+                          <img src={side.p.photo} alt={`Profile photo of ${side.p?.name || 'Unknown'}`}
+                            crossOrigin={side.p.photo.includes('cloudinary.com') ? 'anonymous' : undefined}
+                            className="absolute inset-0 w-full h-full object-cover object-[50%_30%]
+                                       motion-safe:transition-transform motion-safe:duration-700 group-hover:scale-105" />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Users className="w-12 h-12 text-muted-foreground/40" />
+                          </div>
+                        )}
+                        {/* Bottom scrim */}
+                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/75 via-black/25 to-transparent" aria-hidden="true" />
+                        {/* Name overlay */}
+                        <div className="absolute inset-x-0 bottom-0 p-3 text-white">
+                          <h4 className="text-base font-bold leading-tight drop-shadow-md truncate">
+                            {side.p?.name || 'Unknown'}{side.p?.age ? <span className="text-sm font-semibold">, {side.p.age}</span> : null}
+                          </h4>
+                          {sideLines(side.p).slice(0, 1).map((line, j) => (
+                            <p key={j} className="text-xs text-white/90 leading-snug truncate drop-shadow">{line}</p>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Center match badge (desktop) */}
+                {/* Center match badge — overlaps both portraits (desktop) */}
                 <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10" aria-hidden="true">
-                  <MatchScoreBadge score={score} size={72} />
+                  <div className="rounded-full bg-card p-1 shadow-md">
+                    <MatchScoreBadge score={score} size={68} />
+                  </div>
                 </div>
               </div>
 
@@ -303,21 +324,15 @@ export default function StaffMatches() {
                 <MatchScoreBadge score={score} size={64} />
               </div>
 
-              {/* Single proposal action */}
+              {/* Actions */}
               {(() => {
                 const bothUser = maleType === 'user' && femaleType === 'user';
                 const label = bothUser ? 'Send Proposal' : 'Make Proposal';
                 const recipient = maleType === 'user' ? maleProfile : femaleProfile;
                 const canPropose = !!maleProfile?._id && !!femaleProfile?._id;
                 return (
-                  <div className="px-4 pb-4 flex gap-2.5">
-                    <button
-                      onClick={() => setInsightsMatchId(m._id)}
-                      className="h-10 px-3.5 rounded-xl border border-violet-200 text-violet-700 bg-violet-50
-                                 text-sm font-bold flex items-center justify-center gap-2 hover:bg-violet-100
-                                 active:scale-[0.99] transition-all shrink-0">
-                      <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">AI Insights</span>
-                    </button>
+                  <div className="mt-4 flex flex-col items-center gap-3">
+                    {/* Primary action — narrower than the portrait row */}
                     <button
                       disabled={!canPropose}
                       onClick={() => setProposalModal({
@@ -328,33 +343,41 @@ export default function StaffMatches() {
                         recipientId: femaleProfile?._id,
                         matchId: m._id,
                       })}
-                      className="flex-1 h-10 rounded-xl bg-primary text-white text-sm
+                      className="w-full max-w-60 h-10 rounded-full bg-primary text-white text-sm
                                  font-bold flex items-center justify-center gap-2 shadow-sm
                                  hover:brightness-105 active:scale-[0.99] transition-all
                                  disabled:opacity-50">
                       <Send className="w-4 h-4" /> {label}
                     </button>
+
+                    {/* Meta row — AI insights · pair type · breakdown */}
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap text-sm">
+                      <button
+                        onClick={() => setInsightsMatchId(m._id)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                                   text-violet-600 font-semibold hover:bg-violet-50 transition-colors">
+                        <Sparkles className="w-3.5 h-3.5" /> AI Insights
+                      </button>
+                      {pairBadge(bothStaff)}
+                      {m.scoreBreakdown && (
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : m._id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
+                                     text-primary font-semibold hover:bg-primary/5 transition-colors">
+                          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                          Compatibility · 100 pts
+                        </button>
+                      )}
+                    </div>
+
+                    {m.scoreBreakdown && isExpanded && (
+                      <div className="w-full max-w-md">
+                        <ScoreBreakdownPanel scoreBreakdown={m.scoreBreakdown} />
+                      </div>
+                    )}
                   </div>
                 );
               })()}
-
-              {/* Score breakdown toggle */}
-              {m.scoreBreakdown && (
-                <div className="border-t border-border">
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : m._id)}
-                    className="w-full px-4 py-2.5 text-left text-sm text-primary font-bold
-                               hover:bg-primary/5 flex items-center gap-2 transition-colors">
-                    {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    Compatibility Breakdown — 100-point scoring
-                  </button>
-                  {isExpanded && (
-                    <div className="px-4 pb-4">
-                      <ScoreBreakdownPanel scoreBreakdown={m.scoreBreakdown} />
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           );
         })}
