@@ -152,10 +152,6 @@ export default function StaffProfiles() {
     { key: 'approved', label: `Approved (${counts.approved})` },
   ];
 
-  const inputCls =
-    'h-11 px-4 rounded-xl bg-background border border-border text-sm text-foreground ' +
-    'placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-colors';
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -203,73 +199,60 @@ export default function StaffProfiles() {
         </div>
       </div>
 
-      {/* Search + Filter bar (live) */}
-      <div className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-4">
-        {/* Status tabs */}
-        <div className="flex gap-2 flex-wrap">
-          {filterTabs.map(({ key, label }) => (
-            <button key={key} onClick={() => setFilter(key)}
-              className={`px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors border ${
-                filter === key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-muted text-muted-foreground border-border hover:text-foreground"
-              }`}>
-              {label}
-            </button>
-          ))}
+      {/* Seamless filter toolbar */}
+      <div className="space-y-3">
+        {/* Search + status tabs on one line */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name or location…"
+              className="w-full h-11 pl-11 pr-4 rounded-xl bg-card border border-border text-sm
+                         text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary
+                         focus:ring-1 focus:ring-primary/30 transition-colors"
+            />
+          </div>
+          <div className="flex gap-1.5 shrink-0">
+            {filterTabs.map(({ key, label }) => (
+              <button key={key} onClick={() => setFilter(key)}
+                className={`px-3.5 h-11 rounded-xl text-sm font-bold transition-colors border ${
+                  filter === key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:text-foreground"
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name or location…"
-            className="w-full h-12 pl-11 pr-5 rounded-xl bg-background border border-border text-sm
-                       text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary
-                       focus:ring-1 focus:ring-primary/30 transition-colors"
-          />
-        </div>
+        {/* Advanced filters — compact, inline, no box */}
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)}
+            className="h-9 px-3 rounded-lg bg-card border border-border text-foreground focus:outline-none focus:border-primary cursor-pointer">
+            <option value="">Any age</option>
+            <option value="under25">Under 25</option>
+            <option value="25-30">25 – 30</option>
+            <option value="31-35">31 – 35</option>
+            <option value="36+">36 +</option>
+          </select>
+          <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
+            placeholder="City"
+            className="h-9 px-3 w-32 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+          <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
+            placeholder="Education"
+            className="h-9 px-3 w-32 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
 
-        {/* Filter fields w/ labels */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide ml-1">Age</span>
-            <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)} className={inputCls + ' cursor-pointer'}>
-              <option value="">Any age</option>
-              <option value="under25">Under 25</option>
-              <option value="25-30">25 – 30</option>
-              <option value="31-35">31 – 35</option>
-              <option value="36+">36 +</option>
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide ml-1">Location</span>
-            <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
-              placeholder="Any city" className={inputCls} />
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide ml-1">Education</span>
-            <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
-              placeholder="Any degree" className={inputCls} />
-          </label>
-        </div>
-
-        {/* Result count + clear */}
-        <div className="flex items-center justify-between gap-2 pt-1 border-t border-border mt-1">
-          <span className="text-sm font-semibold text-muted-foreground pt-3">
+          <span className="ml-auto text-muted-foreground">
             <span className="text-foreground font-bold">{filtered.length}</span> result{filtered.length !== 1 ? 's' : ''}
-            {hasActiveFilters && <span className="text-muted-foreground"> · filtered from {profiles.length}</span>}
           </span>
           {hasActiveFilters && (
             <button onClick={clearFilters}
-              className="flex items-center gap-1.5 h-9 px-4 rounded-xl border border-border bg-card text-muted-foreground
-                         hover:bg-muted hover:text-foreground text-sm font-bold transition-colors mt-3">
-              <X className="w-4 h-4" /> Clear filters
+              className="h-9 px-3 rounded-lg text-muted-foreground hover:text-foreground font-bold inline-flex items-center gap-1 transition-colors">
+              <X className="w-4 h-4" /> Clear
             </button>
           )}
         </div>
@@ -369,15 +352,17 @@ export default function StaffProfiles() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map(profile => {
             const lines = [
+              profile.education,
               profile.profession,
               profile.city,
-              profile.education,
+              profile.caste,
+              profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '',
             ].filter(Boolean) as string[];
 
             return (
               <ProfileImageCard key={profile._id}
                 photo={profile.photo} name={profile.name} age={profile.age} lines={lines}
-                heightClass="h-64" onClick={() => setLocation(`/staff/profiles/${profile._id}`)}
+                heightClass="h-80" onClick={() => setLocation(`/staff/profiles/${profile._id}`)}
                 topRight={<StatusBadge status={profile.profileStatus} />}
                 footer={
                   <div className="space-y-2">
