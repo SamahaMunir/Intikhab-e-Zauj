@@ -40,7 +40,7 @@ export default function StaffDashboard() {
 
   // Pastel stat cards (reference "My Task" style)
   const stats = [
-    { label: 'Total Profiles',   value: val(profileStats.total),    icon: Users,        grad: 'from-emerald-50', ring: 'bg-primary' },
+    { label: 'Total Profiles',   value: val(profileStats.total),    icon: Users,        grad: 'from-primary/5', ring: 'bg-primary' },
     { label: 'Pending Approval', value: val(profileStats.pending),  icon: Clock,        grad: 'from-amber-50',   ring: 'bg-[#D97706]' },
     { label: 'Approved',         value: val(profileStats.approved), icon: CheckCircle2, grad: 'from-sky-50',     ring: 'bg-sky-500'   },
     { label: 'Total Matches',    value: val(matchStats.total),      icon: Heart,        grad: 'from-violet-50',  ring: 'bg-violet-500'},
@@ -55,7 +55,7 @@ export default function StaffDashboard() {
     { label: 'Proposals',        icon: FileText,       to: '/staff/proposals',        color: 'text-rose-500' },
     { label: 'Q&A Moderation',   icon: ShieldCheck,    to: '/staff/messages',         color: 'text-primary' },
     { label: 'Counselling',      icon: HeartHandshake, to: '/staff/counselling',      color: 'text-[#D97706]' },
-    { label: 'Audit Logs',       icon: ClipboardCheck, to: '/staff/audit',            color: 'text-gray-500' },
+    { label: 'Audit Logs',       icon: ClipboardCheck, to: '/staff/audit',            color: 'text-muted-foreground' },
   ];
 
   return (
@@ -67,13 +67,13 @@ export default function StaffDashboard() {
           const Icon = s.icon;
           return (
             <div key={s.label}
-                 className={`relative overflow-hidden rounded-2xl border border-gray-100 shadow-sm
-                             p-5 bg-linear-to-br ${s.grad} to-white`}>
+                 className={`relative overflow-hidden rounded-2xl border border-border shadow-sm
+                             p-5 bg-linear-to-br ${s.grad} to-card`}>
               <div className={`w-10 h-10 rounded-full ${s.ring} flex items-center justify-center mb-4
                                shadow-sm`}>
                 <Icon className="w-5 h-5 text-white" aria-hidden="true" />
               </div>
-              <div className="text-sm font-medium text-gray-500">{s.label}</div>
+              <div className="text-sm font-medium text-muted-foreground">{s.label}</div>
               <div className="text-3xl font-bold text-foreground mt-0.5">{s.value}</div>
             </div>
           );
@@ -81,21 +81,21 @@ export default function StaffDashboard() {
       </div>
 
       {/* ── Quick action tiles ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
         <h2 className="text-lg font-bold text-foreground mb-5">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {tiles.map(t => {
             const Icon = t.icon;
             return (
               <button key={t.label} onClick={() => setLocation(t.to)}
-                className="flex items-center gap-3 p-4 rounded-xl border border-gray-100
-                           hover:border-primary hover:bg-emerald-50/50 transition-colors text-left group">
-                <div className="w-10 h-10 rounded-xl bg-gray-50 group-hover:bg-white
+                className="flex items-center gap-3 p-4 rounded-xl border border-border
+                           hover:border-primary hover:bg-primary/10/50 transition-colors text-left group">
+                <div className="w-10 h-10 rounded-xl bg-muted group-hover:bg-card
                                 flex items-center justify-center shrink-0 transition-colors">
                   <Icon className={`w-5 h-5 ${t.color}`} aria-hidden="true" />
                 </div>
                 <span className="text-sm font-semibold text-foreground flex-1">{t.label}</span>
-                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors" />
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>
             );
           })}
@@ -106,7 +106,7 @@ export default function StaffDashboard() {
       <div className="grid lg:grid-cols-3 gap-4">
 
         {/* Pending highlight */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground">Needs Attention</h2>
             <Clock className="w-5 h-5 text-[#D97706]" />
@@ -116,7 +116,7 @@ export default function StaffDashboard() {
               <span className="text-sm font-semibold text-foreground">Pending approval</span>
               <span className="text-lg font-bold text-[#D97706]">{val(profileStats.pending)}</span>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-primary/10">
               <span className="text-sm font-semibold text-foreground">Suggested matches</span>
               <span className="text-lg font-bold text-primary">{val(matchStats.suggested)}</span>
             </div>
@@ -129,7 +129,7 @@ export default function StaffDashboard() {
         </div>
 
         {/* Workflow */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="lg:col-span-2 bg-card rounded-2xl border border-border shadow-sm p-6">
           <h2 className="text-lg font-bold text-foreground mb-5">Staff Workflow</h2>
           <ol className="space-y-4">
             {[
@@ -140,13 +140,13 @@ export default function StaffDashboard() {
               ['Match Generation',   'Matches auto-generate on approval using our algorithm'],
             ].map(([title, desc], i) => (
               <li key={i} className="flex items-start gap-4">
-                <span className="shrink-0 w-7 h-7 rounded-full bg-emerald-50 text-primary
+                <span className="shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary
                                  flex items-center justify-center text-sm font-bold mt-0.5">
                   {i + 1}
                 </span>
                 <div>
                   <span className="font-bold text-foreground">{title}:</span>
-                  <span className="ml-2 text-sm text-gray-500">{desc}</span>
+                  <span className="ml-2 text-sm text-muted-foreground">{desc}</span>
                 </div>
               </li>
             ))}
