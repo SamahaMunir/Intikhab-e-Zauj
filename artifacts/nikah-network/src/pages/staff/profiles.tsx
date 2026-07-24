@@ -203,22 +203,22 @@ export default function StaffProfiles() {
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {filterTabs.map(({ key, label }) => (
-          <button key={key} onClick={() => setFilter(key)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-              filter === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-muted-foreground border border-border hover:bg-muted hover:text-foreground"
-            }`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
       {/* Search + Filter bar (live) */}
       <div className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-4">
+        {/* Status tabs */}
+        <div className="flex gap-2 flex-wrap">
+          {filterTabs.map(({ key, label }) => (
+            <button key={key} onClick={() => setFilter(key)}
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-bold transition-colors border ${
+                filter === key
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-border hover:text-foreground"
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Search */}
         <div className="relative">
           <Search className="w-4 h-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
@@ -369,17 +369,15 @@ export default function StaffProfiles() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map(profile => {
             const lines = [
-              profile.education,
               profile.profession,
               profile.city,
-              profile.caste,
-              profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '',
+              profile.education,
             ].filter(Boolean) as string[];
 
             return (
               <ProfileImageCard key={profile._id}
                 photo={profile.photo} name={profile.name} age={profile.age} lines={lines}
-                heightClass="h-80" onClick={() => setLocation(`/staff/profiles/${profile._id}`)}
+                heightClass="h-64" onClick={() => setLocation(`/staff/profiles/${profile._id}`)}
                 topRight={<StatusBadge status={profile.profileStatus} />}
                 footer={
                   <div className="space-y-2">
