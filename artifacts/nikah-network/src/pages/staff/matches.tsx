@@ -48,7 +48,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 function pairBadge(both: boolean) {
   return both
     ? <span className="px-3 py-1 text-xs font-bold rounded-full bg-violet-50 text-violet-600">Staff ↔ Staff</span>
-    : <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-50 text-primary">Staff ↔ User</span>;
+    : <span className="px-3 py-1 text-xs font-bold rounded-full bg-primary/10 text-primary">Staff ↔ User</span>;
 }
 
 export default function StaffMatches() {
@@ -147,7 +147,7 @@ export default function StaffMatches() {
   const isStaffStaff = (m: MatchRecord) => m.leftProfileType === 'staff' && m.rightProfileType === 'staff';
   const isStaffUser  = (m: MatchRecord) => (m.leftProfileType === 'staff') !== (m.rightProfileType === 'staff');
   const stats = [
-    { label: 'Total Matches',     value: matches.length,                                              icon: Users,       grad: 'from-emerald-50', ring: 'text-primary' },
+    { label: 'Total Matches',     value: matches.length,                                              icon: Users,       grad: 'from-primary/5', ring: 'text-primary' },
     { label: 'Staff ↔ Staff',     value: matches.filter(isStaffStaff).length,                          icon: ShieldCheck, grad: 'from-violet-50',  ring: 'text-violet-500' },
     { label: 'Staff ↔ User',      value: matches.filter(isStaffUser).length,                           icon: UserCheck,   grad: 'from-sky-50',     ring: 'text-sky-500' },
     { label: 'High Compatibility', value: matches.filter(m => (m.scoreBreakdown?.total ?? m.score) >= 75).length, icon: Star, grad: 'from-amber-50', ring: 'text-[#D97706]' },
@@ -157,7 +157,7 @@ export default function StaffMatches() {
     <div className="flex justify-center items-center min-h-64">
       <div className="text-center">
         <Loader2 className="w-9 h-9 animate-spin text-primary mx-auto mb-3" />
-        <p className="text-gray-500 text-sm">Loading staff matches…</p>
+        <p className="text-muted-foreground text-sm">Loading staff matches…</p>
       </div>
     </div>
   );
@@ -175,13 +175,13 @@ export default function StaffMatches() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Matches</h1>
-          <p className="text-sm text-gray-500">Manage and review proposed matches</p>
+          <p className="text-sm text-muted-foreground">Manage and review proposed matches</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-gray-500 mr-1">{matches.length} Matches</span>
+          <span className="text-sm font-bold text-muted-foreground mr-1">{matches.length} Matches</span>
           <button onClick={load}
-            className="flex items-center gap-2 h-11 px-4 rounded-xl border border-gray-200 bg-white
-                       text-sm font-bold text-foreground hover:bg-gray-50 transition-colors">
+            className="flex items-center gap-2 h-11 px-4 rounded-xl border border-border bg-card
+                       text-sm font-bold text-foreground hover:bg-muted transition-colors">
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
           <button onClick={generateStaffMatches} disabled={generating}
@@ -199,11 +199,11 @@ export default function StaffMatches() {
           const Icon = s.icon;
           return (
             <div key={s.label}
-              className={`rounded-2xl border border-gray-100 shadow-sm p-6 bg-linear-to-br ${s.grad} to-white`}>
-              <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center mb-4">
+              className={`rounded-2xl border border-border shadow-sm p-6 bg-linear-to-br ${s.grad} to-card`}>
+              <div className="w-12 h-12 rounded-2xl bg-card shadow-sm flex items-center justify-center mb-4">
                 <Icon className={`w-6 h-6 ${s.ring}`} />
               </div>
-              <div className="text-sm font-semibold text-gray-500">{s.label}</div>
+              <div className="text-sm font-semibold text-muted-foreground">{s.label}</div>
               <div className="text-4xl font-black text-foreground mt-1">{s.value}</div>
             </div>
           );
@@ -214,12 +214,12 @@ export default function StaffMatches() {
         <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">{error}</div>
       )}
       {success && (
-        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-primary text-sm font-semibold">{success}</div>
+        <div className="p-4 bg-primary/10 border border-emerald-100 rounded-xl text-primary text-sm font-semibold">{success}</div>
       )}
 
       {/* Type filter tabs */}
       <div className="flex gap-2 flex-wrap items-center">
-        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide mr-1">Type</span>
+        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide mr-1">Type</span>
         {([
           { key: 'all',         label: 'All' },
           { key: 'staff-staff', label: 'Staff ↔ Staff' },
@@ -229,7 +229,7 @@ export default function StaffMatches() {
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
               typeFilter === key
                 ? 'bg-primary text-white'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-emerald-50 hover:text-primary'
+                : 'bg-card text-muted-foreground border border-border hover:bg-primary/10 hover:text-primary'
             }`}>
             {label}
           </button>
@@ -238,13 +238,13 @@ export default function StaffMatches() {
 
       {/* Empty state */}
       {filtered.length === 0 && !error && (
-        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
-          <Heart className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-semibold mb-1">
+        <div className="text-center py-16 bg-card rounded-2xl border border-dashed border-border">
+          <Heart className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground font-semibold mb-1">
             {matches.length === 0 ? 'No staff matches yet' : 'No matches for selected filter'}
           </p>
           {matches.length === 0 && (
-            <p className="text-gray-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               Click "Generate Matches" to build matches for all staff-created profiles.
             </p>
           )}
@@ -266,10 +266,10 @@ export default function StaffMatches() {
           const pairName      = `${maleProfile?.name?.split(' ')[0] || 'Unknown'} & ${femaleProfile?.name?.split(' ')[0] || 'Unknown'}`;
 
           return (
-            <div key={m._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div key={m._id} className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
 
               {/* Card header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <h3 className="font-bold text-lg text-foreground flex items-center gap-2.5">
                   <Heart className="w-5 h-5 text-primary" />
                   {pairName}
@@ -347,11 +347,11 @@ export default function StaffMatches() {
 
               {/* Score breakdown toggle */}
               {m.scoreBreakdown && (
-                <div className="border-t border-gray-100">
+                <div className="border-t border-border">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : m._id)}
                     className="w-full px-5 py-3 text-left text-sm text-primary font-bold
-                               hover:bg-emerald-50/50 flex items-center gap-2 transition-colors">
+                               hover:bg-primary/10/50 flex items-center gap-2 transition-colors">
                     {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     Compatibility Breakdown — 100-point scoring
                   </button>
