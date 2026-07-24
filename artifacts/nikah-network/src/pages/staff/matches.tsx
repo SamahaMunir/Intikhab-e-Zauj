@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import {
   Heart, RefreshCw, Sparkles, ChevronDown, ChevronRight,
-  Send, Loader2, Users, ShieldCheck, UserCheck, Star,
+  Send, Loader2, Users,
 } from 'lucide-react';
 import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
 import MatchScoreBadge from '../../components/matches/MatchScoreBadge';
@@ -142,15 +142,14 @@ export default function StaffMatches() {
     return true;
   });
 
-  // Real, meaningful stats
+  // Pair-type predicates — power the filter-tab counts
   const isStaffStaff = (m: MatchRecord) => m.leftProfileType === 'staff' && m.rightProfileType === 'staff';
   const isStaffUser  = (m: MatchRecord) => (m.leftProfileType === 'staff') !== (m.rightProfileType === 'staff');
-  const stats = [
-    { label: 'Total Matches',     value: matches.length,                                              icon: Users,       grad: 'from-primary/5', ring: 'text-primary' },
-    { label: 'Staff ↔ Staff',     value: matches.filter(isStaffStaff).length,                          icon: ShieldCheck, grad: 'from-violet-50',  ring: 'text-violet-500' },
-    { label: 'Staff ↔ User',      value: matches.filter(isStaffUser).length,                           icon: UserCheck,   grad: 'from-sky-50',     ring: 'text-sky-500' },
-    { label: 'High Compatibility', value: matches.filter(m => (m.scoreBreakdown?.total ?? m.score) >= 75).length, icon: Star, grad: 'from-amber-50', ring: 'text-[#D97706]' },
-  ];
+  const typeCounts = {
+    all:            matches.length,
+    'staff-staff':  matches.filter(isStaffStaff).length,
+    'staff-user':   matches.filter(isStaffUser).length,
+  } as const;
 
   if (loading) return (
     <div className="flex justify-center items-center min-h-64">
@@ -192,23 +191,6 @@ export default function StaffMatches() {
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(s => {
-          const Icon = s.icon;
-          return (
-            <div key={s.label}
-              className={`rounded-2xl border border-border shadow-sm p-5 bg-linear-to-br ${s.grad} to-card`}>
-              <div className="w-11 h-11 rounded-2xl bg-card shadow-sm flex items-center justify-center mb-3">
-                <Icon className={`w-5 h-5 ${s.ring}`} />
-              </div>
-              <div className="text-sm font-semibold text-muted-foreground">{s.label}</div>
-              <div className="text-3xl font-bold text-foreground mt-1">{s.value}</div>
-            </div>
-          );
-        })}
-      </div>
-
       {error && (
         <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">{error}</div>
       )}
@@ -223,16 +205,24 @@ export default function StaffMatches() {
           { key: 'all',         label: 'All' },
           { key: 'staff-staff', label: 'Staff ↔ Staff' },
           { key: 'staff-user',  label: 'Staff ↔ User' },
-        ] as const).map(({ key, label }) => (
-          <button key={key} onClick={() => setTypeFilter(key)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-              typeFilter === key
-                ? 'bg-primary text-white'
-                : 'bg-card text-muted-foreground border border-border hover:bg-primary/10 hover:text-primary'
-            }`}>
-            {label}
-          </button>
-        ))}
+        ] as const).map(({ key, label }) => {
+          const active = typeFilter === key;
+          return (
+            <button key={key} onClick={() => setTypeFilter(key)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                active
+                  ? 'bg-primary text-white'
+                  : 'bg-card text-muted-foreground border border-border hover:bg-primary/10 hover:text-primary'
+              }`}>
+              {label}
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                active ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
+              }`}>
+                {typeCounts[key]}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Empty state */}
