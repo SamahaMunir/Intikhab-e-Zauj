@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   Users, RefreshCw, Search, LayoutGrid, List,
-  User as UserIcon, Eye, StickyNote, Loader2, Check, X, Trash2,
+  User as UserIcon, Eye, StickyNote, Loader2, Check, X, Trash2, SlidersHorizontal,
 } from "lucide-react";
 
 interface Profile {
@@ -53,6 +53,8 @@ export default function StaffProfiles() {
   const [ageFilter,      setAgeFilter]      = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [educationFilter, setEducationFilter] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const advCount = [ageFilter, locationFilter, educationFilter].filter(Boolean).length;
 
   const clearFilters = () => {
     setSearch(''); setAgeFilter(''); setLocationFilter(''); setEducationFilter('');
@@ -226,33 +228,51 @@ export default function StaffProfiles() {
                 {label}
               </button>
             ))}
+            <button onClick={() => setShowFilters(v => !v)}
+              className={`px-3.5 h-11 rounded-xl text-sm font-bold transition-colors border inline-flex items-center gap-1.5 ${
+                showFilters || advCount
+                  ? "bg-primary/10 text-primary border-primary/30"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground"
+              }`}>
+              <SlidersHorizontal className="w-4 h-4" /> Filters
+              {advCount > 0 && (
+                <span className="ml-0.5 min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold inline-flex items-center justify-center">
+                  {advCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Advanced filters — compact, inline, no box */}
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)}
-            className="h-9 px-3 rounded-lg bg-card border border-border text-foreground focus:outline-none focus:border-primary cursor-pointer">
-            <option value="">Any age</option>
-            <option value="under25">Under 25</option>
-            <option value="25-30">25 – 30</option>
-            <option value="31-35">31 – 35</option>
-            <option value="36+">36 +</option>
-          </select>
-          <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
-            placeholder="City"
-            className="h-9 px-3 w-32 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
-          <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
-            placeholder="Education"
-            className="h-9 px-3 w-32 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+        {/* Advanced filters — collapsible */}
+        {showFilters && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)}
+              className="h-9 px-3 rounded-lg bg-card border border-border text-foreground focus:outline-none focus:border-primary cursor-pointer">
+              <option value="">Any age</option>
+              <option value="under25">Under 25</option>
+              <option value="25-30">25 – 30</option>
+              <option value="31-35">31 – 35</option>
+              <option value="36+">36 +</option>
+            </select>
+            <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
+              placeholder="City"
+              className="h-9 px-3 w-32 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+            <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
+              placeholder="Education"
+              className="h-9 px-3 w-32 rounded-lg bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+          </div>
+        )}
 
-          <span className="ml-auto text-muted-foreground">
+        {/* Result count + clear */}
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">
             <span className="text-foreground font-bold">{filtered.length}</span> result{filtered.length !== 1 ? 's' : ''}
           </span>
           {hasActiveFilters && (
             <button onClick={clearFilters}
-              className="h-9 px-3 rounded-lg text-muted-foreground hover:text-foreground font-bold inline-flex items-center gap-1 transition-colors">
-              <X className="w-4 h-4" /> Clear
+              className="ml-auto text-muted-foreground hover:text-foreground font-bold inline-flex items-center gap-1 transition-colors">
+              <X className="w-4 h-4" /> Clear filters
             </button>
           )}
         </div>
