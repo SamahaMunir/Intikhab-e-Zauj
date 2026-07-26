@@ -1,25 +1,46 @@
 import { Router, Request, Response } from 'express';
 import { ObjectId } from 'mongodb';
+import Safepay from '@sfpy/node-core';
 import { getDatabase } from '../db/connection';
-import { authMiddleware, type AuthRequest } from '../middleware/auth';
-import { logAudit } from '../db/auditLogs';
-import crypto from 'crypto';
+import { type AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-// JazzCash Configuration
-const JAZZCASH_MERCHANT_ID = process.env.JAZZCASH_MERCHANT_ID || 'TESTAPIMERCHANT';
-const JAZZCASH_PASSWORD = process.env.JAZZCASH_PASSWORD || 'TestPassword123';
-const JAZZCASH_INTEGRITY_KEY = process.env.JAZZCASH_INTEGRITY_KEY || 'TestIntegrityKey';
-const JAZZCASH_URL = 'https://sandbox.jazzcash.com.pk/ApplicationAPI/API/Payment/DoTransaction';
+// ─────────────────────────────────────────────────────────────────────────────
+// Safepay one-time registration fee (Rs. 4000). Uses the hosted Express
+// Checkout flow: we mint a checkout URL, redirect the applicant to Safepay's
+// hosted page, and mark them paid only after a server-side verify / webhook —
+// never on the browser redirect alone.
+//
+// Amounts are in the lowest denomination (paisa): Rs. 4000 → 400000.
+// ─────────────────────────────────────────────────────────────────────────────
+const REGISTRATION_FEE_PAISA = 400000;
+const CURRENCY = 'PKR';
+
+// Lazily build the SDK client so the server still boots when Safepay isn't
+// configured yet (matches how other optional integrations degrade).
+let _safepay: any = null;
+function getSafepay(): any | null {
+  if (_safepay) return _safepay;
+  const secret = process.env.SAFEPAY_SECRET_KEY;
+  const host = process.env.SAFEPAY_HOST;
+  if (!secret || !host) return null;
+  _safepay = new Safepay(secret, { authType: 'secret', host });
+  return _safepay;
+}
+
+const clientUrl = () => process.env.CLIENT_URL || 'http://localhost:3000';
+const safepayEnv = () =>
+  (process.env.SAFEPAY_ENV as 'development' | 'sandbox' | 'production') || 'sandbox';
 
 /**
- * POST /api/payment/initiate-jazzcash
- * Initiate JazzCash payment
+ * POST /api/payment/create-checkout   (auth)
+ * Creates a Safepay payment session + hosted checkout URL for the logged-in
+ * applicant, stores the tracker on their profile, and returns the URL to
+ * redirect to.
  */
 router.post(
-  '/initiate-jazzcash',
-  authMiddleware,
+  '/create-checkout',
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       if (!req.user) {
@@ -27,219 +48,206 @@ router.post(
         return;
       }
 
-      const db = await getDatabase();
-      const usersCollection = db.collection('users');
-
-      const user = await usersCollection.findOne({
-        _id: new ObjectId(req.user.id),
-      });
-
-      if (!user) {
-        res.status(404).json({ error: 'User not found' });
+      const safepay = getSafepay();
+      if (!safepay) {
+        res.status(503).json({ error: 'Payments are not configured on the server.' });
         return;
       }
 
-      // ✅ CREATE PAYMENT RECORD
-      const paymentCollection = db.collection('payments');
-      const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+      const db = await getDatabase();
+      const profiles = db.collection('profiles');
+      const profileId = req.user.id;
 
-      const payment = {
+      const profile = await profiles.findOne({ _id: new ObjectId(profileId) });
+      if (!profile) {
+        res.status(404).json({ error: 'Profile not found' });
+        return;
+      }
+
+      // Already paid (or waived) — nothing to do.
+      if (['completed', 'waived'].includes(profile.paymentStatus)) {
+        res.json({ alreadyPaid: true, paymentStatus: profile.paymentStatus });
+        return;
+      }
+
+      // 1. Payment session (tracker)
+      const session = await safepay.payments.session.setup({
+        merchant_api_key: process.env.SAFEPAY_API_KEY,
+        intent: 'CYBERSOURCE',
+        mode: 'payment',
+        entry_mode: 'raw',
+        currency: CURRENCY,
+        amount: REGISTRATION_FEE_PAISA,
+        metadata: { profile_id: profileId },
+      });
+      const trackerToken = session?.data?.tracker?.token;
+      if (!trackerToken) throw new Error('Safepay did not return a tracker token');
+
+      // 2. Short-lived passport (time-based token) for the checkout URL
+      const passport = await safepay.client.passport.create();
+      const tbt = passport?.data;
+      if (!tbt) throw new Error('Safepay did not return a passport token');
+
+      // 3. Hosted checkout URL (returns a plain string)
+      const checkoutUrl: string = safepay.checkout.createCheckoutUrl({
+        env: safepayEnv(),
+        tbt,
+        tracker: trackerToken,
+        source: 'hosted',
+        redirect_url: `${clientUrl()}/app/payment/success`,
+        cancel_url: `${clientUrl()}/app/payment/cancel`,
+      });
+
+      // Persist the tracker so verify/webhook can match this applicant later.
+      await profiles.updateOne(
+        { _id: profile._id },
+        { $set: { paymentTracker: trackerToken, paymentStatus: 'pending', updatedAt: new Date() } }
+      );
+
+      await db.collection('payments').insertOne({
         _id: new ObjectId(),
-        userId: new ObjectId(req.user.id),
-        email: user.email,
-        amount: 4000, // PKR
-        currency: 'PKR',
-        transactionId,
+        profileId: profile._id,
+        email: profile.email,
+        amount: REGISTRATION_FEE_PAISA / 100,
+        currency: CURRENCY,
+        tracker: trackerToken,
+        provider: 'safepay',
         status: 'initiated',
-        paymentMethod: 'jazzcash',
         createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 mins
-      };
-
-      await paymentCollection.insertOne(payment);
-
-      console.log(`✅ Payment initiated: ${transactionId}`);
-
-      // ✅ RETURN PAYMENT DETAILS FOR FRONTEND
-      res.json({
-        success: true,
-        message: 'Payment initiated',
-        payment: {
-          transactionId,
-          amount: 4000,
-          currency: 'PKR',
-          sandbox: true, // For testing
-        },
       });
+
+      console.log(`✅ Safepay checkout created for ${profile.email} — tracker ${trackerToken}`);
+      res.json({ checkoutUrl });
     } catch (error) {
-      console.error('Payment initiation error:', error);
+      console.error('❌ Safepay checkout error:', error);
       res.status(500).json({
-        error: 'Payment initiation failed',
+        error: 'Could not start payment session',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
 );
 
+/** Mark a profile paid by its Safepay tracker (idempotent). */
+async function markPaidByTracker(tracker: string): Promise<boolean> {
+  const db = await getDatabase();
+  const result = await db.collection('profiles').updateOne(
+    { paymentTracker: tracker, paymentStatus: { $ne: 'waived' } },
+    { $set: { paymentStatus: 'completed', paymentDate: new Date(), paymentProvider: 'safepay', updatedAt: new Date() } }
+  );
+  await db.collection('payments').updateOne(
+    { tracker },
+    { $set: { status: 'completed', completedAt: new Date() } }
+  );
+  return result.matchedCount > 0;
+}
+
 /**
- * POST /api/payment/confirm-jazzcash
- * Confirm JazzCash payment (webhook from JazzCash - no auth needed)
+ * GET /api/payment/verify/:tracker   (auth)
+ * Authoritative server-side check on return from the hosted page — never trust
+ * the redirect alone. Flips the profile to `completed` when Safepay reports the
+ * tracker has ended (paid).
  */
-router.post(
-  '/confirm-jazzcash',
-  // ❌ REMOVED: authMiddleware (webhooks from JazzCash don't have auth headers)
-  async (req: Request, res: Response): Promise<void> => {
+router.get(
+  '/verify/:tracker',
+  async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { transactionId, status } = req.body;
-
-      if (!transactionId || !status) {
-        res.status(400).json({ 
-          error: 'TransactionId and status required',
-          received: { transactionId, status }
-        });
+      const safepay = getSafepay();
+      if (!safepay) {
+        res.status(503).json({ error: 'Payments are not configured on the server.' });
+        return;
+      }
+      const tracker = req.params.tracker;
+      if (!tracker || Array.isArray(tracker)) {
+        res.status(400).json({ error: 'Invalid tracker' });
         return;
       }
 
-      const db = await getDatabase();
-      const paymentCollection = db.collection('payments');
-      const usersCollection = db.collection('users');
+      const result = await safepay.reporter.payments.fetch(tracker);
+      const state = result?.data?.tracker?.state;
 
-      console.log(`📝 Payment confirmation received:`, { transactionId, status });
-
-      // ✅ VERIFY PAYMENT EXISTS
-      const payment = await paymentCollection.findOne({ transactionId });
-
-      if (!payment) {
-        console.warn(`⚠️ Payment not found: ${transactionId}`);
-        res.status(404).json({ 
-          error: 'Payment not found',
-          transactionId 
-        });
+      // TRACKER_ENDED == the hosted payment completed successfully.
+      if (state === 'TRACKER_ENDED') {
+        await markPaidByTracker(tracker);
+        res.json({ status: 'paid' });
         return;
       }
-
-      console.log(`✅ Found payment:`, payment);
-
-      // ✅ UPDATE PAYMENT STATUS
-      if (status === 'success' || status === 'completed') {
-        await paymentCollection.updateOne(
-          { transactionId },
-          {
-            $set: {
-              status: 'completed',
-              completedAt: new Date(),
-            },
-          }
-        );
-
-        console.log(`✅ Updated payment status to completed`);
-
-        // ✅ UPDATE USER PAYMENT STATUS
-        const updateResult = await usersCollection.updateOne(
-          { _id: payment.userId },
-          {
-            $set: {
-              paymentStatus: 'completed',
-              paymentDate: new Date(),
-              paymentTransactionId: transactionId,
-              updatedAt: new Date(),
-            },
-          }
-        );
-
-        console.log(`✅ Updated user payment status:`, updateResult);
-
-        // ✅ GET UPDATED USER
-        const user = await usersCollection.findOne({ _id: payment.userId });
-
-        if (!user) {
-          res.status(500).json({
-            error: 'User not found after payment',
-            transactionId
-          });
-          return;
-        }
-
-        res.json({
-          success: true,
-          message: 'Payment confirmed! Full access granted.',
-          paymentStatus: 'completed',
-          user: {
-            email: user.email,
-            paymentStatus: 'completed',
-          },
-        });
-      } else {
-        // ✅ PAYMENT FAILED
-        await paymentCollection.updateOne(
-          { transactionId },
-          {
-            $set: {
-              status: 'failed',
-              failedAt: new Date(),
-            },
-          }
-        );
-
-        console.log(`❌ Payment failed: ${transactionId}`);
-
-        res.status(400).json({
-          success: false,
-          message: 'Payment failed',
-          paymentStatus: 'failed',
-        });
-      }
+      res.json({ status: 'pending', state });
     } catch (error) {
-      console.error('❌ Payment confirmation error:', error);
-      res.status(500).json({
-        error: 'Payment confirmation failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.error('❌ Safepay verify error:', error);
+      res.status(500).json({ error: 'Verification failed' });
     }
   }
 );
+
 /**
- * GET /api/payment/status/:userId
- * Get payment status for user
+ * GET /api/payment/status/:userId   (auth)
+ * Current payment/access status for a profile (reads the profiles collection,
+ * which is what the matching gate checks).
  */
 router.get(
   '/status/:userId',
-  authMiddleware,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { userId } = req.params;
-
       if (!userId || Array.isArray(userId)) {
         res.status(400).json({ error: 'Invalid userId' });
         return;
       }
-
       const db = await getDatabase();
-      const usersCollection = db.collection('users');
-
-      const user = await usersCollection.findOne({
-        _id: new ObjectId(userId),
-      });
-
-      if (!user) {
-        res.status(404).json({ error: 'User not found' });
+      const profile = await db.collection('profiles').findOne({ _id: new ObjectId(userId) });
+      if (!profile) {
+        res.status(404).json({ error: 'Profile not found' });
         return;
       }
-
+      const paid = ['completed', 'waived'].includes(profile.paymentStatus);
       res.json({
         success: true,
-        paymentStatus: user.paymentStatus || 'pending',
-        canBrowse: user.paymentStatus === 'completed',
-        profileCompletion: user.profileCompletion || 0,
+        paymentStatus: profile.paymentStatus || 'pending',
+        canBrowse: paid,
+        profileCompletion: profile.profileCompletion || 0,
       });
     } catch (error) {
       console.error('Error fetching payment status:', error);
-      res.status(500).json({
-        error: 'Failed to fetch payment status',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      });
+      res.status(500).json({ error: 'Failed to fetch payment status' });
     }
   }
 );
 
 export default router;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Webhook — mounted WITHOUT authMiddleware (Safepay calls it with no JWT).
+// This is the authoritative signal; redirects can be interrupted by the user.
+// ─────────────────────────────────────────────────────────────────────────────
+export const webhookRouter = Router();
+
+webhookRouter.post('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // TODO(go-live): verify the Safepay signature header against
+    // process.env.SAFEPAY_WEBHOOK_SECRET before trusting the payload.
+    const event = req.body;
+    const tracker = event?.data?.tracker;
+
+    if (event?.type === 'payment.succeeded' && event?.data?.success && tracker) {
+      await markPaidByTracker(tracker);
+      console.log(`✅ Webhook: payment succeeded — tracker ${tracker}`);
+    } else if (event?.type === 'payment.failed' && tracker) {
+      const db = await getDatabase();
+      await db.collection('profiles').updateOne(
+        { paymentTracker: tracker, paymentStatus: { $ne: 'waived' } },
+        { $set: { paymentStatus: 'failed', updatedAt: new Date() } }
+      );
+      await db.collection('payments').updateOne(
+        { tracker },
+        { $set: { status: 'failed', failedAt: new Date() } }
+      );
+      console.log(`❌ Webhook: payment failed — tracker ${tracker}`);
+    }
+
+    res.sendStatus(200); // always acknowledge receipt
+  } catch (error) {
+    console.error('❌ Safepay webhook error:', error);
+    res.sendStatus(200); // still 200 so Safepay doesn't hammer retries on our bug
+  }
+});
