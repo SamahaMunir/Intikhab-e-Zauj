@@ -29,6 +29,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import ApplicantDashboard from './pages/applicant-dashboard';
 import ProfileWizard from './pages/profile-wizard';
 import Payment from './pages/payment';
+import PaymentSuccess from './pages/payment-success';
+import PaymentCancel from './pages/payment-cancel';
 import AppMatches from "@/pages/app/matches";
 import AppMatchDetail from "@/pages/app/match-detail";
 import AppProposals from "@/pages/app/proposals";
@@ -106,6 +108,8 @@ function AppPortalRouter() {
         <Route path="/app/dashboard" component={ApplicantDashboard} />
         <Route path="/app/profile-wizard" component={ProfileWizard} />
         <Route path="/app/payment" component={Payment} />
+        <Route path="/app/payment/success" component={PaymentSuccess} />
+        <Route path="/app/payment/cancel" component={PaymentCancel} />
         
         {/* Browse & Interact - NO /app prefix */}
         <Route path="/app/matches" component={AppMatches} />

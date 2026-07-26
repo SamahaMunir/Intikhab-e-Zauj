@@ -27,7 +27,7 @@ if (!['GOOGLE_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'DEEPSEEK_API_KEY
 }
 const OPTIONAL: Record<string, string> = {
   EMAIL_USER: 'email notifications',
-  JAZZCASH_MERCHANT_ID: 'JazzCash payments',
+  SAFEPAY_SECRET_KEY: 'Safepay payments',
   CLOUDINARY_CLOUD_NAME: 'photo uploads (Cloudinary)',
 };
 const inactive = Object.entries(OPTIONAL).filter(([k]) => !process.env[k]).map(([, label]) => label);

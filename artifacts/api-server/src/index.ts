@@ -17,7 +17,7 @@ import crypto from 'crypto';
 import registerRouter from './routes/register';  
 import authSimpleRouter from './routes/auth-simple';
 import profileCompletionRouter from './routes/profile-completion';
-import paymentRouter from './routes/payment';
+import paymentRouter, { webhookRouter as paymentWebhookRouter } from './routes/payment';
 import userAuthRouter from './routes/user-auth';
 import { initMatchesCollection } from './db/matches-schema';
 import matchingRoutes from './routes/matchingRoutes';
@@ -102,6 +102,9 @@ app.get('/health', async (req, res) => {
 app.use('/auth', userAuthRouter);
 
 app.use('/api/profile', authMiddleware, profileCompletionRouter);
+// Safepay webhook — NO auth (Safepay calls it server-to-server). Must be
+// registered BEFORE the auth-protected /api/payment mount below.
+app.use('/api/payment/webhook', paymentWebhookRouter);
 app.use('/api/payment', authMiddleware, paymentRouter);
 app.use('/auth', registerRouter);
 // Matching API routes

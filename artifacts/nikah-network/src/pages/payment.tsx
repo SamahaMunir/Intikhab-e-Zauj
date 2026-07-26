@@ -1,97 +1,49 @@
-import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function PaymentPage() {
-  const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [paymentInitiated, setPaymentInitiated] = useState(false);
 
-  const initiatePayment = async () => {
+  const startPayment = async () => {
     setError('');
     setLoading(true);
-
     try {
       const token = localStorage.getItem('token');
-      if (!token) throw new Error('Not authenticated');
+      if (!token) throw new Error('Not authenticated. Please log in again.');
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
-      const response = await fetch(`${apiUrl}/api/payment/initiate-jazzcash`, {
+      const response = await fetch(`${apiUrl}/api/payment/create-checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
-
       const data = await response.json();
+      if (!response.ok) throw new Error(data.message || data.error || 'Could not start payment');
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Payment initiation failed');
+      // Already paid (or waived) — skip the gateway.
+      if (data.alreadyPaid) {
+        window.location.assign('/app/dashboard');
+        return;
       }
+      if (!data.checkoutUrl) throw new Error('No checkout URL returned');
 
-      console.log('✅ Payment initiated:', data.payment.transactionId);
-      setPaymentInitiated(true);
-
-      // In real implementation, redirect to JazzCash gateway
-      // For now, simulate payment success after 3 seconds
-      setTimeout(() => {
-        completePayment(data.payment.transactionId);
-      }, 3000);
+      // Hand off to Safepay's hosted checkout page.
+      window.location.assign(data.checkoutUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
-    } finally {
       setLoading(false);
     }
   };
-const completePayment = async (transactionId: string) => {
-  try {
-    const token = localStorage.getItem('token');  // ✅ GET TOKEN
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-    console.log(`💳 Confirming payment: ${transactionId}`);
-
-    const response = await fetch(`${apiUrl}/api/payment/confirm-jazzcash`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,  // ✅ ADD AUTH HEADER
-      },
-      body: JSON.stringify({
-        transactionId,
-        status: 'success',
-      }),
-    });
-
-    const data = await response.json();
-
-    console.log(`💳 Payment response:`, data);
-
-    if (response.ok && data.success) {
-      console.log(`✅ Payment successful!`);
-      
-      // ✅ SAVE UPDATED USER INFO
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      user.paymentStatus = 'completed';
-      localStorage.setItem('user', JSON.stringify(user));
-
-      alert('✅ Payment successful! You now have full access!');
-      setLocation('/app/dashboard');
-    } else {
-      throw new Error(data.message || 'Payment confirmation failed');
-    }
-  } catch (err) {
-    console.error('❌ Payment confirmation error:', err);
-    setError(err instanceof Error ? err.message : 'Payment confirmation failed');
-  }
-};
   return (
-    <div className="min-h-screen bg-linear-to-br from-green-100 to-emerald-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-primary/10 to-primary/5 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-serif">Complete Payment</CardTitle>
@@ -100,14 +52,14 @@ const completePayment = async (transactionId: string) => {
 
         <CardContent className="space-y-6">
           {/* Payment Summary */}
-          <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+          <div className="bg-muted rounded-lg p-4 space-y-2">
             <div className="flex justify-between">
               <span className="font-semibold">Registration Fee</span>
               <span className="font-bold text-lg">4,000 PKR</span>
             </div>
             <p className="text-sm text-muted-foreground">
               ✅ Access to all profiles<br/>
-              ✅ Send & receive proposals<br/>
+              ✅ Send &amp; receive proposals<br/>
               ✅ Direct messaging<br/>
               ✅ Premium features
             </p>
@@ -120,33 +72,22 @@ const completePayment = async (transactionId: string) => {
             </Alert>
           )}
 
-          {paymentInitiated ? (
-            <div className="text-center space-y-4">
-              <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-600" />
-              <p className="font-semibold">Processing payment...</p>
-              <p className="text-sm text-muted-foreground">Please wait while we process your payment</p>
-            </div>
-          ) : (
-            <Button
-              onClick={initiatePayment}
-              disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-700"
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Initiating Payment...
-                </>
-              ) : (
-                'Pay Now with JazzCash (4000 PKR)'
-              )}
-            </Button>
-          )}
+          <Button onClick={startPayment} disabled={loading} size="lg" className="w-full">
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Redirecting to Safepay…
+              </>
+            ) : (
+              'Pay Now (4,000 PKR)'
+            )}
+          </Button>
 
           <div className="text-center text-sm text-muted-foreground">
-            <p>💳 Payment powered by JazzCash</p>
-            <p className="text-xs mt-1">Secure and encrypted transaction</p>
+            <p className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-primary" /> Secured by Safepay
+            </p>
+            <p className="text-xs mt-1">You'll be redirected to Safepay's secure page to pay.</p>
           </div>
         </CardContent>
       </Card>
