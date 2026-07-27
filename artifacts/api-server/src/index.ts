@@ -49,7 +49,14 @@ app.use(cors({
       'http://127.0.0.1:5000',
       'https://nikah-network.pk',
       'https://intikhab-e-zauj.onrender.com',
-    ];
+      // Live domain (+ www)
+      'https://intikhab-e-zauj.org',
+      'https://www.intikhab-e-zauj.org',
+      // Whatever CLIENT_URL is set to (used for payment redirects)
+      process.env.CLIENT_URL,
+      // Extra origins via env: comma-separated CORS_ORIGINS
+      ...(process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) ?? []),
+    ].filter(Boolean) as string[];
 
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
