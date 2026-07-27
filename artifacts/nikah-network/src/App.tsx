@@ -31,6 +31,7 @@ import ProfileWizard from './pages/profile-wizard';
 import Payment from './pages/payment';
 import PaymentSuccess from './pages/payment-success';
 import PaymentCancel from './pages/payment-cancel';
+import { PrivacyPolicy, TermsAndConditions, RefundPolicy, OwnershipStatement } from './pages/marketing/legal';
 import AppMatches from "@/pages/app/matches";
 import AppMatchDetail from "@/pages/app/match-detail";
 import AppProposals from "@/pages/app/proposals";
@@ -74,7 +75,13 @@ function MarketingRouter() {
         <Route path="/pricing" component={Pricing} />
         <Route path="/success-stories" component={SuccessStories} />
         <Route path="/contact" component={Contact} />
-        
+
+        {/* Legal / policy pages (required for Safepay live verification) */}
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/terms" component={TermsAndConditions} />
+        <Route path="/refund" component={RefundPolicy} />
+        <Route path="/ownership" component={OwnershipStatement} />
+
         {/* Staff Portal */}
         <Route path="/staff-login" component={StaffLogin} />
         <Route path="/staff-register" component={StaffRegister} />
