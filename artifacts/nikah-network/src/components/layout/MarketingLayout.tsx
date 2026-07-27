@@ -78,7 +78,9 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
               <li><Link href="/contact" className="hover:text-primary transition-colors">Contact Us</Link></li>
               <li><Link href="/faq" className="hover:text-primary transition-colors">FAQs</Link></li>
               <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+              <li><Link href="/terms" className="hover:text-primary transition-colors">Terms and Conditions</Link></li>
+              <li><Link href="/refund" className="hover:text-primary transition-colors">Refund Policy</Link></li>
+              <li><Link href="/ownership" className="hover:text-primary transition-colors">Ownership Statement</Link></li>
             </ul>
           </div>
         </div>
