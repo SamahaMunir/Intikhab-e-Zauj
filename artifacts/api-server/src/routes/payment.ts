@@ -70,7 +70,9 @@ router.post(
         return;
       }
 
-      // 1. Payment session (tracker)
+      // 1. Payment session (tracker). Note: Safepay rejects arbitrary metadata
+      // keys ("unsupported meta key") — we map tracker→profile via the
+      // paymentTracker we store below, so no metadata is needed here.
       const session = await safepay.payments.session.setup({
         merchant_api_key: process.env.SAFEPAY_API_KEY,
         intent: 'CYBERSOURCE',
@@ -78,7 +80,6 @@ router.post(
         entry_mode: 'raw',
         currency: CURRENCY,
         amount: REGISTRATION_FEE_PAISA,
-        metadata: { profile_id: profileId },
       });
       const trackerToken = session?.data?.tracker?.token;
       if (!trackerToken) throw new Error('Safepay did not return a tracker token');
@@ -163,8 +164,14 @@ router.get(
         return;
       }
 
+      // Never let the browser cache a verify result — a stale "pending" 304
+      // would trap the user even after the payment finalizes.
+      res.set('Cache-Control', 'no-store, max-age=0');
+
       const result = await safepay.reporter.payments.fetch(tracker);
-      const state = result?.data?.tracker?.state;
+      // The tracker object is returned either at result.data (flat) or
+      // result.data.tracker depending on SDK response shape.
+      const state = result?.data?.state ?? result?.data?.tracker?.state;
 
       // TRACKER_ENDED == the hosted payment completed successfully.
       if (state === 'TRACKER_ENDED') {

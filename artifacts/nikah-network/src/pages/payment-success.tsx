@@ -23,29 +23,46 @@ export default function PaymentSuccessPage() {
       return;
     }
 
-    (async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${apiUrl}/api/payment/verify/${tracker}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Verification failed');
+    let cancelled = false;
 
-        if (data.status === 'paid') {
-          // Reflect locally so gated UI updates immediately.
-          const user = JSON.parse(localStorage.getItem('user') || '{}');
-          user.paymentStatus = 'completed';
-          localStorage.setItem('user', JSON.stringify(user));
-          setState('paid');
-        } else {
-          setState('pending');
+    const verifyOnce = async (): Promise<'paid' | 'pending'> => {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${apiUrl}/api/payment/verify/${tracker}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verification failed');
+      return data.status === 'paid' ? 'paid' : 'pending';
+    };
+
+    (async () => {
+      // Safepay finalizes the tracker a beat after redirect — poll a few times
+      // before giving up to "pending" (with a manual re-check button).
+      const delays = [0, 2000, 3000, 4000, 5000];
+      try {
+        for (let i = 0; i < delays.length; i++) {
+          if (cancelled) return;
+          if (delays[i]) await new Promise(r => setTimeout(r, delays[i]));
+          const result = await verifyOnce();
+          if (cancelled) return;
+          if (result === 'paid') {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            user.paymentStatus = 'completed';
+            localStorage.setItem('user', JSON.stringify(user));
+            setState('paid');
+            return;
+          }
         }
+        setState('pending');
       } catch (err) {
+        if (cancelled) return;
         setState('error');
         setMessage(err instanceof Error ? err.message : 'Verification failed');
       }
     })();
+
+    return () => { cancelled = true; };
   }, []);
 
   return (
