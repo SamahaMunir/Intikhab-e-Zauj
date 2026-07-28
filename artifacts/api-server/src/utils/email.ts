@@ -1,26 +1,63 @@
 import nodemailer from 'nodemailer';
 
-// ✅ Gmail Configuration
-const transporter = nodemailer.createTransport({
+// Cloud hosts (Render, etc.) block outbound SMTP, so Gmail times out in prod.
+// Prefer Resend's HTTP API (port 443, never blocked) when RESEND_API_KEY is set;
+// fall back to Gmail SMTP for local dev. All senders below call
+// `transporter.sendMail(...)`, so we only swap what that points to.
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+// Resend requires the "from" to be a verified domain (or onboarding@resend.dev
+// for testing). Set MAIL_FROM once your domain is verified in Resend.
+const MAIL_FROM = process.env.MAIL_FROM || `Intikhab-e-Zauj <${process.env.EMAIL_USER}>`;
+
+interface MailOpts { from?: string; to: string; subject: string; text?: string; html?: string; replyTo?: string }
+
+type MailResult = { accepted?: unknown[]; messageId?: string };
+
+async function resendSend(opts: MailOpts): Promise<MailResult> {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: MAIL_FROM,          // Resend ignores the per-message from; use verified sender
+      to: opts.to,
+      subject: opts.subject,
+      text: opts.text,
+      html: opts.html,
+      reply_to: opts.replyTo,
+    }),
+  });
+  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+  const data = await res.json().catch(() => ({})) as { id?: string };
+  return { accepted: [opts.to], messageId: data.id };
+}
+
+const gmailTransport = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD, // App password with spaces
   },
-  // Fail fast instead of hanging for ~40s when the SMTP host is slow/blocked
-  // (common on cloud hosts). Keeps callers from stalling.
+  // Fail fast instead of hanging ~40s when SMTP is slow/blocked.
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 15000,
 });
 
-// Test connection (async/await version)
+// Unified sender the rest of this file uses.
+const transporter: { sendMail: (o: MailOpts) => Promise<MailResult> } =
+  RESEND_API_KEY ? { sendMail: resendSend } : (gmailTransport as unknown as { sendMail: (o: MailOpts) => Promise<MailResult> });
+
+// Startup check
 (async () => {
   try {
-    await transporter.verify();
+    if (RESEND_API_KEY) {
+      console.log('✅ Email via Resend API');
+      return;
+    }
+    await gmailTransport.verify();
     console.log('✅ Gmail SMTP connected successfully');
   } catch (error) {
-    console.error('⚠️  Gmail connection warning:', error instanceof Error ? error.message : error);
+    console.error('⚠️  Email connection warning:', error instanceof Error ? error.message : error);
   }
 })();
 
