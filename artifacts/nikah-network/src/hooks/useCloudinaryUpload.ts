@@ -313,7 +313,13 @@ export function useCloudinaryUpload() {
       setProgress(40);
 
       // ── 5. Cloudinary signature ────────────────────────────────────────
-      const { signature, timestamp } = await generateUploadSignature(cloudFolder);
+      // Use the cloud name + api key that the signing server returned — they
+      // belong to the same account as the secret that made the signature. Using
+      // the frontend VITE_* values here risks a cross-account mismatch → 401.
+      const { signature, timestamp, cloudName: sigCloud, apiKey: sigKey } =
+        await generateUploadSignature(cloudFolder);
+      const uploadCloud = sigCloud || cloudinaryConfig.cloudName;
+      const uploadKey = sigKey || cloudinaryConfig.apiKey;
       setProgress(55);
 
       // ── 6. Upload ──────────────────────────────────────────────────────
@@ -323,13 +329,13 @@ export function useCloudinaryUpload() {
       if (signature && timestamp) {
         fd.append('signature', signature);
         fd.append('timestamp', timestamp.toString());
-        fd.append('api_key', cloudinaryConfig.apiKey);
+        fd.append('api_key', uploadKey);
       } else {
         fd.append('upload_preset', 'intikhab_unsigned');
       }
 
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/auto/upload`,
+        `https://api.cloudinary.com/v1_1/${uploadCloud}/auto/upload`,
         { method: 'POST', body: fd }
       );
       const text = await response.text();
