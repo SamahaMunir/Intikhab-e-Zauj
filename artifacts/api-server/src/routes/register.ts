@@ -143,7 +143,7 @@ emailVerified: false,
     // signup response on the SMTP call. A slow/misconfigured mail server used to
     // freeze registration for ~40s; the account is already saved above, so we
     // fire-and-forget with a timeout guard and just log failures.
-    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/verify-email?token=${verificationToken}&email=${email}`;
+    const verificationLink = `${process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5175'}/verify-email?token=${verificationToken}&email=${email}`;
     void Promise.race([
       sendVerificationEmail(email, name, verificationLink),
       new Promise((_, reject) => setTimeout(() => reject(new Error('email send timed out')), 10000)),
@@ -312,7 +312,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     );
 
     // ✅ SEND NEW VERIFICATION EMAIL
-    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/verify-email?token=${verificationToken}&email=${email}`;
+    const verificationLink = `${process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5175'}/verify-email?token=${verificationToken}&email=${email}`;
     const emailSent = await sendVerificationEmail(email, user.name, verificationLink);
 
     console.log(`✅ Verification email resent to: ${email}`);
