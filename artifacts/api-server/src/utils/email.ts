@@ -7,6 +7,11 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD, // App password with spaces
   },
+  // Fail fast instead of hanging for ~40s when the SMTP host is slow/blocked
+  // (common on cloud hosts). Keeps callers from stalling.
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
 // Test connection (async/await version)

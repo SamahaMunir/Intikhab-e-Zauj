@@ -139,11 +139,19 @@ emailVerified: false,
     await profilesCollection.insertOne(newUser);
     console.log(`✅ User profile created: ${email}`);
 
-    // ✅ SEND VERIFICATION EMAIL
+    // Send the verification email in the BACKGROUND — never block (or hang) the
+    // signup response on the SMTP call. A slow/misconfigured mail server used to
+    // freeze registration for ~40s; the account is already saved above, so we
+    // fire-and-forget with a timeout guard and just log failures.
     const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/verify-email?token=${verificationToken}&email=${email}`;
-    const emailSent = await sendVerificationEmail(email, name, verificationLink);
+    void Promise.race([
+      sendVerificationEmail(email, name, verificationLink),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('email send timed out')), 10000)),
+    ]).catch((err) =>
+      console.warn(`⚠️ Verification email not sent to ${email}:`, err instanceof Error ? err.message : err)
+    );
 
-    // ✅ RETURN SUCCESS
+    // ✅ RETURN SUCCESS immediately (email is on its way in the background)
     return res.status(201).json({
       success: true,
       message: 'Registration successful! Please check your email to verify your account.',
@@ -153,7 +161,6 @@ emailVerified: false,
         email: newUser.email,
         role: newUser.role,
       },
-      emailSent,
     });
   } catch (error) {
     console.error('Registration error:', error);
