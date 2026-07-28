@@ -15,7 +15,7 @@ import {
 } from '@/lib/profile-validation';
 
 const DRAFT_KEY = 'profile_wizard_draft';
-const API = 'http://localhost:5000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface ProfileFormData {
   name: string;
@@ -343,7 +343,7 @@ export default function ProfileWizard() {
         email: user.email,
       };
 
-      const response = await fetch('http://localhost:5000/api/profile/complete', {
+      const response = await fetch(`${API}/api/profile/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
