@@ -27,13 +27,13 @@ interface Profile {
   profileStatus: 'pending' | 'approved' | 'rejected';
   photo?: string;
   source?: string;
+  registeredBy?: string;
 }
 
-// A profile counts as "staff-created" when its source is one of these (mirrors
-// the backend's getProfileType). Self-registered users have source 'registration'
-// (or none) and manage their own matches in the app — staff don't matchmake for them.
-const STAFF_SOURCES = ['staff_entry', 'paper', 'whatsapp', 'walkin', 'referral', 'phone'];
-const isStaffCreated = (p: Profile) => STAFF_SOURCES.includes(p.source || '');
+// Staff-managed = anything NOT self-registered. Self-registered users
+// (registeredBy: 'self') handle their own matches in the app; everything else
+// (staff data-entry, seed data) is staff-managed and browsable here.
+const isStaffCreated = (p: Profile) => p.registeredBy !== 'self';
 
 interface ProfileSide {
   _id?: string;
