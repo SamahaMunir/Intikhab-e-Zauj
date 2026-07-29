@@ -62,11 +62,14 @@ async function pairsInProposalPipeline(db: Db): Promise<Set<string>> {
 }
 
 function getProfileType(profile: any): 'staff' | 'user' {
-  // registeredBy is the authoritative signal (set on all staff-created profiles
-  // + backfilled by migration); source is the legacy fallback.
-  if (profile?.registeredBy === 'staff') return 'staff';
+  // Self-registered applicants manage their own matches → 'user'. Everyone else
+  // (staff data-entry AND seed data, which may lack registeredBy/source) is
+  // staff-managed → 'staff'. Mirrors the Matches browse filter on the client.
   if (profile?.registeredBy === 'self') return 'user';
-  return STAFF_SOURCES.includes(profile?.source) ? 'staff' : 'user';
+  if (profile?.registeredBy === 'staff') return 'staff';
+  // Legacy/seed rows without registeredBy: only an explicit non-staff source
+  // marks a self-registered user; staff-source or sourceless seed → staff.
+  return profile?.source && !STAFF_SOURCES.includes(profile.source) ? 'user' : 'staff';
 }
 
 function getId(id: string | string[] | undefined): string | null {
