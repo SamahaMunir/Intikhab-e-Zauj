@@ -62,6 +62,7 @@ router.get(
           paymentStatus: p.paymentStatus,
           notes: p.notes,
           source: p.source,
+          registeredBy: p.registeredBy,
           enteredBy: p.enteredBy,
           enteredAt: p.enteredAt,
           createdAt: p.createdAt,
