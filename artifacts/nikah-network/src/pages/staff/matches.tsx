@@ -26,7 +26,14 @@ interface Profile {
   age?: number;
   profileStatus: 'pending' | 'approved' | 'rejected';
   photo?: string;
+  source?: string;
 }
+
+// A profile counts as "staff-created" when its source is one of these (mirrors
+// the backend's getProfileType). Self-registered users have source 'registration'
+// (or none) and manage their own matches in the app — staff don't matchmake for them.
+const STAFF_SOURCES = ['staff_entry', 'paper', 'whatsapp', 'walkin', 'referral', 'phone'];
+const isStaffCreated = (p: Profile) => STAFF_SOURCES.includes(p.source || '');
 
 interface ProfileSide {
   _id?: string;
@@ -198,12 +205,14 @@ export default function StaffMatches() {
   useEffect(() => { fetchProfiles(); }, []);
 
   // ── Browse filtering ────────────────────────────────────────────────────
-  const approved = profiles.filter(p => p.profileStatus === 'approved');
+  // Only staff-created + approved profiles are browsable here — self-registered
+  // users manage their own matches in the app.
+  const staffCreated = profiles.filter(p => p.profileStatus === 'approved' && isStaffCreated(p));
   const q = browseSearch.trim().toLowerCase();
   const matchesQuery = (p: Profile) =>
     !q || [p.name, p.city, p.profession].some(v => v?.toLowerCase().includes(q));
-  const grooms = approved.filter(p => p.gender === 'male' && matchesQuery(p));
-  const brides = approved.filter(p => p.gender === 'female' && matchesQuery(p));
+  const grooms = staffCreated.filter(p => p.gender === 'male' && matchesQuery(p));
+  const brides = staffCreated.filter(p => p.gender === 'female' && matchesQuery(p));
 
   const banner = (
     <>
@@ -448,7 +457,7 @@ export default function StaffMatches() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Matches</h1>
-          <p className="text-sm text-muted-foreground">Pick a profile to see their match suggestions</p>
+          <p className="text-sm text-muted-foreground">Pick a staff-created profile to see its matches</p>
         </div>
         <button onClick={fetchProfiles}
           className="flex items-center gap-2 h-11 px-4 rounded-xl border border-border bg-card
@@ -506,8 +515,8 @@ export default function StaffMatches() {
           <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-muted-foreground font-semibold">
             {q
-              ? `No ${genderView === 'male' ? 'grooms' : 'brides'} match your search`
-              : `No approved ${genderView === 'male' ? 'grooms' : 'brides'} yet`}
+              ? `No staff-created ${genderView === 'male' ? 'grooms' : 'brides'} match your search`
+              : `No staff-created ${genderView === 'male' ? 'grooms' : 'brides'} yet`}
           </p>
         </div>
       ) : (
