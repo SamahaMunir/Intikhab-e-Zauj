@@ -132,18 +132,32 @@ export default function StaffMatches() {
     }
   };
 
+  const fetchMatchesFor = async (id: string): Promise<MatchRecord[]> => {
+    const r = await fetch(`${API}/api/matches?userId=${id}`, { headers });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed to load matches');
+    return d.matches || [];
+  };
+
   const openMatches = async (p: Profile) => {
     setSelected(p);
     setMatches([]);
     setExpandedId(null);
+    const side = asSide(p);
     try {
       setMatchesLoading(true);
       setError(null);
-      const r = await fetch(`${API}/api/matches?userId=${p._id}`, { headers });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Failed to load matches');
-      const side = asSide(p);
-      setMatches((d.matches || []).map((m: MatchRecord) => ({ ...m, user: side })));
+      let list = await fetchMatchesFor(p._id);
+      // No stored matches yet → generate on first open so staff see results
+      // immediately without having to click Regenerate.
+      if (list.length === 0) {
+        await fetch(`${API}/api/matches/generate/${p._id}`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ genderHint: p.gender }),
+        });
+        list = await fetchMatchesFor(p._id);
+      }
+      setMatches(list.map((m) => ({ ...m, user: side })));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error loading matches');
     } finally {
