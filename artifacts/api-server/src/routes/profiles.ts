@@ -63,6 +63,7 @@ router.get(
           notes: p.notes,
           source: p.source,
           registeredBy: p.registeredBy,
+          matched: p.matched,
           enteredBy: p.enteredBy,
           enteredAt: p.enteredAt,
           createdAt: p.createdAt,
