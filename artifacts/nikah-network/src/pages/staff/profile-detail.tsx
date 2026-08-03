@@ -5,9 +5,31 @@ import { ProfileView, type ProfileData } from '@/components/ProfileView';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, ArrowLeft, Pencil, Save } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// Fields staff can edit — grouped for the form layout. `type` drives the input.
+const EDIT_FIELDS: { key: string; label: string; type?: 'select' | 'textarea'; options?: string[] }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'gender', label: 'Gender', type: 'select', options: ['male', 'female'] },
+  { key: 'age', label: 'Age' },
+  { key: 'city', label: 'City / Residence' },
+  { key: 'caste', label: 'Caste' },
+  { key: 'height', label: 'Height' },
+  { key: 'education', label: 'Education' },
+  { key: 'profession', label: 'Profession' },
+  { key: 'designation', label: 'Designation' },
+  { key: 'monthlyIncome', label: 'Monthly Income' },
+  { key: 'homeOwnership', label: 'Home Ownership', type: 'select', options: ['owned', 'rented', 'family', 'mortgaged', 'other'] },
+  { key: 'houseArea', label: 'House Area (e.g. 5 marla, 1 kanal)' },
+  { key: 'fatherName', label: "Father's Name" },
+  { key: 'fatherMobile', label: "Father's / Guardian Mobile" },
+  { key: 'matchCriteria', label: 'Match Criteria', type: 'textarea' },
+  { key: 'bio', label: 'Bio', type: 'textarea' },
+  { key: 'notes', label: 'Staff Notes', type: 'textarea' },
+];
 
 export default function StaffProfileDetail() {
   const params = useParams<{ id: string }>();
@@ -20,6 +42,9 @@ export default function StaffProfileDetail() {
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionDone, setActionDone]   = useState<string | null>(null);
+  const [editing, setEditing]         = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [form, setForm]               = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!profileId) return;
@@ -73,6 +98,45 @@ export default function StaffProfileDetail() {
     }
   };
 
+  const startEdit = () => {
+    const p = (profile || {}) as any;
+    const next: Record<string, string> = {};
+    for (const f of EDIT_FIELDS) {
+      let v = p[f.key];
+      if (f.key === 'homeOwnership') v = p.homeOwnership ?? p.houseStatus ?? '';
+      next[f.key] = v == null ? '' : String(v);
+    }
+    setForm(next);
+    setEditing(true);
+    setActionDone(null);
+    setError(null);
+  };
+
+  const saveEdit = async () => {
+    const token = getToken('staff');
+    if (!token) { setLocation('/staff-login'); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/api/staff/profiles/${profileId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as any).error || `HTTP ${res.status}`);
+      }
+      setEditing(false);
+      setActionDone('edit');
+      await fetchProfile();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -115,18 +179,73 @@ export default function StaffProfileDetail() {
         </button>
         <span className="text-gray-300">|</span>
         <span className="text-sm text-gray-500">Reviewing: <strong className="text-gray-800">{profile.name}</strong></span>
+        {!editing && (
+          <Button variant="outline" size="sm" className="ml-auto" onClick={startEdit}>
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+            Edit Profile
+          </Button>
+        )}
       </div>
 
       {actionDone && (
-        <div className={`p-4 rounded-xl border text-sm font-medium ${actionDone === 'approve' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-          ✓ Profile {actionDone === 'approve' ? 'approved' : 'rejected'} successfully.
+        <div className={`p-4 rounded-xl border text-sm font-medium ${actionDone === 'reject' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
+          {actionDone === 'approve' && '✓ Profile approved successfully.'}
+          {actionDone === 'reject' && '✗ Profile rejected successfully.'}
+          {actionDone === 'edit' && '✓ Profile updated successfully.'}
         </div>
       )}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{error}</div>
       )}
 
-      {/* Full profile — same component as /app/profile */}
+      {editing ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Edit Profile</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {EDIT_FIELDS.map(f => (
+                <div key={f.key} className={f.type === 'textarea' ? 'sm:col-span-2' : ''}>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
+                  {f.type === 'textarea' ? (
+                    <Textarea
+                      value={form[f.key] ?? ''}
+                      onChange={e => setForm(s => ({ ...s, [f.key]: e.target.value }))}
+                      rows={2}
+                    />
+                  ) : f.type === 'select' ? (
+                    <select
+                      value={form[f.key] ?? ''}
+                      onChange={e => setForm(s => ({ ...s, [f.key]: e.target.value }))}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">—</option>
+                      {f.options!.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      value={form[f.key] ?? ''}
+                      onChange={e => setForm(s => ({ ...s, [f.key]: e.target.value }))}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" disabled={saving} onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+              <Button className="bg-green-600 hover:bg-green-700" disabled={saving} onClick={saveEdit}>
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Changes
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+      /* Full profile — same component as /app/profile */
       <ProfileView
         profile={profile}
         maskCnic={false}
@@ -175,6 +294,7 @@ export default function StaffProfileDetail() {
           )
         }
       />
+      )}
     </div>
   );
 }

@@ -117,6 +117,113 @@ router.get(
 );
 
 /**
+ * PUT /api/staff/profiles/:id
+ * Edit an existing profile's fields (staff only). Whitelisted fields only —
+ * staff use this to complete data imported from the paper sheets (profession,
+ * home ownership, house area, income, …) after the CSV import.
+ */
+router.put(
+  '/:id',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      if (!ObjectId.isValid(id)) {
+        res.status(400).json({ error: 'Invalid profile ID' });
+        return;
+      }
+      if (!req.user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const db = await getDatabase();
+      const profilesCollection = db.collection('profiles');
+      const query = { _id: new ObjectId(id) };
+
+      const existing = await profilesCollection.findOne(query);
+      if (!existing) {
+        res.status(404).json({ error: 'Profile not found' });
+        return;
+      }
+
+      // Plain string/text fields staff may edit.
+      const STRING_FIELDS = [
+        'name', 'phone', 'gender', 'city', 'education', 'profession', 'designation',
+        'monthlyIncome', 'income', 'caste', 'height', 'religion', 'sect', 'cnic', 'bio',
+        'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation',
+        'fatherMobile', 'motherMobile', 'matchCriteria', 'desiredMatchDetails',
+        'notes', 'regNo', 'institution', 'jobType', 'address', 'motherTongue',
+      ];
+      const NUMERIC_FIELDS = [
+        'numBrothers', 'numSisters', 'numMarriedBrothers', 'numMarriedSisters', 'areaValue',
+      ];
+
+      const set: Record<string, any> = { updatedAt: new Date() };
+
+      for (const f of STRING_FIELDS) {
+        if (f in req.body) set[f] = req.body[f] == null ? '' : String(req.body[f]);
+      }
+      for (const f of NUMERIC_FIELDS) {
+        if (f in req.body) set[f] = Number(req.body[f]) || 0;
+      }
+      // dob: accept a date/ISO string, store as Date.
+      if ('dob' in req.body && req.body.dob) {
+        const d = new Date(req.body.dob);
+        if (!isNaN(d.getTime())) set.dob = d;
+      }
+      if ('age' in req.body && req.body.age !== '') {
+        const a = Number(req.body.age);
+        if (a > 0) set.age = a;
+      }
+      // Home ownership + house area are stored under two aliases each — keep in sync.
+      if ('homeOwnership' in req.body || 'houseStatus' in req.body) {
+        const v = String(req.body.homeOwnership ?? req.body.houseStatus ?? '');
+        set.homeOwnership = v;
+        set.houseStatus = v;
+      }
+      if ('houseArea' in req.body || 'areaValue' in req.body) {
+        const areaStr = req.body.houseArea ?? req.body.areaValue ?? '';
+        set.houseArea = String(areaStr);
+        set.areaValue = Number(areaStr) || 0;
+      }
+      if ('photo' in req.body) set.photo = req.body.photo || null;
+
+      // Nothing beyond the timestamp → nothing to do.
+      if (Object.keys(set).length <= 1) {
+        res.status(400).json({ error: 'No editable fields provided' });
+        return;
+      }
+
+      await profilesCollection.updateOne(query, { $set: set });
+
+      await logAudit(
+        req.user.email,
+        req.user.id,
+        (req.user.role as 'staff' | 'admin') || 'staff',
+        'edit_profile',
+        'profile',
+        id,
+        'Staff edited profile fields',
+        { fields: Object.keys(set).filter(k => k !== 'updatedAt') }
+      );
+
+      const updated = await profilesCollection.findOne(query, {
+        projection: { password: 0, verificationToken: 0 },
+      });
+      res.json({ success: true, profile: updated ? { ...updated, _id: updated._id.toString() } : null });
+    } catch (error) {
+      console.error('❌ Error editing profile:', error);
+      res.status(500).json({
+        error: 'Failed to edit profile',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+);
+
+/**
  * POST /api/staff/profiles/:id/approve
  * Approve a user profile (staff only)
  * ✅ UNIFIED: Uses 'profiles' collection
