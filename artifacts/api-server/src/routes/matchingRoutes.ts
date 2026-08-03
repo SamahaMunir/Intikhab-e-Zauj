@@ -112,8 +112,13 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
     // Profile completion gate — incomplete profiles cannot retrieve matches
     const requestingUser = await db.collection('profiles').findOne(
       { _id: oid },
-      { projection: { profileCompletion: 1, gender: 1 } }
+      { projection: { profileCompletion: 1, gender: 1, matched: 1 } }
     );
+    if (requestingUser?.matched) {
+      // Already matched → no suggestions.
+      res.json({ success: true, total: 0, matches: [], matched: true });
+      return;
+    }
     if (requestingUser && (requestingUser.profileCompletion || 0) < 100) {
       res.json({ success: true, total: 0, matches: [], locked: true, reason: 'profile_incomplete' });
       return;
@@ -151,14 +156,14 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
       matches.map(async (m) => {
         const candidate = await db.collection('profiles').findOne(
           { _id: m.candidateId },
-          { projection: { name: 1, age: 1, dob: 1, city: 1, profession: 1, caste: 1, gender: 1, education: 1, photo: 1, height: 1, houseStatus: 1, role: 1 } }
+          { projection: { name: 1, age: 1, dob: 1, city: 1, profession: 1, caste: 1, gender: 1, education: 1, photo: 1, height: 1, houseStatus: 1, role: 1, matched: 1 } }
         );
         return { ...m, candidate };
       })
     );
     // Drop any match whose candidate is a staff/admin account (defensive — hides
     // bad matches generated before the staff-account guards were added).
-    const cleanEnriched = enriched.filter((m) => m.candidate && !isStaffAccount(m.candidate));
+    const cleanEnriched = enriched.filter((m) => m.candidate && !isStaffAccount(m.candidate) && !m.candidate.matched);
 
     res.json({ success: true, total: cleanEnriched.length, matches: cleanEnriched });
   } catch (error) {
@@ -204,6 +209,15 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
     }
 
     const { genderHint } = req.body as { genderHint?: string };
+
+    // ── MATCHED GATE ──────────────────────────────────────────────────────────
+    // A person who completed a match is off the market — no new suggestions, and
+    // clear any stale ones.
+    if (user.matched) {
+      await db.collection('matches').deleteMany({ $or: [{ userId: oid }, { userId: userIdStr }] });
+      res.json({ success: true, generated: 0, matches: [], matched: true });
+      return;
+    }
 
     // ── COMPLETION GATE ───────────────────────────────────────────────────────
     // Matching is locked until profile is 100% complete (photo, all required fields)
@@ -259,6 +273,7 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
         gender: oppositeGender,               // ← DB-level gender filter, not just hard-filter
         profileStatus: 'approved',
         paymentStatus: { $in: PAYMENT_OK },   // paid OR waived (staff-created)
+        matched: { $ne: true },               // exclude people already matched (completed)
         ...NOT_STAFF_ACCOUNT,                 // never match against staff/admin accounts
       })
       .toArray();
@@ -347,6 +362,7 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
         ...NOT_STAFF_ACCOUNT,   // staff-CREATED applicants only, not staff accounts
         profileStatus: 'approved',
         profileCompletion: { $gte: 100 },
+        matched: { $ne: true }, // skip people already matched (completed)
       })
       .toArray();
 
@@ -366,6 +382,7 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
           ...NOT_STAFF_ACCOUNT,   // never match against staff/admin accounts
           profileStatus: 'approved',
           paymentStatus: { $in: PAYMENT_OK },   // paid OR waived (staff-created)
+          matched: { $ne: true }, // exclude people already matched (completed)
         })
         .toArray();
 
@@ -440,11 +457,11 @@ router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Requ
         const [userDoc, candidateDoc] = await Promise.all([
           db.collection('profiles').findOne(
             { _id: m.userId },
-            { projection: { name: 1, age: 1, city: 1, gender: 1, caste: 1, photo: 1, source: 1, registeredBy: 1, role: 1 } }
+            { projection: { name: 1, age: 1, city: 1, gender: 1, caste: 1, photo: 1, source: 1, registeredBy: 1, role: 1, matched: 1 } }
           ),
           db.collection('profiles').findOne(
             { _id: m.candidateId },
-            { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1, source: 1, registeredBy: 1, role: 1 } }
+            { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1, source: 1, registeredBy: 1, role: 1, matched: 1 } }
           ),
         ]);
 
@@ -465,6 +482,8 @@ router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Requ
     for (const m of enriched) {
       // Skip matches involving a staff/admin ACCOUNT (not a matchable person).
       if (isStaffAccount(m.user) || isStaffAccount(m.candidate)) continue;
+      // Skip anyone already matched (completed) — off the market.
+      if (m.user?.matched || m.candidate?.matched) continue;
       if (m.leftProfileType !== 'staff' && m.rightProfileType !== 'staff') continue;
       const id1 = (m as any).userId?.toString() || '';
       const id2 = (m as any).candidateId?.toString() || '';

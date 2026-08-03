@@ -893,6 +893,15 @@ staffProposalRouter.patch('/:id/conclude', async (req: AuthRequest, res: Respons
 
     await db.collection('proposals').updateOne({ _id: oid }, { $set: set });
 
+    // A completed match takes BOTH people off the market — flag their profiles
+    // so they never surface again as candidates in user or staff suggestions.
+    if (outcome === 'completed') {
+      await db.collection('profiles').updateMany(
+        { _id: { $in: [p.initiatorId, p.recipientId] } },
+        { $set: { matched: true, matchedAt: now, updatedAt: now } }
+      );
+    }
+
     await logAudit(
       req.user!.email, req.user!.id, req.user!.role as any,
       outcome === 'completed' ? 'complete_proposal' : 'close_proposal',

@@ -28,6 +28,7 @@ interface Profile {
   photo?: string;
   source?: string;
   registeredBy?: string;
+  matched?: boolean;
 }
 
 // Staff-managed = anything NOT self-registered. Self-registered users
@@ -221,7 +222,7 @@ export default function StaffMatches() {
   // ── Browse filtering ────────────────────────────────────────────────────
   // Only staff-created + approved profiles are browsable here — self-registered
   // users manage their own matches in the app.
-  const staffCreated = profiles.filter(p => p.profileStatus === 'approved' && isStaffCreated(p));
+  const staffCreated = profiles.filter(p => p.profileStatus === 'approved' && isStaffCreated(p) && !p.matched);
   const q = browseSearch.trim().toLowerCase();
   const matchesQuery = (p: Profile) =>
     !q || [p.name, p.city, p.profession].some(v => v?.toLowerCase().includes(q));
