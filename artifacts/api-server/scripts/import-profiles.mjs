@@ -38,12 +38,14 @@ const FILE = arg('--file');
 const GENDER = (arg('--gender') || '').toLowerCase();
 const PHOTOS_DIR = arg('--photos');
 const DRY = process.argv.includes('--dry');
+const UNDO = process.argv.includes('--undo'); // delete the profiles THIS csv created
 
 if (!FILE || !existsSync(FILE)) {
   console.error('❌ --file <path.csv> is required and must exist');
   process.exit(1);
 }
-if (GENDER !== 'male' && GENDER !== 'female') {
+// --gender is only required when importing (it labels the rows); undo matches by Reg.
+if (!UNDO && GENDER !== 'male' && GENDER !== 'female') {
   console.error('❌ --gender must be "male" or "female"');
   process.exit(1);
 }
@@ -117,8 +119,28 @@ const run = async () => {
   const client = new MongoClient(URI);
   await client.connect();
   const col = client.db(DB).collection('profiles');
-  console.log(`import-profiles${DRY ? ' (DRY RUN)' : ''} → ${DB}.profiles`);
-  console.log(`  file=${FILE}  gender=${GENDER}  rows=${rows.length - 1}\n`);
+  const mode = UNDO ? 'undo (delete)' : 'import';
+  console.log(`import-profiles [${mode}]${DRY ? ' (DRY RUN)' : ''} → ${DB}.profiles`);
+  console.log(`  file=${FILE}${UNDO ? '' : `  gender=${GENDER}`}  rows=${rows.length - 1}\n`);
+
+  // ── UNDO: remove only the profiles this CSV created ─────────────────────────
+  // Matched by Reg (or fallback phone) AND the import-script marker, so real
+  // users and manually-added staff profiles can never be deleted.
+  if (UNDO) {
+    const regs = [];
+    for (let r = 1; r < rows.length; r++) {
+      const i = header.indexOf('reg');
+      const reg = i === -1 ? '' : String(rows[r][i] ?? '').trim();
+      if (reg) regs.push(reg);
+    }
+    const filter = { enteredBy: 'import-script', regNo: { $in: regs } };
+    const matched = await col.countDocuments(filter);
+    if (!DRY) await col.deleteMany(filter);
+    console.log(`  ${DRY ? 'Would delete' : 'Deleted'} : ${matched} imported profile(s) (Reg range ${regs[0]}–${regs[regs.length - 1]})`);
+    console.log(`\n${DRY ? 'DRY RUN — nothing deleted.' : 'Done.'}`);
+    await client.close();
+    return;
+  }
 
   const now = new Date();
   const seenKeys = new Set();
