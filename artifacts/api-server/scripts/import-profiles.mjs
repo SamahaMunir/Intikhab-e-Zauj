@@ -77,6 +77,7 @@ function canonKey(h) {
   if (k.startsWith('height')) return 'height';
   if (k.startsWith('age')) return 'age';
   if (k.startsWith('edu')) return 'education';
+  if (k.startsWith('profession') || k.startsWith('job') || k.startsWith('occupation') || k.startsWith('work')) return 'profession';
   if (k.startsWith('cast')) return 'caste';        // "Cast" / "Caste"
   if (k.startsWith('resid') || k === 'city' || k.startsWith('address')) return 'city';
   if (k.startsWith('contact') || k.startsWith('phone') || k.startsWith('mobile')) return 'contact';
@@ -173,7 +174,7 @@ const run = async () => {
       caste: get('caste'),
       height: get('height'),
       education: get('education'),
-      profession: '',
+      profession: get('profession'),
       income: '',
       monthlyIncome: '',
       houseStatus: '',
