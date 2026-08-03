@@ -120,7 +120,9 @@ const run = async () => {
   console.log(`  file=${FILE}  gender=${GENDER}  rows=${rows.length - 1}\n`);
 
   const now = new Date();
-  const seenPhones = new Set();
+  const seenKeys = new Set();
+  // Non-name junk rows the sheet uses for cancelled/blocked entries.
+  const JUNK_NAMES = new Set(['cancelled', 'blocked', 'void', 'deleted', 'n/a', 'na', '-', 'x', 'xx']);
   let inserted = 0, skippedDup = 0, skippedBad = 0, withPhoto = 0;
   const preview = [];
 
@@ -129,21 +131,28 @@ const run = async () => {
     const get = (key) => { const i = idxOf(key); return i === -1 ? '' : String(cells[i] ?? '').trim(); };
 
     const name = get('name');
-    if (!name) { skippedBad++; continue; }
+    if (!name || JUNK_NAMES.has(name.toLowerCase())) { skippedBad++; continue; }
 
-    const phoneRaw = contactCols[0] !== undefined ? digits(cells[contactCols[0]]) : '';
-    const fatherPhone = contactCols[1] !== undefined ? digits(cells[contactCols[1]]) : '';
     const reg = get('reg');
-    // phone is the unique key; fall back to a stable reg/name-based placeholder
-    const phone = phoneRaw || `noph-${(reg || name).toLowerCase().replace(/\s+/g, '')}-${r}`;
 
-    if (seenPhones.has(phone)) { skippedDup++; continue; }
-    seenPhones.add(phone);
+    // Collect valid phone numbers from every Contact column. Drop cells Excel
+    // mangled into scientific notation (e.g. "9.23244E+11"); keep 10–13 digits.
+    const validPhones = contactCols
+      .map(i => String(cells[i] ?? '').trim())
+      .filter(v => v && !/e\+?\d/i.test(v))
+      .map(digits)
+      .filter(d => d.length >= 10 && d.length <= 13);
+    const phone = validPhones[0] || `noph-${(reg || name).toLowerCase().replace(/\s+/g, '')}-${r}`;
+    const fatherPhone = validPhones[1] || '';
 
-    if (phoneRaw) {
-      const exists = await col.findOne({ phone });
-      if (exists) { skippedDup++; continue; }
-    }
+    // Dedup on Reg. (unique per applicant) — siblings legitimately share a phone,
+    // so phone is NOT a safe key. Fall back to phone only when Reg is missing.
+    const key = reg || phone;
+    if (seenKeys.has(key)) { skippedDup++; continue; }
+    seenKeys.add(key);
+
+    const exists = await col.findOne(reg ? { regNo: reg } : { phone });
+    if (exists) { skippedDup++; continue; }
 
     const photoFile = reg ? photos.get(reg.toLowerCase()) : undefined;
     if (photoFile) withPhoto++;
@@ -152,7 +161,8 @@ const run = async () => {
     const doc = {
       _id: new ObjectId(),
       name,
-      email: `${phone}@intikhab-pending.pk`,
+      // Reg-based so siblings sharing a phone still get unique emails.
+      email: `${(reg || phone).toLowerCase().replace(/[^a-z0-9]/g, '')}@intikhab-pending.pk`,
       phone,
       gender: GENDER,
       dob,
