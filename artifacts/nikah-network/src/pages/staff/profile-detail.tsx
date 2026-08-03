@@ -5,7 +5,8 @@ import { ProfileView, type ProfileData } from '@/components/ProfileView';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, CheckCircle2, XCircle, ArrowLeft, Pencil, Save } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, ArrowLeft, Pencil, Save, Upload } from 'lucide-react';
+import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -45,6 +46,8 @@ export default function StaffProfileDetail() {
   const [editing, setEditing]         = useState(false);
   const [saving, setSaving]           = useState(false);
   const [form, setForm]               = useState<Record<string, string>>({});
+  const [photoUrl, setPhotoUrl]       = useState('');
+  const { uploadProfilePhoto, uploading, checking, error: uploadError } = useCloudinaryUpload();
 
   useEffect(() => {
     if (!profileId) return;
@@ -107,9 +110,18 @@ export default function StaffProfileDetail() {
       next[f.key] = v == null ? '' : String(v);
     }
     setForm(next);
+    setPhotoUrl(p.photo || '');
     setEditing(true);
     setActionDone(null);
     setError(null);
+  };
+
+  const onPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    const res = await uploadProfilePhoto(file);
+    if (res?.url) setPhotoUrl(res.url);
   };
 
   const saveEdit = async () => {
@@ -121,7 +133,7 @@ export default function StaffProfileDetail() {
       const res = await fetch(`${API}/api/staff/profiles/${profileId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, photo: photoUrl }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -204,6 +216,30 @@ export default function StaffProfileDetail() {
             <CardTitle className="text-base">Edit Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Profile photo */}
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-24 rounded-lg border bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
+                {photoUrl
+                  ? <img src={photoUrl} alt="profile" className="w-full h-full object-cover" />
+                  : <span className="text-[10px] text-gray-400 text-center px-1">No photo</span>}
+              </div>
+              <div className="space-y-1">
+                <label className="block text-xs font-medium text-gray-600">Profile Photo</label>
+                <label className="inline-flex items-center gap-2 text-sm px-3 h-9 rounded-md border border-input bg-background cursor-pointer hover:bg-accent">
+                  {uploading || checking
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />{checking ? 'Verifying face…' : 'Uploading…'}</>
+                    : <><Upload className="w-4 h-4" />{photoUrl ? 'Replace photo' : 'Upload photo'}</>}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onPhotoSelect} disabled={uploading || checking} />
+                </label>
+                {photoUrl && (
+                  <button type="button" className="block text-xs text-red-600 hover:underline" onClick={() => setPhotoUrl('')}>
+                    Remove photo
+                  </button>
+                )}
+                {uploadError && <p className="text-xs text-red-600 max-w-xs whitespace-pre-line">{uploadError.split('\n')[0]}</p>}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {EDIT_FIELDS.map(f => (
                 <div key={f.key} className={f.type === 'textarea' ? 'sm:col-span-2' : ''}>
@@ -237,7 +273,7 @@ export default function StaffProfileDetail() {
               <Button variant="outline" disabled={saving} onClick={() => setEditing(false)}>
                 Cancel
               </Button>
-              <Button className="bg-green-600 hover:bg-green-700" disabled={saving} onClick={saveEdit}>
+              <Button className="bg-green-600 hover:bg-green-700" disabled={saving || uploading || checking} onClick={saveEdit}>
                 {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Save Changes
               </Button>
