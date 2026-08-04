@@ -45,6 +45,7 @@ import StaffLayout from "@/components/layout/StaffLayout";
 import StaffDashboard from "@/pages/staff/dashboard";
 import StaffProfiles from "@/pages/staff/profiles";
 import StaffProfileDetail from "@/pages/staff/profile-detail";
+import StaffPayments from "@/pages/staff/payments";
 import StaffMatches from "@/pages/staff/matches";
 import StaffProposals from "@/pages/staff/proposals";
 import StaffMessages from "@/pages/staff/messages";
@@ -163,6 +164,7 @@ function StaffPortalRouter() {
         <Route path="/staff/profiles/:id" component={StaffProfileDetail} />
         <Route path="/staff/matches" component={StaffMatches} />
         <Route path="/staff/proposals" component={StaffProposals} />
+        <Route path="/staff/payments" component={StaffPayments} />
         <Route path="/staff/messages" component={StaffMessages} />
         <Route path="/staff/counselling" component={StaffCounselling} />
         <Route path="/staff/audit" component={StaffAudit} />

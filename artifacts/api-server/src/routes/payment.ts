@@ -221,6 +221,74 @@ router.get(
   }
 );
 
+/**
+ * POST /api/payment/bank-transfer/submit   (auth)
+ * Applicant reports a manual Raast / UBL bank transfer. Records the transaction
+ * reference and flips the profile to 'submitted' so staff can verify it against
+ * the bank statement before granting access. No gateway involved.
+ */
+router.post(
+  '/bank-transfer/submit',
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const { reference, screenshot } = req.body || {};
+      if (!reference || String(reference).trim().length < 3) {
+        res.status(400).json({ error: 'A valid transaction ID / reference is required' });
+        return;
+      }
+
+      const db = await getDatabase();
+      const profiles = db.collection('profiles');
+      const profile = await profiles.findOne({ _id: new ObjectId(req.user.id) });
+      if (!profile) {
+        res.status(404).json({ error: 'Profile not found' });
+        return;
+      }
+      if (['completed', 'waived'].includes(profile.paymentStatus)) {
+        res.json({ alreadyPaid: true, paymentStatus: profile.paymentStatus });
+        return;
+      }
+
+      const now = new Date();
+      await profiles.updateOne(
+        { _id: profile._id },
+        {
+          $set: {
+            paymentStatus: 'submitted',
+            paymentMethod: 'bank_transfer',
+            paymentReference: String(reference).trim(),
+            paymentScreenshot: screenshot || null,
+            paymentSubmittedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+      await db.collection('payments').insertOne({
+        _id: new ObjectId(),
+        profileId: profile._id,
+        email: profile.email,
+        amount: REGISTRATION_FEE_PAISA / 100,
+        currency: CURRENCY,
+        provider: 'bank_transfer',
+        reference: String(reference).trim(),
+        screenshot: screenshot || null,
+        status: 'submitted',
+        createdAt: now,
+      });
+
+      console.log(`🧾 Bank-transfer submitted for ${profile.email} — ref ${reference}`);
+      res.json({ success: true, paymentStatus: 'submitted' });
+    } catch (error) {
+      console.error('❌ Bank transfer submit error:', error);
+      res.status(500).json({ error: 'Could not submit payment' });
+    }
+  }
+);
+
 export default router;
 
 // ─────────────────────────────────────────────────────────────────────────────
