@@ -202,9 +202,10 @@ export function OwnershipStatement() {
         This website and the {SERVICE} service are owned and operated by:
       </p>
       <p>
-        <strong>Intikhab-e-Zauj</strong><br />
+        <strong>Falah-e-Khandan Center</strong>, operating as <strong>Intikhab-e-Zauj</strong><br />
         30-G/1, Johar Town<br />
         Lahore, Pakistan<br />
+        Registration Type: Sole Proprietorship<br />
         Business Registration / NTN: In process
       </p>
 
