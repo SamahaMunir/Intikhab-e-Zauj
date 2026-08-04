@@ -5,7 +5,7 @@ import { ProfileView, type ProfileData } from '@/components/ProfileView';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, CheckCircle2, XCircle, ArrowLeft, Pencil, Save, Upload } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, ArrowLeft, Pencil, Save, Upload, Heart, RotateCcw } from 'lucide-react';
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -149,6 +149,30 @@ export default function StaffProfileDetail() {
     }
   };
 
+  const setMatched = async (matched: boolean) => {
+    if (matched && !confirm('Mark this person as matched/married? They will be hidden from all match suggestions and the browse list.')) return;
+    const token = getToken('staff');
+    if (!token) { setLocation('/staff-login'); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/api/staff/profiles/${profileId}/set-matched`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ matched }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as any).error || `HTTP ${res.status}`);
+      }
+      await fetchProfile();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -177,6 +201,7 @@ export default function StaffProfileDetail() {
   const isPending  = profile.profileStatus === 'pending';
   const isApproved = profile.profileStatus === 'approved';
   const isRejected = profile.profileStatus === 'rejected';
+  const isMatched  = (profile as any).matched === true;
 
   return (
     <div className="space-y-4 pb-10">
@@ -192,10 +217,21 @@ export default function StaffProfileDetail() {
         <span className="text-gray-300">|</span>
         <span className="text-sm text-gray-500">Reviewing: <strong className="text-gray-800">{profile.name}</strong></span>
         {!editing && (
-          <Button variant="outline" size="sm" className="ml-auto" onClick={startEdit}>
-            <Pencil className="w-3.5 h-3.5 mr-1.5" />
-            Edit Profile
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            {isMatched
+              ? <span className="text-xs px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 font-medium">Matched · hidden from pool</span>
+              : <span className="text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-medium">Available</span>}
+            {isMatched
+              ? <Button variant="outline" size="sm" disabled={saving} onClick={() => setMatched(false)}>
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />Mark Available
+                </Button>
+              : <Button variant="outline" size="sm" disabled={saving} onClick={() => setMatched(true)}>
+                  <Heart className="w-3.5 h-3.5 mr-1.5" />Mark Matched
+                </Button>}
+            <Button variant="outline" size="sm" onClick={startEdit}>
+              <Pencil className="w-3.5 h-3.5 mr-1.5" />Edit Profile
+            </Button>
+          </div>
         )}
       </div>
 
