@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { logAudit } from '../db/auditLogs';
 import { getDatabase } from '../db/connection';
@@ -80,6 +80,123 @@ router.get(
         error: 'Failed to fetch profiles',
         details: error instanceof Error ? error.message : 'Unknown error',
       });
+    }
+  }
+);
+
+/**
+ * GET /api/staff/profiles/payments/pending
+ * Bank-transfer payments awaiting staff verification (staff only).
+ * Defined before '/:id' so the literal path isn't captured as an id.
+ */
+router.get(
+  '/payments/pending',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (_req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const db = await getDatabase();
+      const profiles = await db
+        .collection('profiles')
+        .find({ paymentStatus: 'submitted' })
+        .sort({ paymentSubmittedAt: -1 })
+        .toArray();
+      res.json({
+        success: true,
+        count: profiles.length,
+        data: profiles.map(p => ({
+          _id: p._id.toString(),
+          name: p.name,
+          email: p.email,
+          phone: p.phone,
+          gender: p.gender,
+          photo: p.photo,
+          paymentMethod: p.paymentMethod,
+          paymentReference: p.paymentReference,
+          paymentScreenshot: p.paymentScreenshot,
+          paymentSubmittedAt: p.paymentSubmittedAt,
+        })),
+      });
+    } catch (error) {
+      console.error('❌ Error fetching pending payments:', error);
+      res.status(500).json({ error: 'Failed to fetch pending payments' });
+    }
+  }
+);
+
+/**
+ * POST /api/staff/profiles/:id/payment-verify
+ * Confirm a submitted bank transfer → mark the profile paid (staff only).
+ */
+router.post(
+  '/:id/payment-verify',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      if (!ObjectId.isValid(id)) { res.status(400).json({ error: 'Invalid profile ID' }); return; }
+      if (!req.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+      const db = await getDatabase();
+      const now = new Date();
+      const result = await db.collection('profiles').updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { paymentStatus: 'completed', paymentDate: now, paymentProvider: 'bank_transfer', paymentVerifiedBy: req.user.email, updatedAt: now } }
+      );
+      if (result.matchedCount === 0) { res.status(404).json({ error: 'Profile not found' }); return; }
+
+      await db.collection('payments').updateMany(
+        { profileId: new ObjectId(id), status: 'submitted' },
+        { $set: { status: 'completed', completedAt: now, verifiedBy: req.user.email } }
+      );
+      await logAudit(
+        req.user.email, req.user.id, (req.user.role as 'staff' | 'admin') || 'staff',
+        'verify_payment', 'profile', id, 'Bank transfer verified', {}
+      );
+      res.json({ success: true, paymentStatus: 'completed' });
+    } catch (error) {
+      console.error('❌ Error verifying payment:', error);
+      res.status(500).json({ error: 'Failed to verify payment' });
+    }
+  }
+);
+
+/**
+ * POST /api/staff/profiles/:id/payment-reject
+ * Reject a submitted bank transfer → back to unpaid so the applicant can retry.
+ */
+router.post(
+  '/:id/payment-reject',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      if (!ObjectId.isValid(id)) { res.status(400).json({ error: 'Invalid profile ID' }); return; }
+      if (!req.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
+      const { reason } = req.body || {};
+
+      const db = await getDatabase();
+      const now = new Date();
+      const result = await db.collection('profiles').updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { paymentStatus: 'pending', paymentRejectedReason: reason || 'Could not verify transaction', paymentRejectedBy: req.user.email, updatedAt: now } }
+      );
+      if (result.matchedCount === 0) { res.status(404).json({ error: 'Profile not found' }); return; }
+
+      await db.collection('payments').updateMany(
+        { profileId: new ObjectId(id), status: 'submitted' },
+        { $set: { status: 'rejected', rejectedAt: now, rejectedBy: req.user.email, rejectedReason: reason || '' } }
+      );
+      await logAudit(
+        req.user.email, req.user.id, (req.user.role as 'staff' | 'admin') || 'staff',
+        'reject_payment', 'profile', id, `Bank transfer rejected: ${reason || 'no reason'}`, {}
+      );
+      res.json({ success: true, paymentStatus: 'pending' });
+    } catch (error) {
+      console.error('❌ Error rejecting payment:', error);
+      res.status(500).json({ error: 'Failed to reject payment' });
     }
   }
 );
