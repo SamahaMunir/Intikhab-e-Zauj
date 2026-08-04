@@ -19,7 +19,7 @@ router.post('/signature', async (req: Request, res: Response) => {
     }
 
     // Validate folder (prevent path traversal)
-    const validFolders = ['profiles', 'documents', 'counselling'];
+    const validFolders = ['profiles', 'documents', 'counselling', 'payment-proofs'];
     if (!validFolders.includes(folder)) {
       console.error('❌ Invalid folder:', folder);
       return res.status(400).json({ error: 'Invalid folder' });
