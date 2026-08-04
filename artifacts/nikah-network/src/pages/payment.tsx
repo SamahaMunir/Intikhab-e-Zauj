@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2, CheckCircle2, Clock, Upload, Copy, ShieldCheck, Landmark } from 'lucide-react';
@@ -16,7 +15,8 @@ const BANK = {
   accountNumber: '0110 0020 1015 5404',
   iban:          'PK81 UNIL 0110 0020 1015 5404',
 };
-const IBAN_RAW = BANK.iban.replace(/\s/g, '');
+// Drop the UBL Raast merchant QR at public/payment-qr.png — it then shows
+// automatically. Until it exists, the QR is hidden and only account details show.
 const QR_SRC = '/payment-qr.png';
 const FEE = '4,000 PKR';
 
@@ -159,19 +159,19 @@ export default function PaymentPage() {
         <div>
           <p className="font-semibold text-sm text-gray-900 mb-3">
             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-xs mr-2">1</span>
-            Scan to pay, or transfer to the account
+            {qrImgFailed ? 'Send ' + FEE + ' to this account' : 'Scan to pay, or transfer to the account'}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-5 items-center">
-            <div className="shrink-0 text-center">
-              <div className="p-3 bg-white rounded-xl border shadow-sm inline-block">
-                {!qrImgFailed
-                  ? <img src={QR_SRC} alt="Scan to pay" width={168} height={168}
-                         className="object-contain" onError={() => setQrImgFailed(true)} />
-                  : <QRCodeSVG value={IBAN_RAW} size={168} level="M" />}
+            {!qrImgFailed && (
+              <div className="shrink-0 text-center">
+                <div className="p-3 bg-white rounded-xl border shadow-sm inline-block">
+                  <img src={QR_SRC} alt="Scan to pay" width={168} height={168}
+                       className="object-contain" onError={() => setQrImgFailed(true)} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Scan with any banking / Raast app</p>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">Scan with any banking / Raast app</p>
-            </div>
+            )}
 
             <div className="w-full rounded-xl border bg-gray-50/70 divide-y">
               <Row label="Bank" value={BANK.bankName} sub={BANK.branch} />
