@@ -84,6 +84,7 @@ function canonKey(h) {
   if (k.startsWith('resid') || k === 'city' || k.startsWith('address')) return 'city';
   if (k.startsWith('contact') || k.startsWith('phone') || k.startsWith('mobile')) return 'contact';
   if (k.startsWith('reg')) return 'reg';
+  if (k.startsWith('status')) return 'status';
   return null;
 }
 
@@ -146,7 +147,13 @@ const run = async () => {
   const seenKeys = new Set();
   // Non-name junk rows the sheet uses for cancelled/blocked entries.
   const JUNK_NAMES = new Set(['cancelled', 'blocked', 'void', 'deleted', 'n/a', 'na', '-', 'x', 'xx']);
-  let inserted = 0, skippedDup = 0, skippedBad = 0, withPhoto = 0;
+  // Status-column vocabulary (substring match, case-insensitive).
+  //   MATCHED → import but hidden from the matching pool (matched:true).
+  //   SKIP    → not imported at all.
+  // Refine these lists to match the exact words used in the sheets.
+  const MATCHED_STATUS = ['married', 'match', 'complete', 'nikah', 'engag', 'done', 'settle', 'success', 'booked'];
+  const SKIP_STATUS = ['cancel', 'block', 'inactive', 'dead', 'invalid', 'reject', 'withdraw'];
+  let inserted = 0, skippedDup = 0, skippedBad = 0, skippedStatus = 0, matchedHidden = 0, withPhoto = 0;
   const preview = [];
 
   for (let r = 1; r < rows.length; r++) {
@@ -155,6 +162,11 @@ const run = async () => {
 
     const name = get('name');
     if (!name || JUNK_NAMES.has(name.toLowerCase())) { skippedBad++; continue; }
+
+    // Status column: skip cancelled/withdrawn, hide already-matched from the pool.
+    const status = get('status').toLowerCase();
+    if (status && SKIP_STATUS.some(k => status.includes(k))) { skippedStatus++; continue; }
+    const isMatched = !!status && MATCHED_STATUS.some(k => status.includes(k));
 
     const reg = get('reg');
 
@@ -214,7 +226,10 @@ const run = async () => {
       emailVerified: true,
       registeredBy: 'staff',
       source: 'staff_entry',
-      notes: reg ? `Imported from CSV — Reg ${reg}` : 'Imported from CSV',
+      // Already-matched profiles (per Status column): kept as record, hidden from
+      // the matching pool everywhere via the shared `matched` gate.
+      ...(isMatched ? { matched: true, matchedAt: now } : {}),
+      notes: reg ? `Imported from CSV — Reg ${reg}${isMatched ? ` (status: ${status})` : ''}` : 'Imported from CSV',
       enteredBy: 'import-script',
       enteredAt: now,
       createdAt: now,
@@ -225,15 +240,18 @@ const run = async () => {
 
     if (!DRY) await col.insertOne(doc);
     inserted++;
+    if (isMatched) matchedHidden++;
   }
 
   console.log('First mapped rows:');
   for (const p of preview) console.log('  ', JSON.stringify(p));
   console.log('');
-  console.log(`  ${DRY ? 'Would insert' : 'Inserted'} : ${inserted}`);
-  console.log(`  Skipped (duplicate phone)   : ${skippedDup}`);
-  console.log(`  Skipped (no name)           : ${skippedBad}`);
-  if (PHOTOS_DIR) console.log(`  Matched photo files (noted) : ${withPhoto}`);
+  console.log(`  ${DRY ? 'Would insert' : 'Inserted'}                    : ${inserted}`);
+  console.log(`    …of which hidden (matched)  : ${matchedHidden}`);
+  console.log(`  Skipped (duplicate)           : ${skippedDup}`);
+  console.log(`  Skipped (no name / junk)      : ${skippedBad}`);
+  console.log(`  Skipped (cancelled status)    : ${skippedStatus}`);
+  if (PHOTOS_DIR) console.log(`  Matched photo files (noted)   : ${withPhoto}`);
   console.log(`\n${DRY ? 'DRY RUN — nothing written.' : 'Done.'}`);
   await client.close();
 };
