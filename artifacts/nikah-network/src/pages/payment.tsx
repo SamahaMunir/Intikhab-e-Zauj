@@ -7,13 +7,12 @@ import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-// ⚠️ FILL THESE with the company's real UBL details, and drop the Raast/UBL
-// receive-QR image into  public/payment-qr.png .
+// Company UBL details. Drop the Raast/UBL receive-QR image into public/payment-qr.png.
 const BANK = {
-  bankName:      'UBL (United Bank Limited)',
+  bankName:      'United Bank Limited (UBL) — Gulberg Branch, Lahore',
   accountTitle:  'Falah-e-Khandan Trust',
-  accountNumber: 'XXXX-XXXXXXXXXX',   // TODO: real account number
-  iban:          'PKXX UNIL XXXX XXXX XXXX XXXX', // TODO: real IBAN
+  accountNumber: '0110 0020 1015 5404',
+  iban:          'PK81 UNIL 0110 0020 1015 5404',
 };
 const QR_SRC = '/payment-qr.png';
 const FEE = '4,000 PKR';
