@@ -1,0 +1,31 @@
+name: Keep backend awake
+
+# Render's free tier spins the backend down after ~15 min idle, so the next real
+# visitor waits ~10-50s for a cold start. This pings a lightweight health
+# endpoint every 10 min to keep the instance warm.
+#
+# The URL defaults to the Render host. To override without editing this file,
+# set a repository variable named RENDER_PING_URL
+# (GitHub → repo Settings → Secrets and variables → Actions → Variables).
+#
+# Note: the job never fails on a non-200 — a cold start can briefly return 000
+# while the instance is waking, and we don't want noisy failure emails.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # every 10 minutes (UTC)
+  workflow_dispatch: {}        # allow manual "Run workflow" from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          URL="${{ vars.RENDER_PING_URL || 'https://api.intikhab-e-zauj.org/api/info' }}"
+          echo "Pinging $URL"
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "$URL" || echo "000")
+          echo "HTTP status: $code"
+          if [ "$code" = "000" ]; then
+            echo "No response yet — instance may still be spinning up. Not failing the job."
+          fi
