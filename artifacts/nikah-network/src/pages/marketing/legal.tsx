@@ -4,11 +4,11 @@ import PublicLayout from '@/components/layout/PublicLayout';
  * Legal / policy pages required for Safepay live-payment website verification:
  * Privacy Policy, Terms & Conditions, Refund Policy, Ownership Statement.
  *
- * ⚠️ Before submitting to Safepay, replace every [BRACKETED] placeholder with
- * your real registered business details. Search this file for "[" to find them.
+ * Business details filled in for Safepay verification. If the registered
+ * business name / address / NTN changes, update the Contact + Ownership blocks.
  */
 
-const LAST_UPDATED = 'July 2026';
+const LAST_UPDATED = 'August 2026';
 const SERVICE = 'Intikhab-e-Zauj';
 
 // ── Shared shell ──────────────────────────────────────────────────────────────
@@ -75,14 +75,14 @@ export function PrivacyPolicy() {
       <p>
         You may request access to, correction of, or deletion of your personal
         data, and you may deactivate your profile at any time, by contacting us at{' '}
-        <a href="mailto:[SUPPORT EMAIL]">[SUPPORT EMAIL]</a>.
+        <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a>.
       </p>
 
       <h2>Contact</h2>
       <p>
-        [REGISTERED BUSINESS NAME]<br />
-        [REGISTERED ADDRESS], Pakistan<br />
-        Email: <a href="mailto:[SUPPORT EMAIL]">[SUPPORT EMAIL]</a> · Phone: [SUPPORT PHONE]
+        Intikhab-e-Zauj<br />
+        30-G/1, Johar Town, Lahore, Pakistan<br />
+        Email: <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> · Phone: 0303-4116557
       </p>
     </LegalShell>
   );
@@ -137,12 +137,12 @@ export function TermsAndConditions() {
       <h2>Governing law</h2>
       <p>
         These Terms are governed by the laws of Pakistan, and any disputes are
-        subject to the courts of [CITY], Pakistan.
+        subject to the courts of Lahore, Pakistan.
       </p>
 
       <h2>Contact</h2>
       <p>
-        Email: <a href="mailto:[SUPPORT EMAIL]">[SUPPORT EMAIL]</a> · Phone: [SUPPORT PHONE]
+        Email: <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> · Phone: 0303-4116557
       </p>
     </LegalShell>
   );
@@ -162,7 +162,7 @@ export function RefundPolicy() {
       <h2>Cancellation</h2>
       <p>
         You may cancel and request a refund of your registration fee within{' '}
-        <strong>[7] days</strong> of payment, provided that:
+        <strong>7 days</strong> of payment, provided that:
       </p>
       <ul>
         <li>your profile has not yet been approved, and</li>
@@ -172,13 +172,13 @@ export function RefundPolicy() {
       <h2>Non-refundable cases</h2>
       <ul>
         <li>Once your profile has been approved or any matchmaking service (matches, proposals, or introductions) has been provided.</li>
-        <li>After the [7]-day cancellation window has passed.</li>
+        <li>After the 7-day cancellation window has passed.</li>
         <li>If your account is suspended or terminated for violating our Terms (e.g. false information or misconduct).</li>
       </ul>
 
       <h2>How to request a refund</h2>
       <p>
-        Email <a href="mailto:[SUPPORT EMAIL]">[SUPPORT EMAIL]</a> from your
+        Email <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> from your
         registered email with your name and payment reference. Approved refunds are
         returned to your original payment method within{' '}
         <strong>[7–10] business days</strong>. Processing times may vary depending
@@ -187,8 +187,8 @@ export function RefundPolicy() {
 
       <h2>Contact</h2>
       <p>
-        [REGISTERED BUSINESS NAME] · Email:{' '}
-        <a href="mailto:[SUPPORT EMAIL]">[SUPPORT EMAIL]</a> · Phone: [SUPPORT PHONE]
+        Intikhab-e-Zauj · Email:{' '}
+        <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> · Phone: 0303-4116557
       </p>
     </LegalShell>
   );
@@ -202,10 +202,10 @@ export function OwnershipStatement() {
         This website and the {SERVICE} service are owned and operated by:
       </p>
       <p>
-        <strong>[REGISTERED BUSINESS / OWNER NAME]</strong><br />
-        [REGISTERED ADDRESS]<br />
-        [CITY], Pakistan<br />
-        Business Registration / NTN: [REGISTRATION OR NTN NUMBER]
+        <strong>Intikhab-e-Zauj</strong><br />
+        30-G/1, Johar Town<br />
+        Lahore, Pakistan<br />
+        Business Registration / NTN: In process
       </p>
 
       <h2>Nature of business</h2>
@@ -225,7 +225,7 @@ export function OwnershipStatement() {
 
       <h2>Contact</h2>
       <p>
-        Email: <a href="mailto:[SUPPORT EMAIL]">[SUPPORT EMAIL]</a> · Phone: [SUPPORT PHONE]
+        Email: <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> · Phone: 0303-4116557
       </p>
     </LegalShell>
   );
