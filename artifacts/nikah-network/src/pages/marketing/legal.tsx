@@ -75,14 +75,14 @@ export function PrivacyPolicy() {
       <p>
         You may request access to, correction of, or deletion of your personal
         data, and you may deactivate your profile at any time, by contacting us at{' '}
-        <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a>.
+        <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a>.
       </p>
 
       <h2>Contact</h2>
       <p>
         Intikhab-e-Zauj<br />
         30-G/1, Johar Town, Lahore, Pakistan<br />
-        Email: <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> · Phone: 0303-4116557
+        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
       </p>
     </LegalShell>
   );
@@ -142,7 +142,7 @@ export function TermsAndConditions() {
 
       <h2>Contact</h2>
       <p>
-        Email: <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> · Phone: 0303-4116557
+        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
       </p>
     </LegalShell>
   );
@@ -178,7 +178,7 @@ export function RefundPolicy() {
 
       <h2>How to request a refund</h2>
       <p>
-        Email <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> from your
+        Email <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> from your
         registered email with your name and payment reference. Approved refunds are
         returned to your original payment method within{' '}
         <strong>[7–10] business days</strong>. Processing times may vary depending
@@ -188,7 +188,7 @@ export function RefundPolicy() {
       <h2>Contact</h2>
       <p>
         Intikhab-e-Zauj · Email:{' '}
-        <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> · Phone: 0303-4116557
+        <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
       </p>
     </LegalShell>
   );
@@ -202,7 +202,7 @@ export function OwnershipStatement() {
         This website and the {SERVICE} service are owned and operated by:
       </p>
       <p>
-        <strong>Falah-e-Khandan Center</strong>, operating as <strong>Intikhab-e-Zauj</strong><br />
+        <strong>Falah-e-Khandan Trust</strong>, operating as <strong>Intikhab-e-Zauj</strong><br />
         30-G/1, Johar Town<br />
         Lahore, Pakistan<br />
         Registration Type: Sole Proprietorship<br />
@@ -226,7 +226,7 @@ export function OwnershipStatement() {
 
       <h2>Contact</h2>
       <p>
-        Email: <a href="mailto:samimunir196@gmail.com">samimunir196@gmail.com</a> · Phone: 0303-4116557
+        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
       </p>
     </LegalShell>
   );
