@@ -112,7 +112,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
     // Profile completion gate — incomplete profiles cannot retrieve matches
     const requestingUser = await db.collection('profiles').findOne(
       { _id: oid },
-      { projection: { profileCompletion: 1, gender: 1, matched: 1 } }
+      { projection: { profileCompletion: 1, gender: 1, matched: 1, profileStatus: 1, paymentStatus: 1 } }
     );
     if (requestingUser?.matched) {
       // Already matched → no suggestions.
@@ -121,6 +121,15 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
     }
     if (requestingUser && (requestingUser.profileCompletion || 0) < 100) {
       res.json({ success: true, total: 0, matches: [], locked: true, reason: 'profile_incomplete' });
+      return;
+    }
+    // Approval + payment gates — matches stay locked until vetted and paid.
+    if (requestingUser && requestingUser.profileStatus !== 'approved') {
+      res.json({ success: true, total: 0, matches: [], locked: true, reason: 'not_approved' });
+      return;
+    }
+    if (requestingUser && !PAYMENT_OK.includes(requestingUser.paymentStatus)) {
+      res.json({ success: true, total: 0, matches: [], locked: true, reason: 'payment_required' });
       return;
     }
 
@@ -227,6 +236,28 @@ console.log(`❌ Not found. DB="${db.databaseName}" has ${count} profiles`);
         error: 'profile_incomplete',
         message: 'Complete your profile before accessing match recommendations.',
         profileCompletion: user.profileCompletion || 0,
+      });
+      return;
+    }
+
+    // ── APPROVAL GATE ─────────────────────────────────────────────────────────
+    // Staff vet each profile first. Matches stay locked until approved.
+    if (user.profileStatus !== 'approved') {
+      res.status(403).json({
+        success: false,
+        error: 'not_approved',
+        message: 'Your profile is under review. Matches unlock once our team approves it.',
+      });
+      return;
+    }
+
+    // ── PAYMENT GATE ──────────────────────────────────────────────────────────
+    // Registration fee (or staff-waived) required before matches unlock.
+    if (!PAYMENT_OK.includes(user.paymentStatus)) {
+      res.status(403).json({
+        success: false,
+        error: 'payment_required',
+        message: 'Complete your registration payment to unlock matches.',
       });
       return;
     }
