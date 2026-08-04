@@ -202,6 +202,45 @@ router.post(
 );
 
 /**
+ * POST /api/staff/profiles/:id/set-matched
+ * Manually flag a profile as matched/married (hidden from the matching pool) or
+ * back to available (staff only). Used when updating from paper/scanned records.
+ * Body: { matched: boolean }
+ */
+router.post(
+  '/:id/set-matched',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      if (!ObjectId.isValid(id)) { res.status(400).json({ error: 'Invalid profile ID' }); return; }
+      if (!req.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
+
+      const matched = !!req.body?.matched;
+      const db = await getDatabase();
+      const now = new Date();
+      const set = matched
+        ? { matched: true, matchedAt: now, updatedAt: now }
+        : { matched: false, matchedAt: null, updatedAt: now };
+
+      const result = await db.collection('profiles').updateOne({ _id: new ObjectId(id) }, { $set: set });
+      if (result.matchedCount === 0) { res.status(404).json({ error: 'Profile not found' }); return; }
+
+      await logAudit(
+        req.user.email, req.user.id, (req.user.role as 'staff' | 'admin') || 'staff',
+        matched ? 'mark_matched' : 'mark_available', 'profile', id,
+        matched ? 'Marked as matched (hidden from pool)' : 'Marked as available', {}
+      );
+      res.json({ success: true, matched });
+    } catch (error) {
+      console.error('❌ Error setting matched flag:', error);
+      res.status(500).json({ error: 'Failed to update status' });
+    }
+  }
+);
+
+/**
  * GET /api/staff/profiles/:id
  * Fetch a single profile by ID (staff only)
  */
