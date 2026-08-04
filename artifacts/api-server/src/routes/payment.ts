@@ -208,10 +208,14 @@ router.get(
         return;
       }
       const paid = ['completed', 'waived'].includes(profile.paymentStatus);
+      const approved = profile.profileStatus === 'approved';
       res.json({
         success: true,
         paymentStatus: profile.paymentStatus || 'pending',
-        canBrowse: paid,
+        profileStatus: profile.profileStatus || 'pending',
+        approved,
+        // Matches unlock only when the profile is approved AND paid/waived.
+        canBrowse: approved && paid,
         profileCompletion: profile.profileCompletion || 0,
       });
     } catch (error) {

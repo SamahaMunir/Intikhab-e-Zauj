@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   Sliders, LayoutGrid, Layers, ChevronLeft, ChevronRight,
-  Lock, ArrowRight, RefreshCw,
+  Lock, ArrowRight, RefreshCw, Clock, CreditCard, Loader2,
 } from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import {
   MatchItem, MatchFilters, DEFAULT_FILTERS, applyFilters, activeFilterCount,
 } from '../../components/matches/types';
@@ -38,6 +40,21 @@ const Matches: React.FC = () => {
   const userId = getUserId();
   const profileCompletion = user?.profileCompletion ?? 0;
   const profileComplete = profileCompletion >= 100;
+
+  // Access gate: matches unlock only when approved AND paid (fetched fresh).
+  const [access, setAccess] = useState<{ approved: boolean; paid: boolean; loaded: boolean }>(
+    { approved: false, paid: false, loaded: false });
+  useEffect(() => {
+    if (!userId) { setAccess({ approved: false, paid: false, loaded: true }); return; }
+    fetch(`${API}/api/payment/status/${userId}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.json())
+      .then(d => setAccess({
+        approved: !!d.approved,
+        paid: ['completed', 'waived'].includes(d.paymentStatus),
+        loaded: true,
+      }))
+      .catch(() => setAccess({ approved: false, paid: false, loaded: true }));
+  }, [userId, userVersion]);
 
   // Single source for match data — backend matching engine via API.
   const { matches, isLoading, isGenerating, error, generate, removeCandidate } = useMatches(userId, profileComplete);
@@ -115,6 +132,59 @@ const Matches: React.FC = () => {
           <a href="/profile-wizard"
             className="flex items-center justify-center gap-2 w-full h-12 bg-[#10B981] text-white rounded-xl font-bold hover:bg-[#059669] transition-colors">
             Complete My Profile <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Wait for the access check before deciding approval/payment gates.
+  if (!access.loaded) {
+    return (
+      <div className="max-w-md mx-auto mt-16 text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#10B981] mx-auto" />
+      </div>
+    );
+  }
+
+  // Gate 2 — profile complete but not yet approved by staff.
+  if (!access.approved) {
+    return (
+      <div className="max-w-md mx-auto mt-8">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Clock className="w-8 h-8 text-[#D97706]" />
+          </div>
+          <h2 className="text-xl font-bold text-[#1C1917] mb-2">Profile Under Review</h2>
+          <p className="text-gray-500 text-sm mb-5">
+            Thank you! Our team is reviewing your profile. Matches unlock as soon as
+            it's approved — you'll be notified. This usually takes 1–2 days.
+          </p>
+          <a href="/app/dashboard"
+            className="flex items-center justify-center gap-2 w-full h-12 bg-[#10B981] text-white rounded-xl font-bold hover:bg-[#059669] transition-colors">
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Gate 3 — approved but registration fee not yet paid.
+  if (!access.paid) {
+    return (
+      <div className="max-w-md mx-auto mt-8">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+          <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <CreditCard className="w-8 h-8 text-[#10B981]" />
+          </div>
+          <h2 className="text-xl font-bold text-[#1C1917] mb-2">You're Approved! 🎉</h2>
+          <p className="text-gray-500 text-sm mb-5">
+            Your profile has been approved. Complete your one-time registration
+            payment to unlock your matches and start connecting.
+          </p>
+          <a href="/app/payment"
+            className="flex items-center justify-center gap-2 w-full h-12 bg-[#10B981] text-white rounded-xl font-bold hover:bg-[#059669] transition-colors">
+            Pay &amp; Unlock Matches <ArrowRight className="w-4 h-4" />
           </a>
         </div>
       </div>
