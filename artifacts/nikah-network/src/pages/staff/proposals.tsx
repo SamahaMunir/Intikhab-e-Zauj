@@ -84,6 +84,19 @@ export default function StaffProposals() {
     }
   };
 
+  // One click → open a WhatsApp chat (prefilled) for EACH family that has a
+  // parent number on file. wa.me opens one chat per link, so we open both tabs.
+  const notifyFamilies = (p: Proposal) => {
+    const initHref  = waHref((p.initiator as any)?.fatherMobile || (p.initiator as any)?.motherMobile, p.initiator?.name, p.recipient?.name);
+    const recipHref = waHref((p.recipient as any)?.fatherMobile || (p.recipient as any)?.motherMobile, p.recipient?.name, p.initiator?.name);
+    const missing: string[] = [];
+    if (initHref) window.open(initHref, '_blank'); else missing.push(p.initiator?.name || 'initiator');
+    if (recipHref) window.open(recipHref, '_blank'); else missing.push(p.recipient?.name || 'recipient');
+    if (missing.length) {
+      alert(`No parent WhatsApp number on file for: ${missing.join(', ')}.\nAdd it via the profile's Edit page, then try again.`);
+    }
+  };
+
   const conclude = async (id: string, outcome: "completed" | "not_proceeded") => {
     const verb = outcome === "completed" ? "mark this match COMPLETED (success)" : "close this match as NOT PROCEEDED";
     if (!window.confirm(`Are you sure you want to ${verb}?`)) return;
@@ -187,28 +200,10 @@ export default function StaffProposals() {
                         </>
                       ) : p.status === "family_proposal_stage" ? (
                         <>
-                          {(() => {
-                            const initHref = waHref((p.initiator as any)?.fatherMobile || (p.initiator as any)?.motherMobile, p.initiator?.name, p.recipient?.name);
-                            const recipHref = waHref((p.recipient as any)?.fatherMobile || (p.recipient as any)?.motherMobile, p.recipient?.name, p.initiator?.name);
-                            return (
-                              <>
-                                {initHref && (
-                                  <a href={initHref} target="_blank" rel="noreferrer">
-                                    <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">
-                                      <MessageCircle className="w-4 h-4 mr-1" /> {p.initiator?.name?.split(' ')[0] || 'Initiator'} family
-                                    </Button>
-                                  </a>
-                                )}
-                                {recipHref && (
-                                  <a href={recipHref} target="_blank" rel="noreferrer">
-                                    <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">
-                                      <MessageCircle className="w-4 h-4 mr-1" /> {p.recipient?.name?.split(' ')[0] || 'Recipient'} family
-                                    </Button>
-                                  </a>
-                                )}
-                              </>
-                            );
-                          })()}
+                          <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50"
+                            onClick={() => notifyFamilies(p)}>
+                            <MessageCircle className="w-4 h-4 mr-1" /> Notify Families
+                          </Button>
                           <Button size="sm" variant="outline" disabled={actingId === p._id}
                             onClick={() => conclude(p._id, "not_proceeded")}>
                             Not Proceeded
