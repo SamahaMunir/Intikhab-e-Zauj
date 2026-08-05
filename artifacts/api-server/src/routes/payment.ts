@@ -201,6 +201,9 @@ router.get(
         res.status(400).json({ error: 'Invalid userId' });
         return;
       }
+      // Never cache access status — a stale 304 would trap the user on the wrong
+      // gate (e.g. "Under Review") even after staff approve or payment completes.
+      res.set('Cache-Control', 'no-store, max-age=0');
       const db = await getDatabase();
       const profile = await db.collection('profiles').findOne({ _id: new ObjectId(userId) });
       if (!profile) {
