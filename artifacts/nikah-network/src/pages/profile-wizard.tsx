@@ -725,9 +725,13 @@ export default function ProfileWizard() {
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        <p className="text-xs text-gray-500 mt-4">
+          At least one parent's mobile is required — we use it to contact your
+          family when a proposal reaches the family stage.
+        </p>
+        <div className="grid grid-cols-2 gap-4 mt-1">
           <PhoneInput
-            label="Father's Mobile"
+            label="Father's Mobile *"
             value={formData.fatherMobile}
             onChange={(normalized) => { setFormData(p => { const n = { ...p, fatherMobile: normalized }; saveDraft(n); return n; }); }}
             error={fieldErrors.fatherMobile}
@@ -877,6 +881,11 @@ export default function ProfileWizard() {
         errs.city = 'City is required';
       if (!formData.caste.trim())
         errs.caste = 'Caste is required';
+      // At least one parent's mobile is required — used to contact the family at
+      // the family-proposal stage.
+      if (!formData.fatherMobile?.trim() && !formData.motherMobile?.trim()) {
+        errs.fatherMobile = "Enter at least one parent's mobile number";
+      }
       // Conditional: siblings mobile required only if there are siblings
       const hasSiblings = formData.numBrothers > 0 || formData.numSisters > 0;
       if (hasSiblings && !formData.siblingsMobile) {

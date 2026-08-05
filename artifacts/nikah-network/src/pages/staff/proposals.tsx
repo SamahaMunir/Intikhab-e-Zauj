@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, MessageCircle } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { Link } from "wouter";
 import proposalService, { type Proposal, type ProposalStatus } from "@/services/proposalService";
@@ -21,6 +21,21 @@ const FILTERS: { label: string; value: ProposalStatus | "all" }[] = [
   { label: "Completed", value: "completed" },
   { label: "All", value: "all" },
 ];
+
+// Build a WhatsApp click-to-send link to a parent's number (PK-normalized).
+function waNumber(raw?: string): string | null {
+  if (!raw) return null;
+  let d = raw.replace(/[^\d]/g, '');
+  if (d.startsWith('0')) d = '92' + d.slice(1);
+  else if (d.length === 10 && d.startsWith('3')) d = '92' + d;
+  return d.startsWith('92') && d.length >= 12 ? d : null;
+}
+function waHref(parentNum: string | undefined, thisName?: string, otherName?: string): string | null {
+  const num = waNumber(parentNum);
+  if (!num) return null;
+  const msg = `Assalam-o-Alaikum. This is Intikhab-e-Zauj matchmaking. The proposal for ${thisName || 'your family member'} with ${otherName || 'the other family'} has reached the family stage. Please contact us to proceed further. JazakAllah.`;
+  return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+}
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   chat_active: "default", family_proposal_stage: "default", completed: "default",
@@ -172,6 +187,28 @@ export default function StaffProposals() {
                         </>
                       ) : p.status === "family_proposal_stage" ? (
                         <>
+                          {(() => {
+                            const initHref = waHref((p.initiator as any)?.fatherMobile || (p.initiator as any)?.motherMobile, p.initiator?.name, p.recipient?.name);
+                            const recipHref = waHref((p.recipient as any)?.fatherMobile || (p.recipient as any)?.motherMobile, p.recipient?.name, p.initiator?.name);
+                            return (
+                              <>
+                                {initHref && (
+                                  <a href={initHref} target="_blank" rel="noreferrer">
+                                    <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">
+                                      <MessageCircle className="w-4 h-4 mr-1" /> {p.initiator?.name?.split(' ')[0] || 'Initiator'} family
+                                    </Button>
+                                  </a>
+                                )}
+                                {recipHref && (
+                                  <a href={recipHref} target="_blank" rel="noreferrer">
+                                    <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">
+                                      <MessageCircle className="w-4 h-4 mr-1" /> {p.recipient?.name?.split(' ')[0] || 'Recipient'} family
+                                    </Button>
+                                  </a>
+                                )}
+                              </>
+                            );
+                          })()}
                           <Button size="sm" variant="outline" disabled={actingId === p._id}
                             onClick={() => conclude(p._id, "not_proceeded")}>
                             Not Proceeded
