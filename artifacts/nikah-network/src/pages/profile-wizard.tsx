@@ -525,7 +525,6 @@ export default function ProfileWizard() {
           {fieldErrors.height && <p className="text-xs text-red-600 mt-1">{fieldErrors.height}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Caste *</label>
           <SearchableSelect
             label="Caste *" name="caste" value={formData.caste}
             options={CASTES} allowCustom
