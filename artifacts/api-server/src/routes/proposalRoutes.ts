@@ -107,7 +107,9 @@ const PROFILE_PROJECTION = {
   name: 1, age: 1, dob: 1, city: 1, gender: 1, caste: 1,
   profession: 1, education: 1, photo: 1, height: 1, source: 1, registeredBy: 1,
   // Parent contacts — used for the family-stage WhatsApp click-to-send (staff).
-  fatherMobile: 1, motherMobile: 1,
+  // phone is the last-resort fallback (staff-imported profiles: 2nd contact →
+  // fatherMobile; 1st contact → phone).
+  fatherMobile: 1, motherMobile: 1, phone: 1,
 };
 
 /** Best-effort compatibility score for a proposal — by matchId, else by pair. */
