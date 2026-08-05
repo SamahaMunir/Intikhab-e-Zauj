@@ -38,6 +38,20 @@ router.get(
 
       console.log(`✅ Found ${profiles.length} applicant profiles`);
 
+      // Derive age from dob when the stored `age` is missing (self-registered
+      // users capture dob, not age).
+      const ageFrom = (p: any): number | undefined => {
+        if (typeof p.age === 'number' && p.age > 0) return p.age;
+        if (!p.dob) return undefined;
+        const d = new Date(p.dob);
+        if (isNaN(d.getTime())) return undefined;
+        const now = new Date();
+        let a = now.getFullYear() - d.getFullYear();
+        const m = now.getMonth() - d.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+        return a > 0 && a < 120 ? a : undefined;
+      };
+
       res.json({
         success: true,
         count: profiles.length,
@@ -48,6 +62,10 @@ router.get(
           phone: p.phone,
           gender: p.gender,
           dob: p.dob,
+          age: ageFrom(p),
+          // Date the applicant registered per the source sheet (CSV). Falls back
+          // to enteredAt/createdAt so self-registered profiles still group.
+          applicationDate: p.applicationDate || p.enteredAt || p.createdAt,
           city: p.city,
           education: p.education,
           profession: p.profession,
