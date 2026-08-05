@@ -34,7 +34,10 @@ interface Profile {
   notes?: string;
   enteredBy?: string;
   createdAt: string;
+  applicationDate?: string; // registration date from the source CSV sheet
 }
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -54,13 +57,23 @@ export default function StaffProfiles() {
   const [ageFilter,      setAgeFilter]      = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [educationFilter, setEducationFilter] = useState('');
-  const advCount = [ageFilter, locationFilter, educationFilter].filter(Boolean).length;
+  const [yearFilter,     setYearFilter]     = useState('');
+  const [monthFilter,    setMonthFilter]    = useState('');
+  const advCount = [ageFilter, locationFilter, educationFilter, yearFilter, monthFilter].filter(Boolean).length;
 
   const clearFilters = () => {
     setSearch(''); setAgeFilter(''); setLocationFilter(''); setEducationFilter('');
+    setYearFilter(''); setMonthFilter('');
     setFilter('all');
   };
-  const hasActiveFilters = !!(search || ageFilter || locationFilter || educationFilter || filter !== 'all');
+  const hasActiveFilters = !!(search || ageFilter || locationFilter || educationFilter || yearFilter || monthFilter || filter !== 'all');
+
+  // Distinct years present in the data (from CSV applicationDate), newest first.
+  const availableYears = Array.from(new Set(
+    profiles
+      .map(p => p.applicationDate ? new Date(p.applicationDate).getFullYear() : null)
+      .filter((y): y is number => !!y && !isNaN(y))
+  )).sort((a, b) => b - a);
 
   useEffect(() => { fetchProfiles(); }, []);
 
@@ -137,6 +150,13 @@ export default function StaffProfiles() {
       if (ageFilter === '25-30'  && (a < 25 || a > 30)) return false;
       if (ageFilter === '31-35'  && (a < 31 || a > 35)) return false;
       if (ageFilter === '36+'    && a < 36) return false;
+    }
+    if (yearFilter || monthFilter) {
+      if (!p.applicationDate) return false;
+      const d = new Date(p.applicationDate);
+      if (isNaN(d.getTime())) return false;
+      if (yearFilter && d.getFullYear() !== Number(yearFilter)) return false;
+      if (monthFilter && d.getMonth() !== Number(monthFilter)) return false;
     }
     return true;
   });
@@ -259,6 +279,25 @@ export default function StaffProfiles() {
                   </select>
                 </label>
 
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Year</span>
+                    <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}
+                      className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary cursor-pointer">
+                      <option value="">Any year</option>
+                      {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Month</span>
+                    <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+                      className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary cursor-pointer">
+                      <option value="">Any month</option>
+                      {MONTH_NAMES.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                    </select>
+                  </label>
+                </div>
+
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">City</span>
                   <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
@@ -274,7 +313,7 @@ export default function StaffProfiles() {
                 </label>
 
                 {advCount > 0 && (
-                  <button onClick={() => { setAgeFilter(''); setLocationFilter(''); setEducationFilter(''); }}
+                  <button onClick={() => { setAgeFilter(''); setLocationFilter(''); setEducationFilter(''); setYearFilter(''); setMonthFilter(''); }}
                     className="text-sm text-muted-foreground hover:text-foreground font-bold inline-flex items-center gap-1 transition-colors">
                     <X className="w-4 h-4" /> Clear these
                   </button>
@@ -313,7 +352,7 @@ export default function StaffProfiles() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-muted border-b border-border">
-                  {['Name', 'Age', 'Location', 'Status', 'Joined', 'Actions'].map((h, i) => (
+                  {['Name', 'Age', 'Location', 'Status', 'Registered', 'Actions'].map((h, i) => (
                     <th key={h} className={`px-5 py-3.5 text-xs font-bold text-muted-foreground uppercase tracking-wide whitespace-nowrap ${i === 5 ? 'text-right' : ''}`}>
                       {h}
                     </th>
@@ -347,7 +386,13 @@ export default function StaffProfiles() {
                     <td className="px-5 py-3.5 text-sm text-muted-foreground">{profile.city || '—'}</td>
                     <td className="px-5 py-3.5"><StatusBadge status={profile.profileStatus} /></td>
                     <td className="px-5 py-3.5 text-sm text-muted-foreground whitespace-nowrap">
-                      {new Date(profile.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {(() => {
+                        const raw = profile.applicationDate || profile.createdAt;
+                        const d = raw ? new Date(raw) : null;
+                        return d && !isNaN(d.getTime())
+                          ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : '—';
+                      })()}
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex justify-end gap-2 flex-wrap">
