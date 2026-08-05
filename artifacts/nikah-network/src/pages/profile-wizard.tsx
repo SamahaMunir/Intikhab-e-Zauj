@@ -148,11 +148,22 @@ export default function ProfileWizard() {
         if (!data) return;
         if (data?.profile) {
           const p = data.profile;
+          // DOB: registration stores `dob`; the wizard/save flow later also sets
+          // `dateOfBirth`. Read either so registration data prefills on first load.
+          const dobRaw = p.dateOfBirth || p.dob;
+          const dobStr = dobRaw ? new Date(dobRaw).toISOString().split('T')[0] : '';
+          let derivedAge = p.age || 0;
+          if (!derivedAge && dobStr) {
+            const d = new Date(dobStr);
+            const now = new Date();
+            derivedAge = now.getFullYear() - d.getFullYear();
+            if (now < new Date(now.getFullYear(), d.getMonth(), d.getDate())) derivedAge--;
+          }
           // Map DB fields → form fields
           const merged: ProfileFormData = {
             name: p.name || user?.name || '',
-            dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth).toISOString().split('T')[0] : '',
-            age: p.age || 0,
+            dateOfBirth: dobStr,
+            age: derivedAge,
             height: p.height || '',
             caste: p.caste || '',
             motherTongue: p.motherTongue || '',
