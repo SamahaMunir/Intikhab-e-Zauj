@@ -23,6 +23,7 @@ import { initMatchesCollection } from './db/matches-schema';
 import matchingRoutes from './routes/matchingRoutes';
 import seedRoutes from './routes/seed-data';
 import { userProposalRouter, staffProposalRouter } from './routes/proposalRoutes';
+import { userCounsellingRouter, staffCounsellingRouter } from './routes/counsellingRoutes';
 import { initProposalsCollection } from './db/proposals-schema';
 import { initMessagesCollection } from './db/messages-schema';
 import { startProposalSweeper } from './lib/proposalSweeper';
@@ -120,6 +121,9 @@ app.use('/api/staff/matches', authMiddleware, staffOnlyMiddleware, matchingRoute
 // Proposal API routes
 app.use('/api/proposals', authMiddleware, userProposalRouter);
 app.use('/api/staff/proposals', authMiddleware, staffOnlyMiddleware, staffProposalRouter);
+
+app.use('/api/counselling', authMiddleware, userCounsellingRouter);
+app.use('/api/staff/counselling', authMiddleware, staffOnlyMiddleware, staffCounsellingRouter);
 // Auth routes (NO middleware needed for login)
 app.use('/auth', authSimpleRouter);
 app.use('/auth', authRouter);
