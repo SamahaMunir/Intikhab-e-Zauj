@@ -25,6 +25,7 @@ interface Profile {
   phone: string;
   gender: string;
   city: string;
+  society?: string;
   education: string;
   profession: string;
   caste?: string;
@@ -54,19 +55,21 @@ export default function StaffProfiles() {
 
   // Live filter state (applied as you type/select)
   const [search,         setSearch]         = useState('');
+  const [genderFilter,   setGenderFilter]   = useState('');
   const [ageFilter,      setAgeFilter]      = useState('');
   const [locationFilter, setLocationFilter] = useState('');
+  const [societyFilter,  setSocietyFilter]  = useState('');
   const [educationFilter, setEducationFilter] = useState('');
   const [yearFilter,     setYearFilter]     = useState('');
   const [monthFilter,    setMonthFilter]    = useState('');
-  const advCount = [ageFilter, locationFilter, educationFilter, yearFilter, monthFilter].filter(Boolean).length;
+  const advCount = [genderFilter, ageFilter, locationFilter, societyFilter, educationFilter, yearFilter, monthFilter].filter(Boolean).length;
 
   const clearFilters = () => {
-    setSearch(''); setAgeFilter(''); setLocationFilter(''); setEducationFilter('');
+    setSearch(''); setGenderFilter(''); setAgeFilter(''); setLocationFilter(''); setSocietyFilter(''); setEducationFilter('');
     setYearFilter(''); setMonthFilter('');
     setFilter('all');
   };
-  const hasActiveFilters = !!(search || ageFilter || locationFilter || educationFilter || yearFilter || monthFilter || filter !== 'all');
+  const hasActiveFilters = !!(search || genderFilter || ageFilter || locationFilter || societyFilter || educationFilter || yearFilter || monthFilter || filter !== 'all');
 
   // Distinct years present in the data (from CSV applicationDate), newest first.
   const availableYears = Array.from(new Set(
@@ -139,9 +142,11 @@ export default function StaffProfiles() {
     if (filter !== 'all' && p.profileStatus !== filter) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (!p.name?.toLowerCase().includes(q) && !p.city?.toLowerCase().includes(q)) return false;
+      if (!p.name?.toLowerCase().includes(q) && !p.city?.toLowerCase().includes(q) && !p.society?.toLowerCase().includes(q)) return false;
     }
+    if (genderFilter && p.gender?.toLowerCase() !== genderFilter) return false;
     if (locationFilter && !p.city?.toLowerCase().includes(locationFilter.toLowerCase())) return false;
+    if (societyFilter && !p.society?.toLowerCase().includes(societyFilter.toLowerCase())) return false;
     if (educationFilter && !p.education?.toLowerCase().includes(educationFilter.toLowerCase())) return false;
     if (ageFilter) {
       const a = p.age;
@@ -268,6 +273,16 @@ export default function StaffProfiles() {
                 <p className="text-sm font-bold text-foreground">Filters</p>
 
                 <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Gender</span>
+                  <select value={genderFilter} onChange={e => setGenderFilter(e.target.value)}
+                    className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary cursor-pointer">
+                    <option value="">All</option>
+                    <option value="male">Boys (Male)</option>
+                    <option value="female">Girls (Female)</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Age</span>
                   <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)}
                     className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary cursor-pointer">
@@ -299,9 +314,16 @@ export default function StaffProfiles() {
                 </div>
 
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">City</span>
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">City / Region</span>
                   <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
-                    placeholder="Any city"
+                    placeholder="e.g. Lahore"
+                    className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Society / Area</span>
+                  <input type="text" value={societyFilter} onChange={e => setSocietyFilter(e.target.value)}
+                    placeholder="e.g. Johar Town, Wapda Town"
                     className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
                 </label>
 
@@ -313,7 +335,7 @@ export default function StaffProfiles() {
                 </label>
 
                 {advCount > 0 && (
-                  <button onClick={() => { setAgeFilter(''); setLocationFilter(''); setEducationFilter(''); setYearFilter(''); setMonthFilter(''); }}
+                  <button onClick={() => { setGenderFilter(''); setAgeFilter(''); setLocationFilter(''); setSocietyFilter(''); setEducationFilter(''); setYearFilter(''); setMonthFilter(''); }}
                     className="text-sm text-muted-foreground hover:text-foreground font-bold inline-flex items-center gap-1 transition-colors">
                     <X className="w-4 h-4" /> Clear these
                   </button>
@@ -383,7 +405,7 @@ export default function StaffProfiles() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-sm font-semibold text-foreground">{profile.age ?? '—'}</td>
-                    <td className="px-5 py-3.5 text-sm text-muted-foreground">{profile.city || '—'}</td>
+                    <td className="px-5 py-3.5 text-sm text-muted-foreground">{[profile.society, profile.city].filter(Boolean).join(', ') || '—'}</td>
                     <td className="px-5 py-3.5"><StatusBadge status={profile.profileStatus} /></td>
                     <td className="px-5 py-3.5 text-sm text-muted-foreground whitespace-nowrap">
                       {(() => {
@@ -439,7 +461,8 @@ export default function StaffProfiles() {
             const lines = [
               profile.education,
               profile.profession,
-              profile.city,
+              // Society + city on one line ("Wapda Town, Lahore"); either alone if only one.
+              [profile.society, profile.city].filter(Boolean).join(', '),
               profile.caste,
               profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '',
             ].filter(Boolean) as string[];

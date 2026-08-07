@@ -63,6 +63,7 @@ router.get(
           gender: p.gender,
           dob: p.dob,
           age: ageFrom(p),
+          society: p.society,
           // Date the applicant registered per the source sheet (CSV). Falls back
           // to enteredAt/createdAt so self-registered profiles still group.
           applicationDate: p.applicationDate || p.enteredAt || p.createdAt,
@@ -324,7 +325,7 @@ router.put(
 
       // Plain string/text fields staff may edit.
       const STRING_FIELDS = [
-        'name', 'phone', 'gender', 'city', 'education', 'profession', 'designation',
+        'name', 'phone', 'gender', 'city', 'society', 'education', 'profession', 'designation',
         'monthlyIncome', 'income', 'caste', 'height', 'religion', 'sect', 'cnic', 'bio',
         'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation',
         'fatherMobile', 'motherMobile', 'matchCriteria', 'desiredMatchDetails',
