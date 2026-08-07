@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import {
   Heart, RefreshCw, Sparkles, ChevronDown, ChevronRight,
-  Send, Loader2, Users, Search, ArrowLeft,
+  Send, Loader2, Users, Search, ArrowLeft, X,
 } from 'lucide-react';
 import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
 import MatchScoreBadge from '../../components/matches/MatchScoreBadge';
@@ -94,6 +94,10 @@ export default function StaffMatches() {
   const [profiles,        setProfiles]        = useState<Profile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState(true);
   const [browseSearch,    setBrowseSearch]    = useState('');
+  const [browseCity,      setBrowseCity]      = useState('');
+  const [browseSociety,   setBrowseSociety]   = useState('');
+  const [browseEducation, setBrowseEducation] = useState('');
+  const [browseAge,       setBrowseAge]       = useState('');
   const [genderView,      setGenderView]      = useState<'male' | 'female'>('male');
   const [selected,        setSelected]        = useState<Profile | null>(null);
 
@@ -227,10 +231,31 @@ export default function StaffMatches() {
   // users manage their own matches in the app.
   const staffCreated = profiles.filter(p => p.profileStatus === 'approved' && isStaffCreated(p) && !p.matched);
   const q = browseSearch.trim().toLowerCase();
+  const ageOk = (a?: number) => {
+    if (!browseAge) return true;
+    if (a == null) return false;
+    if (browseAge === 'under25') return a < 25;
+    if (browseAge === '25-30')  return a >= 25 && a <= 30;
+    if (browseAge === '31-35')  return a >= 31 && a <= 35;
+    if (browseAge === '36+')    return a >= 36;
+    return true;
+  };
   const matchesQuery = (p: Profile) =>
-    !q || [p.name, p.city, p.society, p.profession].some(v => v?.toLowerCase().includes(q));
+    (!q || [p.name, p.city, p.society, p.profession].some(v => v?.toLowerCase().includes(q))) &&
+    (!browseCity      || p.city?.toLowerCase().includes(browseCity.toLowerCase())) &&
+    (!browseSociety   || p.society?.toLowerCase().includes(browseSociety.toLowerCase())) &&
+    (!browseEducation || p.education?.toLowerCase().includes(browseEducation.toLowerCase())) &&
+    ageOk(p.age);
   const grooms = staffCreated.filter(p => p.gender === 'male' && matchesQuery(p));
   const brides = staffCreated.filter(p => p.gender === 'female' && matchesQuery(p));
+
+  // Dropdown suggestions from the browsable pool.
+  const bDistinct = (sel: (p: Profile) => string | undefined) =>
+    Array.from(new Set(staffCreated.map(sel).map(v => (v || '').trim()).filter(Boolean))).sort();
+  const bCityOptions      = bDistinct(p => p.city);
+  const bSocietyOptions   = bDistinct(p => p.society);
+  const bEducationOptions = bDistinct(p => p.education);
+  const browseFiltersActive = !!(browseCity || browseSociety || browseEducation || browseAge);
 
   const banner = (
     <>
@@ -517,6 +542,48 @@ export default function StaffMatches() {
             );
           })}
         </div>
+      </div>
+
+      {/* Filters: city / society / education / age (with dropdown suggestions) */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1 min-w-40">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">City / Region</span>
+          <input type="text" list="m-city" value={browseCity} onChange={e => setBrowseCity(e.target.value)}
+            placeholder="Any city"
+            className="h-9 px-3 rounded-lg bg-card border border-border text-sm focus:outline-none focus:border-primary" />
+          <datalist id="m-city">{bCityOptions.map(o => <option key={o} value={o} />)}</datalist>
+        </div>
+        <div className="flex flex-col gap-1 min-w-40">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Society / Area</span>
+          <input type="text" list="m-society" value={browseSociety} onChange={e => setBrowseSociety(e.target.value)}
+            placeholder="Any society"
+            className="h-9 px-3 rounded-lg bg-card border border-border text-sm focus:outline-none focus:border-primary" />
+          <datalist id="m-society">{bSocietyOptions.map(o => <option key={o} value={o} />)}</datalist>
+        </div>
+        <div className="flex flex-col gap-1 min-w-40">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Education</span>
+          <input type="text" list="m-education" value={browseEducation} onChange={e => setBrowseEducation(e.target.value)}
+            placeholder="Any degree"
+            className="h-9 px-3 rounded-lg bg-card border border-border text-sm focus:outline-none focus:border-primary" />
+          <datalist id="m-education">{bEducationOptions.map(o => <option key={o} value={o} />)}</datalist>
+        </div>
+        <div className="flex flex-col gap-1 min-w-32">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Age</span>
+          <select value={browseAge} onChange={e => setBrowseAge(e.target.value)}
+            className="h-9 px-3 rounded-lg bg-card border border-border text-sm cursor-pointer focus:outline-none focus:border-primary">
+            <option value="">Any age</option>
+            <option value="under25">Under 25</option>
+            <option value="25-30">25 – 30</option>
+            <option value="31-35">31 – 35</option>
+            <option value="36+">36 +</option>
+          </select>
+        </div>
+        {browseFiltersActive && (
+          <button onClick={() => { setBrowseCity(''); setBrowseSociety(''); setBrowseEducation(''); setBrowseAge(''); }}
+            className="h-9 px-3 rounded-lg text-sm font-bold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
+            <X className="w-4 h-4" /> Clear
+          </button>
+        )}
       </div>
 
       {banner}
