@@ -20,6 +20,7 @@ interface Profile {
   name: string;
   gender: string;
   city?: string;
+  society?: string;
   education?: string;
   profession?: string;
   caste?: string;
@@ -41,6 +42,7 @@ interface ProfileSide {
   name?: string;
   age?: number;
   city?: string;
+  society?: string;
   gender?: string;
   caste?: string;
   profession?: string;
@@ -74,13 +76,14 @@ function pairBadge(both: boolean) {
 
 // Map a browsed profile onto the match-card's "user" side.
 const asSide = (p: Profile): ProfileSide => ({
-  _id: p._id, name: p.name, age: p.age, city: p.city, gender: p.gender,
+  _id: p._id, name: p.name, age: p.age, city: p.city, society: p.society, gender: p.gender,
   caste: p.caste, profession: p.profession, education: p.education, photo: p.photo,
 });
 
-// Info lines (reference layout): profession, then "City | Education"
+// Info lines (reference layout): profession, then "Society, City | Education"
 const sideLines = (p?: ProfileSide | Profile) => {
-  const second = [p?.city, p?.education].filter(Boolean).join('  |  ');
+  const place = [p?.society, p?.city].filter(Boolean).join(', ');
+  const second = [place, p?.education].filter(Boolean).join('  |  ');
   return [p?.profession, second].filter(Boolean) as string[];
 };
 
@@ -225,7 +228,7 @@ export default function StaffMatches() {
   const staffCreated = profiles.filter(p => p.profileStatus === 'approved' && isStaffCreated(p) && !p.matched);
   const q = browseSearch.trim().toLowerCase();
   const matchesQuery = (p: Profile) =>
-    !q || [p.name, p.city, p.profession].some(v => v?.toLowerCase().includes(q));
+    !q || [p.name, p.city, p.society, p.profession].some(v => v?.toLowerCase().includes(q));
   const grooms = staffCreated.filter(p => p.gender === 'male' && matchesQuery(p));
   const brides = staffCreated.filter(p => p.gender === 'female' && matchesQuery(p));
 

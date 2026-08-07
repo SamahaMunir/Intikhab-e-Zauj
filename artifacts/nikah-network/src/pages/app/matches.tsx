@@ -75,6 +75,9 @@ const Matches: React.FC = () => {
   const cities = useMemo(
     () => [...new Set(matches.map(m => m.candidate?.city).filter(Boolean) as string[])].sort(),
     [matches]);
+  const societies = useMemo(
+    () => [...new Set(matches.map(m => m.candidate?.society).filter(Boolean) as string[])].sort(),
+    [matches]);
   const educations = useMemo(
     () => [...new Set(matches.map(m => m.candidate?.education).filter(Boolean) as string[])].sort(),
     [matches]);
@@ -238,7 +241,7 @@ const Matches: React.FC = () => {
       {/* Active filter chips */}
       {filterCount > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
-          {[...filters.cities, ...filters.educations].map(tag => (
+          {[...filters.cities, ...filters.societies, ...filters.educations].map(tag => (
             <span key={tag} className="px-3 py-1 rounded-full bg-emerald-50 text-[#10B981] text-xs font-bold">{tag}</span>
           ))}
           {filters.scoreMin > 0 && <span className="px-3 py-1 rounded-full bg-emerald-50 text-[#10B981] text-xs font-bold">Score {filters.scoreMin}+</span>}
@@ -305,7 +308,7 @@ const Matches: React.FC = () => {
       )}
 
       {/* Filter panel */}
-      <FilterPanel open={filterOpen} filters={filters} cities={cities} educations={educations}
+      <FilterPanel open={filterOpen} filters={filters} cities={cities} societies={societies} educations={educations}
         onClose={() => setFilterOpen(false)} onApply={setFilters} />
 
       {/* Send-proposal modal */}

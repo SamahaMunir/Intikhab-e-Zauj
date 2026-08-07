@@ -334,6 +334,7 @@ export default function StaffProfileDetail() {
       <ProfileView
         profile={profile}
         maskCnic={false}
+        showContact
         footer={
           isPending ? (
             <div className="space-y-4 mt-2">

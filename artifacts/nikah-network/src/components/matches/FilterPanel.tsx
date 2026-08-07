@@ -3,11 +3,12 @@ import { X, MapPin, BookOpen, Star, User, RotateCcw } from 'lucide-react';
 import { MatchFilters, DEFAULT_FILTERS } from './types';
 
 export default function FilterPanel({
-  open, filters, cities, educations, onClose, onApply,
+  open, filters, cities, societies, educations, onClose, onApply,
 }: {
   open: boolean;
   filters: MatchFilters;
   cities: string[];
+  societies: string[];
   educations: string[];
   onClose: () => void;
   onApply: (f: MatchFilters) => void;
@@ -25,7 +26,7 @@ export default function FilterPanel({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const toggle = (key: 'cities' | 'educations', val: string) =>
+  const toggle = (key: 'cities' | 'societies' | 'educations', val: string) =>
     setDraft(d => ({
       ...d,
       [key]: d[key].includes(val) ? d[key].filter(v => v !== val) : [...d[key], val],
@@ -104,6 +105,25 @@ export default function FilterPanel({
                       <input type="checkbox" checked={active} onChange={() => toggle('cities', city)}
                         className="w-4 h-4 accent-[#10B981]" />
                       {city}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Society / Area */}
+          {societies.length > 0 && (
+            <div className={sectionCls}>
+              <p className={titleCls}><MapPin className="w-4 h-4 text-gray-400" /> Society / Area</p>
+              <div className="space-y-0.5 max-h-44 overflow-y-auto">
+                {societies.map(s => {
+                  const active = draft.societies.includes(s);
+                  return (
+                    <label key={s} className={checkRow(active)}>
+                      <input type="checkbox" checked={active} onChange={() => toggle('societies', s)}
+                        className="w-4 h-4 accent-[#10B981]" />
+                      {s}
                     </label>
                   );
                 })}

@@ -16,7 +16,9 @@ export default function ProfileCard({
   useEffect(() => { setMounted(true); }, [match.candidateId]);
 
   const lines = [
-    c?.education, c?.profession, c?.city, c?.caste, c?.height && `${c.height} ft`,
+    c?.education, c?.profession,
+    [c?.society, c?.city].filter(Boolean).join(', '),
+    c?.caste, c?.height && `${c.height} ft`,
   ].filter(Boolean) as string[];
 
   return (
