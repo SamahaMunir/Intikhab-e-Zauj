@@ -21,8 +21,10 @@
  *   --photos  (optional) folder of photos named <Reg>.jpg/.png — data: is NOT
  *             used; if a matching file exists its name is noted for later upload
  *   --update  backfill existing docs (match by Reg): fills applicationDate (from
- *             the Date column) + age/profession where blank. Use to add the CSV
- *             date to profiles imported before date capture existed.
+ *             the Date column) + age/profession where blank, and splits the old
+ *             residence-in-city into society + city (Lahore) for import docs.
+ *   --city    real city for the sheet (default Lahore). The "Residence" column
+ *             is treated as a society/area, not a city.
  *
  * Idempotent: rows whose phone already exists are skipped (re-runnable safely).
  */
@@ -43,6 +45,9 @@ const PHOTOS_DIR = arg('--photos');
 // Year for date cells that carry only a month name (e.g. "January"). Taken from
 // --year, else inferred from the filename (girls-2024.csv → 2024).
 const YEAR = arg('--year') || (String(FILE || '').match(/(20\d{2})/) || [])[1] || '';
+// City for these sheets — the "Residence" column is a society/area, not a city.
+// All the collected sheets are Lahore, so default to Lahore (override via --city).
+const CITY = arg('--city') || 'Lahore';
 const DRY = process.argv.includes('--dry');
 const UNDO = process.argv.includes('--undo'); // delete the profiles THIS csv created
 const UPDATE = process.argv.includes('--update'); // backfill existing docs (by Reg) instead of skipping
@@ -88,7 +93,10 @@ function canonKey(h) {
   if (k.startsWith('edu')) return 'education';
   if (k.startsWith('profession') || k.startsWith('job') || k.startsWith('occupation') || k.startsWith('work')) return 'profession';
   if (k.startsWith('cast')) return 'caste';        // "Cast" / "Caste"
-  if (k.startsWith('resid') || k === 'city' || k.startsWith('address')) return 'city';
+  if (k === 'city' || k === 'town') return 'city';
+  // Sheet "Residence" is a society/area (e.g. "Wapda Town"), NOT a city — the
+  // real city for these Lahore sheets comes from --city (default Lahore).
+  if (k.startsWith('resid') || k.startsWith('address') || k.startsWith('society') || k.startsWith('area') || k.startsWith('locality')) return 'society';
   if (k.startsWith('contact') || k.startsWith('phone') || k.startsWith('mobile')) return 'contact';
   if (k.startsWith('reg')) return 'reg';
   if (k.startsWith('status')) return 'status';
@@ -180,7 +188,7 @@ const run = async () => {
   const col = client.db(DB).collection('profiles');
   const mode = UNDO ? 'undo (delete)' : 'import';
   console.log(`import-profiles [${mode}]${DRY ? ' (DRY RUN)' : ''} → ${DB}.profiles`);
-  console.log(`  file=${FILE}${UNDO ? '' : `  gender=${GENDER}`}${YEAR ? `  year=${YEAR}` : ''}  rows=${rows.length - 1}\n`);
+  console.log(`  file=${FILE}${UNDO ? '' : `  gender=${GENDER}  city=${CITY}`}${YEAR ? `  year=${YEAR}` : ''}  rows=${rows.length - 1}\n`);
 
   // ── UNDO: remove only the profiles this CSV created ─────────────────────────
   // Matched by Reg (or fallback phone) AND the import-script marker, so real
@@ -258,6 +266,14 @@ const run = async () => {
         if (csvAge && !exists.age) set.age = csvAge;
         const csvProf = get('profession');
         if (csvProf && !exists.profession) set.profession = csvProf;
+        // Society/city split: older imports put the residence (society) into
+        // `city`. Only for import-script docs, move it to `society` and set the
+        // real city. Never touch real users' city.
+        if (exists.enteredBy === 'import-script') {
+          const society = get('society') || (exists.city && exists.city !== CITY ? exists.city : '');
+          if (society && !exists.society) set.society = society;
+          if (exists.city !== CITY) set.city = CITY;
+        }
         if (Object.keys(set).length) {
           set.updatedAt = now;
           if (!DRY) await col.updateOne({ _id: exists._id }, { $set: set });
@@ -283,7 +299,8 @@ const run = async () => {
       age: Number(get('age')) || undefined,
       role: 'applicant',
       active: true,
-      city: get('city'),
+      city: get('city') || CITY,
+      society: get('society'),
       caste: get('caste'),
       height: get('height'),
       education: get('education'),
@@ -317,7 +334,7 @@ const run = async () => {
       updatedAt: now,
     };
 
-    if (preview.length < 3) preview.push({ name, gender: GENDER, age: doc.age, city: doc.city, caste: doc.caste, height: doc.height, phone, fatherMobile: doc.fatherMobile, date: applicationDate ? applicationDate.toISOString().slice(0, 10) : '(none)', photo: photoFile || '(none)' });
+    if (preview.length < 3) preview.push({ name, gender: GENDER, age: doc.age, society: doc.society, city: doc.city, caste: doc.caste, height: doc.height, phone, fatherMobile: doc.fatherMobile, date: applicationDate ? applicationDate.toISOString().slice(0, 10) : '(none)', photo: photoFile || '(none)' });
 
     if (!DRY) await col.insertOne(doc);
     inserted++;

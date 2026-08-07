@@ -261,7 +261,7 @@ router.patch(
         'religion', 'sect', 'prayerRegularity', 'cnic', 'bio',
         'education', 'institution', 'profession', 'jobType', 'designation',
         'monthlyIncome', 'officeAddress',
-        'city', 'address', 'homeOwnership', 'homeSize', 'areaValue',
+        'city', 'society', 'address', 'homeOwnership', 'homeSize', 'areaValue',
         'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation',
         'fatherMobile', 'motherMobile', 'siblingsMobile',
         'numBrothers', 'numMarriedBrothers', 'numSisters', 'numMarriedSisters',
