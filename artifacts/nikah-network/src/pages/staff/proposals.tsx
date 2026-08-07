@@ -31,7 +31,7 @@ function waNumber(raw?: string): string | null {
 function waHref(parentNum: string | undefined, thisName?: string, otherName?: string): string | null {
   const num = waNumber(parentNum);
   if (!num) return null;
-  const msg = `Assalam-o-Alaikum. This is Intikhab-e-Zauj matchmaking. The proposal for ${thisName || 'your family member'} with ${otherName || 'the other family'} has reached the family stage. Please contact us to proceed further. JazakAllah.`;
+  const msg = `Assalam-o-Alaikum. This is Intikhab-e-Zauj matchmaking (Falah-e-Khandan). The proposal for ${thisName || 'your family member'} with ${otherName || 'the other family'} has reached the family stage. Please contact us to proceed further:\nCell: 0336-6964964\nEmail: info.fkcenter@gmail.com\nJazakAllah.`;
   return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
 }
 
