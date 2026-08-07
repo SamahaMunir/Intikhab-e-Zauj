@@ -536,7 +536,7 @@ function ProposalSystem() {
     'Text-only Q&A — no photos, no videos, no voice notes',
     'Pre-curated questions by experienced counsellors',
     'Staff monitor every conversation for appropriate conduct',
-    '48-hour time-bound window — no open-ended chatting',
+    '7-day time-bound window — no open-ended chatting',
     'Both families can view and guide the conversation',
   ];
 
