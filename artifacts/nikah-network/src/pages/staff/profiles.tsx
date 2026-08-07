@@ -78,6 +78,13 @@ export default function StaffProfiles() {
       .filter((y): y is number => !!y && !isNaN(y))
   )).sort((a, b) => b - a);
 
+  // Distinct dropdown suggestions for the free-text filters (sorted, non-empty).
+  const distinct = (sel: (p: Profile) => string | undefined) =>
+    Array.from(new Set(profiles.map(sel).map(v => (v || '').trim()).filter(Boolean))).sort();
+  const cityOptions      = distinct(p => p.city);
+  const societyOptions   = distinct(p => p.society);
+  const educationOptions = distinct(p => p.education);
+
   useEffect(() => { fetchProfiles(); }, []);
 
   const fetchProfiles = async () => {
@@ -315,23 +322,26 @@ export default function StaffProfiles() {
 
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">City / Region</span>
-                  <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
+                  <input type="text" list="city-options" value={locationFilter} onChange={e => setLocationFilter(e.target.value)}
                     placeholder="e.g. Lahore"
                     className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+                  <datalist id="city-options">{cityOptions.map(o => <option key={o} value={o} />)}</datalist>
                 </label>
 
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Society / Area</span>
-                  <input type="text" value={societyFilter} onChange={e => setSocietyFilter(e.target.value)}
+                  <input type="text" list="society-options" value={societyFilter} onChange={e => setSocietyFilter(e.target.value)}
                     placeholder="e.g. Johar Town, Wapda Town"
                     className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+                  <datalist id="society-options">{societyOptions.map(o => <option key={o} value={o} />)}</datalist>
                 </label>
 
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Education</span>
-                  <input type="text" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
+                  <input type="text" list="education-options" value={educationFilter} onChange={e => setEducationFilter(e.target.value)}
                     placeholder="Any degree"
                     className="h-9 px-3 rounded-lg bg-card border border-border text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
+                  <datalist id="education-options">{educationOptions.map(o => <option key={o} value={o} />)}</datalist>
                 </label>
 
                 {advCount > 0 && (
