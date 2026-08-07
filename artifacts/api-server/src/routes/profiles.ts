@@ -104,6 +104,33 @@ router.get(
 );
 
 /**
+ * GET /api/staff/profiles/stats
+ * Lightweight applicant counts via countDocuments — for the dashboard, so it
+ * doesn't have to fetch every profile just to count. Defined before '/:id'.
+ */
+router.get(
+  '/stats',
+  authMiddleware,
+  staffOnlyMiddleware,
+  async (_req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      res.set('Cache-Control', 'no-store, max-age=0');
+      const db = await getDatabase();
+      const col = db.collection('profiles');
+      const [total, pending, approved] = await Promise.all([
+        col.countDocuments({ role: 'applicant' }),
+        col.countDocuments({ role: 'applicant', profileStatus: 'pending' }),
+        col.countDocuments({ role: 'applicant', profileStatus: 'approved' }),
+      ]);
+      res.json({ success: true, total, pending, approved });
+    } catch (error) {
+      console.error('❌ Error fetching profile stats:', error);
+      res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+  }
+);
+
+/**
  * GET /api/staff/profiles/payments/pending
  * Bank-transfer payments awaiting staff verification (staff only).
  * Defined before '/:id' so the literal path isn't captured as an id.
