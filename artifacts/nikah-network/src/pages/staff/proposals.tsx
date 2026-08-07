@@ -217,6 +217,16 @@ export default function StaffProposals() {
                     {p.createdAt && <><span>·</span><span>{formatDistanceToNow(parseISO(p.createdAt), { addSuffix: true })}</span></>}
                   </div>
 
+                  {/* Family-stage congratulations note for staff */}
+                  {p.status === "family_proposal_stage" && (
+                    <div className="flex items-start gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5 text-sm text-emerald-800">
+                      <span className="text-base leading-none">🎉</span>
+                      <span>
+                        <strong>Mubarak ho!</strong> {p.initiator?.name?.split(' ')[0] || 'Both sides'} &amp; {p.recipient?.name?.split(' ')[0] || 'the other'} both expressed interest — this proposal reached the <strong>family stage</strong>. Contact both families to coordinate next steps.
+                      </span>
+                    </div>
+                  )}
+
                   {/* Action row */}
                   {hasActions && (
                     <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
