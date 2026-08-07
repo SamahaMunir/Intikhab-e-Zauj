@@ -242,6 +242,7 @@ export default function ProfileApproval() {
       <ProfileView
         profile={profile}
         maskCnic={false}
+        showContact
         footer={
           <div className="space-y-4 mt-2">
             {/* Rejection reason */}

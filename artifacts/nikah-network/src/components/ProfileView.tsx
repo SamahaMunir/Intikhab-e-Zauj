@@ -35,6 +35,8 @@ export interface ProfileData {
   income?: string;
   officeAddress?: string;
   city?: string;
+  region?: string;
+  society?: string;
   address?: string;
   homeOwnership?: string;
   houseStatus?: string;
@@ -62,6 +64,10 @@ export interface ProfileData {
   source?: string;
   notes?: string;
   enteredBy?: string;
+  regNo?: string;
+  fatherMobile?: string;
+  motherMobile?: string;
+  applicationDate?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -135,6 +141,8 @@ interface ProfileViewProps {
   footer?: React.ReactNode;
   /** Whether to show CNIC masked */
   maskCnic?: boolean;
+  /** Show contact details (phone, guardian mobiles, Reg no) — staff only. */
+  showContact?: boolean;
 }
 
 export function ProfileView({
@@ -144,6 +152,7 @@ export function ProfileView({
   sectionAction,
   footer,
   maskCnic = true,
+  showContact = false,
 }: ProfileViewProps) {
   const completion    = profile.profileCompletion ?? 0;
   const completionBar = completion >= 100 ? 'bg-green-500' : completion >= 60 ? 'bg-yellow-400' : 'bg-red-400';
@@ -196,7 +205,8 @@ export function ProfileView({
                 {profile.age ? <span className="text-gray-400 font-normal text-lg ml-2">({profile.age})</span> : null}
               </h1>
               <p className="text-gray-500 text-sm mt-0.5">
-                {[profile.city, profile.gender ? (profile.gender === 'male' ? 'Male' : 'Female') : ''].filter(Boolean).join(' · ')}
+                {[[profile.society, profile.city || profile.region].filter(Boolean).join(', '),
+                  profile.gender ? (profile.gender === 'male' ? 'Male' : 'Female') : ''].filter(Boolean).join(' · ')}
               </p>
               {profile.profession && (
                 <p className="text-gray-600 text-sm mt-0.5">
@@ -291,10 +301,23 @@ export function ProfileView({
 
       {/* ── RESIDENCE ───────────────────────────────────────────────────── */}
       <Section title="Residence & Home" icon="🏠" action={sectionAction?.('residence')}>
-        <Row label="City" value={profile.city} />
-        <Row label="Area" value={profile.address} />
+        <Row label="City / Region" value={profile.city || profile.region} />
+        <Row label="Society / Area" value={profile.society} />
+        <Row label="Address" value={profile.address} />
         <Row label="Home" value={homeOwnership ? `${homeOwnership.charAt(0).toUpperCase() + homeOwnership.slice(1)}${profile.areaValue ? ` · ${profile.areaValue} ${profile.homeSize}` : ''}` : undefined} />
       </Section>
+
+      {/* ── CONTACT (staff only) ─────────────────────────────────────────── */}
+      {showContact && (
+        <Section title="Contact & Record" icon="📞" action={sectionAction?.('contact')}>
+          <Row label="Phone" value={profile.phone} />
+          <Row label="Email" value={profile.email} />
+          <Row label="Father's / Guardian Mobile" value={profile.fatherMobile} />
+          <Row label="Mother's Mobile" value={profile.motherMobile} />
+          <Row label="Reg No" value={profile.regNo} />
+          <Row label="Registered" value={profile.applicationDate ? new Date(profile.applicationDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : ''} />
+        </Section>
+      )}
 
       {/* ── PREFERENCES ─────────────────────────────────────────────────── */}
       <Section title="Match Preferences" icon="💍" action={sectionAction?.('preferences')}>

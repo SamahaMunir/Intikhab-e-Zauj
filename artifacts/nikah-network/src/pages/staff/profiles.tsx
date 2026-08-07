@@ -458,12 +458,6 @@ export default function StaffProfiles() {
       {viewMode === 'card' && filtered.length > 0 && (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map(profile => {
-            // "Registered Jan 2024" from the CSV date (falls back to created date).
-            const regRaw = profile.applicationDate || profile.createdAt;
-            const regD = regRaw ? new Date(regRaw) : null;
-            const registered = regD && !isNaN(regD.getTime())
-              ? `Registered ${regD.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`
-              : '';
             const lines = [
               profile.education,
               profile.profession,
@@ -471,7 +465,6 @@ export default function StaffProfiles() {
               [profile.society, profile.city].filter(Boolean).join(', '),
               profile.caste,
               profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : '',
-              registered,
             ].filter(Boolean) as string[];
 
             return (
