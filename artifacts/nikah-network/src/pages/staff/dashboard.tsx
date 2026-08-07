@@ -21,28 +21,21 @@ export default function StaffDashboard() {
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    fetch(`${API}/api/staff/profiles`, { headers })
+    // Lightweight count endpoints (server-side countDocuments) — fast, so the
+    // dashboard doesn't fetch every profile/match just to show numbers.
+    fetch(`${API}/api/staff/profiles/stats`, { headers })
       .then(r => r.json())
-      .then(d => {
-        const profiles: any[] = d.data || [];
-        setProfileStats({
-          total:    profiles.length,
-          pending:  profiles.filter((p: any) => p.profileStatus === 'pending').length,
-          approved: profiles.filter((p: any) => p.profileStatus === 'approved').length,
-        });
-      })
+      .then(d => setProfileStats({
+        total:    d.total    || 0,
+        pending:  d.pending  || 0,
+        approved: d.approved || 0,
+      }))
       .catch(() => {})
       .finally(() => setProfilesLoading(false));
 
-    fetch(`${API}/api/staff/matches/staff-view`, { headers })
+    fetch(`${API}/api/staff/matches/count`, { headers })
       .then(r => r.json())
-      .then(d => {
-        const matches: any[] = d.matches || [];
-        setMatchStats({
-          total:     matches.length,
-          suggested: matches.filter((m: any) => m.status === 'suggested').length,
-        });
-      })
+      .then(d => setMatchStats({ total: d.total || 0, suggested: d.suggested || 0 }))
       .catch(() => {})
       .finally(() => setMatchesLoading(false));
   }, []);
@@ -65,7 +58,7 @@ export default function StaffDashboard() {
     { label: 'Matches',          icon: Sparkles,       to: '/staff/matches',          color: 'text-violet-500' },
     { label: 'Profiles',         icon: Users,          to: '/staff/profiles',         color: 'text-sky-500' },
     { label: 'Proposals',        icon: FileText,       to: '/staff/proposals',        color: 'text-rose-500' },
-    { label: 'Q&A Moderation',   icon: ShieldCheck,    to: '/staff/messages',         color: 'text-primary' },
+    { label: 'Chats',            icon: ShieldCheck,    to: '/staff/messages',         color: 'text-primary' },
     { label: 'Counselling',      icon: HeartHandshake, to: '/staff/counselling',      color: 'text-[#D97706]' },
     { label: 'Audit Logs',       icon: ClipboardCheck, to: '/staff/audit',            color: 'text-muted-foreground' },
   ];

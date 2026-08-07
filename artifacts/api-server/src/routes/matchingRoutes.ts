@@ -470,6 +470,25 @@ router.post('/generate-all-staff', authMiddleware, staffOnlyMiddleware, async (_
   }
 });
 
+// GET /api/staff/matches/count
+// Lightweight match counts via countDocuments — for the dashboard, so it doesn't
+// run the heavy staff-view enrichment just to show a number.
+router.get('/count', authMiddleware, staffOnlyMiddleware, async (_req: Request, res: Response): Promise<void> => {
+  try {
+    res.set('Cache-Control', 'no-store, max-age=0');
+    const db = await getDatabase();
+    const col = db.collection('matches');
+    const [total, suggested] = await Promise.all([
+      col.countDocuments({ status: { $in: ['suggested', 'approved'] } }),
+      col.countDocuments({ status: 'suggested' }),
+    ]);
+    res.json({ success: true, total, suggested });
+  } catch (error) {
+    console.error('❌ matches count error:', error);
+    res.status(500).json({ error: 'Failed to count matches' });
+  }
+});
+
 // GET /api/staff/matches/staff-view
 // Staff-specific match view: only Staff↔Staff and Staff↔User (excludes User↔User).
 // Returns enriched matches with leftProfileType + rightProfileType.
