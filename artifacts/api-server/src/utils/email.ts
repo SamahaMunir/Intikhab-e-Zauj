@@ -620,9 +620,9 @@ export function sendProposalApprovedEmail(toEmail: string, name: string, otherNa
     'Chat opens now ✅',
     `<p>Assalamu Alaikum <strong>${name}</strong>,</p>
      <p>Staff approved your proposal with <strong>${otherName || 'your match'}</strong>.
-     A private chat is now open for <strong>48 hours</strong>. Use it respectfully, then mark
+     A private chat is now open for <strong>7 days</strong>. Use it respectfully, then mark
      “I'm Interested” if you wish to proceed.</p>`,
-    `Staff approved your proposal with ${otherName || 'your match'}. Chat is open for 48 hours.`
+    `Staff approved your proposal with ${otherName || 'your match'}. Chat is open for 7 days.`
   );
 }
 
@@ -672,7 +672,7 @@ export function sendChatExpiredEmail(toEmail: string, name: string, otherName: s
     'Chat Window Closed',
     'Chat window closed',
     `<p>Assalamu Alaikum <strong>${name}</strong>,</p>
-     <p>The 48-hour chat window for your proposal with <strong>${otherName || 'your match'}</strong> has closed.
+     <p>The 7-day chat window for your proposal with <strong>${otherName || 'your match'}</strong> has closed.
      If you'd like to continue, please contact our staff and they will assist you.</p>`,
     `The chat window for your proposal with ${otherName || 'your match'} has closed. Contact staff to continue.`
   );

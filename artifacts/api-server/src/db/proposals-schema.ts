@@ -111,7 +111,7 @@ export interface Proposal {
 }
 
 const TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
-export const CHAT_WINDOW_MS = 48 * 60 * 60 * 1000; // 48 hours
+export const CHAT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 /**
  * Initialize the proposals collection with indexes + TTL.

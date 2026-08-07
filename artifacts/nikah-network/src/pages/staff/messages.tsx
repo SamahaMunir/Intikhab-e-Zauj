@@ -52,7 +52,7 @@ export default function StaffOngoingChats() {
       <div>
         <h1 className="text-3xl font-serif font-bold">Ongoing Chats</h1>
         <p className="text-muted-foreground">
-          Supervise live 48-hour introductions. Relay for staff-managed profiles and confirm their interest.
+          Supervise live 7-day introductions. Relay for staff-managed profiles and confirm their interest.
         </p>
       </div>
 

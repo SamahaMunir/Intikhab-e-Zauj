@@ -119,13 +119,20 @@ export default function ProposalDetail() {
                 </div>
               )}
               {isSuccess && (
-                <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-2">
-                  <Heart className="w-10 h-10 text-primary" />
-                  <p className="font-semibold">Both sides are interested.</p>
-                  <p className="text-sm text-muted-foreground">
-                    The introduction phase is complete. Staff will now share family contacts and
-                    coordinate the next steps with both families offline.
+                <div className="h-full flex flex-col items-center justify-center text-center px-6 gap-3">
+                  <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center ring-4 ring-emerald-100">
+                    <Heart className="w-8 h-8 text-emerald-600 fill-emerald-600" />
+                  </div>
+                  <p className="text-xl font-serif font-bold text-emerald-700">🎉 Mubarak ho!</p>
+                  <p className="font-semibold text-foreground">Both sides expressed interest.</p>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    Your proposal has advanced to the <strong>Family Stage</strong>. This introduction
+                    chat is now closed. Our team will contact both families shortly to share contact
+                    details and coordinate the next steps. May Allah bless this union. Ameen.
                   </p>
+                  <Link href="/app/proposals">
+                    <Button variant="outline" size="sm" className="mt-1">Back to Proposals</Button>
+                  </Link>
                 </div>
               )}
               {proposal.status === "chat_active" && messages.length === 0 && (
@@ -217,7 +224,7 @@ export default function ProposalDetail() {
           <Card>
             <CardHeader><CardTitle>About this introduction</CardTitle></CardHeader>
             <CardContent className="text-sm text-muted-foreground space-y-3">
-              <p>• This is a <strong>48-hour introduction window</strong> — a short, supervised chat to get acquainted.</p>
+              <p>• This is a <strong>7-day introduction window</strong> — a short, supervised chat to get acquainted.</p>
               <p>• Mark “I'm Interested” once you wish to proceed.</p>
               <p>• When both sides are interested, staff share family contacts and the process continues offline.</p>
               <p>• Please don't share contact details in chat — staff will coordinate that.</p>

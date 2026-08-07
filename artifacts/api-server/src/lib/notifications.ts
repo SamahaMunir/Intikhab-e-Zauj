@@ -69,7 +69,7 @@ export async function notifyChatOpened(db: Db, proposal: any): Promise<void> {
       initiator.email ? sendProposalApprovedEmail(initiator.email, initiator.name || 'Applicant', recipient.name || 'your match') : Promise.resolve(false),
       recipient.email ? sendProposalApprovedEmail(recipient.email, recipient.name || 'Applicant', initiator.name || 'your match') : Promise.resolve(false),
     ]);
-    await sendSmsBatch([initiator.phone, recipient.phone], `Intikhab-e-Zauj: Your proposal is confirmed. A private chat is open for 48 hours.`);
+    await sendSmsBatch([initiator.phone, recipient.phone], `Intikhab-e-Zauj: Your proposal is confirmed. A private chat is open for 7 days.`);
   } catch (e) {
     console.error('❌ notifyChatOpened:', e instanceof Error ? e.message : e);
   }
@@ -125,7 +125,7 @@ export async function notifyChatExpired(db: Db, proposal: any): Promise<void> {
       initiator.email ? sendChatExpiredEmail(initiator.email, initiator.name || 'Applicant', recipient.name || 'your match') : Promise.resolve(false),
       recipient.email ? sendChatExpiredEmail(recipient.email, recipient.name || 'Applicant', initiator.name || 'your match') : Promise.resolve(false),
     ]);
-    await sendSmsBatch([initiator.phone, recipient.phone], `Intikhab-e-Zauj: Your 48-hour chat window has closed. Contact staff to continue.`);
+    await sendSmsBatch([initiator.phone, recipient.phone], `Intikhab-e-Zauj: Your 7-day chat window has closed. Contact staff to continue.`);
   } catch (e) {
     console.error('❌ notifyChatExpired:', e instanceof Error ? e.message : e);
   }
