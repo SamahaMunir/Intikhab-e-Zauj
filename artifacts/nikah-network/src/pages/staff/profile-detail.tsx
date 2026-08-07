@@ -204,6 +204,13 @@ export default function StaffProfileDetail() {
   const isRejected = profile.profileStatus === 'rejected';
   const isMatched  = (profile as any).matched === true;
 
+  // "Registered Jan 2024" from the CSV date (falls back to created date).
+  const regRaw = (profile as any).applicationDate || (profile as any).createdAt;
+  const regD = regRaw ? new Date(regRaw) : null;
+  const registeredLabel = regD && !isNaN(regD.getTime())
+    ? regD.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    : null;
+
   return (
     <div className="space-y-4 pb-10">
       {/* Back navigation */}
@@ -217,6 +224,11 @@ export default function StaffProfileDetail() {
         </button>
         <span className="text-gray-300">|</span>
         <span className="text-sm text-gray-500">Reviewing: <strong className="text-gray-800">{profile.name}</strong></span>
+        {registeredLabel && (
+          <span className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">
+            Registered {registeredLabel}
+          </span>
+        )}
         {!editing && (
           <div className="ml-auto flex items-center gap-2">
             {isMatched
