@@ -509,7 +509,7 @@ export default function AppProfile() {
                 style={{ width: `${completion}%` }} />
             </div>
             {completion < 100 && (
-              <button onClick={() => setLocation('/profile-wizard')}
+              <button onClick={() => setLocation('/app/profile-wizard')}
                 className="mt-2 text-xs text-[#10B981] hover:text-[#059669] underline font-bold">
                 Complete your profile to unlock matchmaking →
               </button>

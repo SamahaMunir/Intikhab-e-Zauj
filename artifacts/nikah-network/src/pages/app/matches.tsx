@@ -132,7 +132,7 @@ const Matches: React.FC = () => {
               <div className="h-full bg-[#10B981] rounded-full transition-all" style={{ width: `${profileCompletion}%` }} />
             </div>
           </div>
-          <a href="/profile-wizard"
+          <a href="/app/profile-wizard"
             className="flex items-center justify-center gap-2 w-full h-12 bg-[#10B981] text-white rounded-xl font-bold hover:bg-[#059669] transition-colors">
             Complete My Profile <ArrowRight className="w-4 h-4" />
           </a>
