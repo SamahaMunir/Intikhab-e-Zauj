@@ -20,14 +20,6 @@ const FILTERS: { label: string; value: ProposalStatus | "all" }[] = [
   { label: "All", value: "all" },
 ];
 
-// Compact summary tiles across the top (clickable → sets the filter).
-const SUMMARY: { label: string; value: ProposalStatus | "all"; match: (s: string) => boolean }[] = [
-  { label: "Pending Review", value: "pending_staff_review", match: s => s === "pending_staff_review" },
-  { label: "Awaiting Recipient", value: "pending_recipient", match: s => s === "pending_recipient" },
-  { label: "Family Stage", value: "family_proposal_stage", match: s => s === "family_proposal_stage" },
-  { label: "Completed", value: "completed", match: s => s === "completed" },
-];
-
 // Build a WhatsApp click-to-send link to a parent's number (PK-normalized).
 function waNumber(raw?: string): string | null {
   if (!raw) return null;
@@ -67,7 +59,7 @@ function initials(name?: string): string {
 }
 function Avatar({ name }: { name?: string }) {
   return (
-    <div className="w-9 h-9 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-semibold shrink-0 ring-1 ring-gray-200">
+    <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-sm font-semibold shrink-0 ring-1 ring-gray-200">
       {initials(name)}
     </div>
   );
@@ -82,7 +74,6 @@ function scoreTone(s: number): string {
 export default function StaffProposals() {
   const [filter, setFilter] = useState<ProposalStatus | "all">("pending_staff_review");
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -101,20 +92,7 @@ export default function StaffProposals() {
     }
   };
 
-  // Summary counts across ALL proposals (one call, refreshed after each action).
-  const loadCounts = async () => {
-    try {
-      const res = await proposalService.staffList(undefined);
-      const tally: Record<string, number> = {};
-      for (const p of res.proposals || []) tally[p.status] = (tally[p.status] || 0) + 1;
-      setCounts(tally);
-    } catch { /* summary is best-effort */ }
-  };
-
   useEffect(() => { load(); /* eslint-disable-line */ }, [filter]);
-  useEffect(() => { loadCounts(); }, []);
-
-  const refresh = async () => { await Promise.all([load(), loadCounts()]); };
 
   const review = async (id: string, action: "approve" | "reject") => {
     let reason: string | undefined;
@@ -125,7 +103,7 @@ export default function StaffProposals() {
     setActingId(id);
     try {
       await proposalService.staffReview(id, action, reason);
-      await refresh();
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
     } finally {
@@ -140,7 +118,7 @@ export default function StaffProposals() {
     setActingId(id);
     try {
       await proposalService.conclude(id, outcome, note);
-      await refresh();
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
     } finally {
@@ -149,7 +127,7 @@ export default function StaffProposals() {
   };
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="max-w-4xl space-y-8 pb-12">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Proposal Approvals</h1>
@@ -158,37 +136,18 @@ export default function StaffProposals() {
         </p>
       </div>
 
-      {/* Summary tiles */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {SUMMARY.map(t => {
-          const active = filter === t.value;
-          return (
-            <button
-              key={t.value}
-              onClick={() => setFilter(t.value)}
-              className={`text-left rounded-xl border bg-white px-4 py-3 transition-all ${
-                active ? "border-gray-900 ring-1 ring-gray-900" : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <p className="text-2xl font-bold text-gray-900 tabular-nums">{counts[t.value] ?? "—"}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{t.label}</p>
-            </button>
-          );
-        })}
-      </div>
-
       {/* Filter tabs */}
-      <div className="flex gap-1 flex-wrap border-b border-gray-200">
+      <div className="flex gap-1.5 flex-wrap">
         {FILTERS.map(f => {
           const active = filter === f.value;
           return (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
-              className={`px-3 h-9 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              className={`px-3.5 h-8 rounded-full text-sm font-medium transition-colors ${
                 active
-                  ? "border-gray-900 text-gray-900"
-                  : "border-transparent text-gray-500 hover:text-gray-800"
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
               {f.label}
@@ -205,12 +164,12 @@ export default function StaffProposals() {
       {loading ? (
         <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
       ) : proposals.length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-20">
           <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500">No proposals in this view.</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {proposals.map(p => {
             const pill = statusPill(p.status);
             const busy = actingId === p._id;
@@ -218,109 +177,105 @@ export default function StaffProposals() {
             const initHref  = waHref((p.initiator as any)?.fatherMobile || (p.initiator as any)?.motherMobile || (p.initiator as any)?.phone, p.initiator?.name, p.recipient?.name);
             const recipHref = waHref((p.recipient as any)?.fatherMobile || (p.recipient as any)?.motherMobile || (p.recipient as any)?.phone, p.recipient?.name, p.initiator?.name);
 
+            // Whether this row has any action controls (drives the divider/second row).
+            const hasActions =
+              p.status === "chat_active" ||
+              (p.matchId && !TERMINAL_STATUSES.includes(p.status)) ||
+              p.status === "pending_staff_review" ||
+              p.status === "family_proposal_stage";
+
             return (
-              <Card key={p._id} className="border-gray-200 shadow-none hover:shadow-sm transition-shadow">
-                <CardContent className="p-4 flex flex-col xl:flex-row xl:items-center gap-4">
+              <Card key={p._id} className="border-gray-200 shadow-none">
+                <CardContent className="p-5 space-y-4">
 
-                  {/* Pair */}
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 min-w-0">
+                  {/* Top row: pair + status */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
                       <Avatar name={p.initiator?.name} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{p.initiator?.name || "Unknown"}</p>
-                        <p className="text-[11px] uppercase tracking-wide text-gray-400">Initiator</p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
-                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-semibold text-gray-900 truncate">{p.initiator?.name || "Unknown"}</span>
+                      <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
                       <Avatar name={p.recipient?.name} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{p.recipient?.name || "Unknown"}</p>
-                        <p className="text-[11px] uppercase tracking-wide text-gray-400">Recipient</p>
-                      </div>
+                      <span className="text-sm font-semibold text-gray-900 truncate">{p.recipient?.name || "Unknown"}</span>
                     </div>
-                  </div>
 
-                  {/* Meta */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    {score !== null ? (
-                      <span className={`inline-flex items-center justify-center min-w-11 px-2 h-7 rounded-md border text-sm font-bold tabular-nums ${scoreTone(score)}`}>
-                        {score}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-300 w-11 text-center">—</span>
-                    )}
-                    <div className="flex flex-col items-start gap-1 min-w-40">
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${pill.cls}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${pill.dot}`} />
                         {pill.label}
                       </span>
-                      <span className="text-[11px] text-gray-400">
-                        {p.type === "STAFF_PROPOSAL" ? "Staff" : "User"} proposal
-                        {p.createdAt && ` · ${formatDistanceToNow(parseISO(p.createdAt), { addSuffix: true })}`}
-                      </span>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-2 xl:justify-end xl:min-w-64">
-                    {p.status === "chat_active" && (
-                      <Link href="/staff/messages">
-                        <Button size="sm" variant="ghost" className="text-gray-500">
-                          In Ongoing Chats <ArrowRight className="w-4 h-4 ml-1" />
-                        </Button>
-                      </Link>
+                  {/* Sub-line: score + type + time */}
+                  <div className="flex items-center gap-2.5 text-xs text-gray-400">
+                    {score !== null && (
+                      <span className={`inline-flex items-center px-1.5 h-5 rounded border font-bold tabular-nums ${scoreTone(score)}`}>
+                        {score}
+                      </span>
                     )}
-
-                    {p.matchId && !TERMINAL_STATUSES.includes(p.status) && (
-                      <Button size="sm" variant="outline" onClick={() => setInsightsMatchId(p.matchId!)}>
-                        <Sparkles className="w-4 h-4 mr-1.5" /> Insights
-                      </Button>
-                    )}
-
-                    {p.status === "pending_staff_review" ? (
-                      <>
-                        <Button size="sm" variant="outline" disabled={busy}
-                          className="text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => review(p._id, "reject")}>
-                          <X className="w-4 h-4 mr-1.5" /> Reject
-                        </Button>
-                        <Button size="sm" disabled={busy}
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() => review(p._id, "approve")}>
-                          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4 mr-1.5" /> Approve</>}
-                        </Button>
-                      </>
-                    ) : p.status === "family_proposal_stage" ? (
-                      <>
-                        {initHref && (
-                          <a href={initHref} target="_blank" rel="noreferrer">
-                            <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">
-                              <MessageCircle className="w-4 h-4 mr-1.5" /> {p.initiator?.name?.split(' ')[0] || 'Initiator'} family
-                            </Button>
-                          </a>
-                        )}
-                        {recipHref && (
-                          <a href={recipHref} target="_blank" rel="noreferrer">
-                            <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">
-                              <MessageCircle className="w-4 h-4 mr-1.5" /> {p.recipient?.name?.split(' ')[0] || 'Recipient'} family
-                            </Button>
-                          </a>
-                        )}
-                        <Button size="sm" variant="outline" disabled={busy}
-                          onClick={() => conclude(p._id, "not_proceeded")}>
-                          Not Proceeded
-                        </Button>
-                        <Button size="sm" disabled={busy}
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() => conclude(p._id, "completed")}>
-                          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark Completed"}
-                        </Button>
-                      </>
-                    ) : (!p.matchId && p.status !== "chat_active") ? (
-                      <span className="text-xs text-gray-300">No actions</span>
-                    ) : null}
+                    <span>{p.type === "STAFF_PROPOSAL" ? "Staff" : "User"} proposal</span>
+                    {p.createdAt && <><span>·</span><span>{formatDistanceToNow(parseISO(p.createdAt), { addSuffix: true })}</span></>}
                   </div>
+
+                  {/* Action row */}
+                  {hasActions && (
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
+                      {p.status === "chat_active" && (
+                        <Link href="/staff/messages">
+                          <Button size="sm" variant="ghost" className="text-gray-500">
+                            In Ongoing Chats <ArrowRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        </Link>
+                      )}
+
+                      {p.matchId && !TERMINAL_STATUSES.includes(p.status) && (
+                        <Button size="sm" variant="outline" onClick={() => setInsightsMatchId(p.matchId!)}>
+                          <Sparkles className="w-4 h-4 mr-1.5" /> Insights
+                        </Button>
+                      )}
+
+                      {p.status === "pending_staff_review" ? (
+                        <div className="flex gap-2 ml-auto">
+                          <Button size="sm" variant="outline" disabled={busy}
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => review(p._id, "reject")}>
+                            <X className="w-4 h-4 mr-1.5" /> Reject
+                          </Button>
+                          <Button size="sm" disabled={busy}
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => review(p._id, "approve")}>
+                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-4 h-4 mr-1.5" /> Approve</>}
+                          </Button>
+                        </div>
+                      ) : p.status === "family_proposal_stage" ? (
+                        <div className="flex flex-wrap gap-2 ml-auto">
+                          {initHref && (
+                            <a href={initHref} target="_blank" rel="noreferrer">
+                              <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">
+                                <MessageCircle className="w-4 h-4 mr-1.5" /> {p.initiator?.name?.split(' ')[0] || 'Initiator'} family
+                              </Button>
+                            </a>
+                          )}
+                          {recipHref && (
+                            <a href={recipHref} target="_blank" rel="noreferrer">
+                              <Button size="sm" variant="outline" className="text-green-700 border-green-300 hover:bg-green-50">
+                                <MessageCircle className="w-4 h-4 mr-1.5" /> {p.recipient?.name?.split(' ')[0] || 'Recipient'} family
+                              </Button>
+                            </a>
+                          )}
+                          <Button size="sm" variant="outline" disabled={busy}
+                            onClick={() => conclude(p._id, "not_proceeded")}>
+                            Not Proceeded
+                          </Button>
+                          <Button size="sm" disabled={busy}
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => conclude(p._id, "completed")}>
+                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark Completed"}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { getToken } from '@/lib/auth';
-import { AlertCircle, Loader2, RefreshCw, Search, X, ScrollText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, Loader2, RefreshCw, Search, X, Inbox, ChevronDown } from "lucide-react";
 
 interface AuditLog {
   _id?: string;
@@ -26,7 +27,25 @@ const ACTION_OPTIONS = [
   "match_generated", "proposal_created",
 ];
 
+const RESOURCE_OPTIONS = ["profile", "staff", "match", "auth", "proposal"];
+
 const PAGE_SIZE = 50;
+
+// Color-code the action badge by category so the log scans fast.
+function actionTone(action: string): string {
+  const a = action.toLowerCase();
+  if (/approve|activate|completed|success/.test(a)) return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (/reject|deactivate|remove|delete|deleted|fail/.test(a)) return "bg-red-50 text-red-600 border-red-200";
+  if (/invite|create|generated/.test(a)) return "bg-sky-50 text-sky-700 border-sky-200";
+  if (/proposal|match/.test(a)) return "bg-violet-50 text-violet-700 border-violet-200";
+  if (/login|logout/.test(a)) return "bg-gray-100 text-gray-600 border-gray-200";
+  return "bg-gray-100 text-gray-600 border-gray-200";
+}
+
+function initials(email?: string): string {
+  if (!email) return "?";
+  return email.slice(0, 2).toUpperCase();
+}
 
 export default function StaffAudit() {
   const [logs, setLogs]         = useState<AuditLog[]>([]);
@@ -40,7 +59,6 @@ export default function StaffAudit() {
   const [filterActor, setFilterActor]         = useState('');
   const [filterResource, setFilterResource]   = useState('');
   const [pendingActor, setPendingActor]       = useState('');
-  const [pendingResource, setPendingResource] = useState('');
 
   const token  = getToken('staff');
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -75,143 +93,134 @@ export default function StaffAudit() {
 
   useEffect(() => { fetchAuditLogs(0); }, [filterAction, filterActor, filterResource]);
 
-  const applyTextFilters = () => {
-    setFilterActor(pendingActor.trim());
-    setFilterResource(pendingResource.trim());
-    setPage(0);
-  };
+  const applyActor = () => { setFilterActor(pendingActor.trim()); setPage(0); };
 
   const clearFilters = () => {
     setFilterAction('');
     setFilterActor('');
     setFilterResource('');
     setPendingActor('');
-    setPendingResource('');
     setPage(0);
   };
 
-  const goPage = (p: number) => {
-    setPage(p);
-    fetchAuditLogs(p);
-  };
+  const goPage = (p: number) => { setPage(p); fetchAuditLogs(p); };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const hasFilters = filterAction || filterActor || filterResource;
+  const hasFilters = !!(filterAction || filterActor || filterResource);
 
-  const inputCls =
-    'h-11 px-4 rounded-xl bg-muted border border-gray-200 text-sm text-foreground ' +
-    'placeholder-gray-400 focus:outline-none focus:border-primary focus:bg-white transition-colors';
+  // Shared control styling — one height, one radius, consistent focus.
+  const ctl = "h-9 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition";
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-5 pb-12">
 
-      {/* ── Header + total chip ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
-            <ScrollText className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Audit Logs</h1>
-            <p className="text-sm text-gray-500">
-              Immutable record of all staff actions · <span className="font-semibold text-foreground">{total}</span> total
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Immutable record of all staff actions · <span className="font-semibold text-gray-900 tabular-nums">{total}</span> total
+          </p>
         </div>
-        <button
-          onClick={() => fetchAuditLogs(page)}
-          disabled={isLoading}
-          className="flex items-center gap-2 h-11 px-5 rounded-xl bg-primary text-white
-                     hover:bg-primary disabled:opacity-50 text-sm font-bold transition-colors"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+        <Button variant="outline" size="sm" onClick={() => fetchAuditLogs(page)} disabled={isLoading}>
+          <RefreshCw className={`h-4 w-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
-        </button>
+        </Button>
       </div>
 
-      {/* ── Filters ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex flex-col gap-1.5 min-w-44">
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Action</label>
-            <select value={filterAction}
-              onChange={e => { setFilterAction(e.target.value); setPage(0); }}
-              className={inputCls + ' cursor-pointer'}>
-              <option value="">All actions</option>
-              {ACTION_OPTIONS.map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1.5 min-w-48">
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Actor email</label>
-            <input type="text" value={pendingActor}
-              onChange={e => setPendingActor(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && applyTextFilters()}
-              placeholder="staff@example.com" className={inputCls} />
-          </div>
-
-          <div className="flex flex-col gap-1.5 min-w-36">
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Resource type</label>
-            <select value={pendingResource}
-              onChange={e => setPendingResource(e.target.value)}
-              className={inputCls + ' cursor-pointer'}>
-              <option value="">All types</option>
-              {['profile', 'staff', 'match', 'auth', 'proposal'].map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-
-          <div className="flex gap-2">
-            <button onClick={applyTextFilters}
-              className="flex items-center gap-1.5 h-11 px-5 bg-primary text-white rounded-xl
-                         hover:bg-primary text-sm font-bold transition-colors">
-              <Search className="w-4 h-4" /> Apply
-            </button>
-            {hasFilters && (
-              <button onClick={clearFilters}
-                className="flex items-center gap-1.5 h-11 px-4 border border-gray-200 text-gray-600
-                           rounded-xl hover:bg-gray-50 text-sm font-bold transition-colors">
-                <X className="w-4 h-4" /> Clear
-              </button>
-            )}
-          </div>
+      {/* Filter toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Actor search */}
+        <div className="relative flex-1 min-w-56">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={pendingActor}
+            onChange={e => setPendingActor(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && applyActor()}
+            placeholder="Search actor email…  (press Enter)"
+            className={`${ctl} w-full pl-9 pr-3 placeholder-gray-400`}
+          />
         </div>
+
+        {/* Action select */}
+        <div className="relative">
+          <select
+            value={filterAction}
+            onChange={e => { setFilterAction(e.target.value); setPage(0); }}
+            className={`${ctl} appearance-none pl-3 pr-9 cursor-pointer min-w-40`}
+          >
+            <option value="">All actions</option>
+            {ACTION_OPTIONS.map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+
+        {/* Resource select */}
+        <div className="relative">
+          <select
+            value={filterResource}
+            onChange={e => { setFilterResource(e.target.value); setPage(0); }}
+            className={`${ctl} appearance-none pl-3 pr-9 cursor-pointer min-w-36`}
+          >
+            <option value="">All resources</option>
+            {RESOURCE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+
         {hasFilters && (
-          <p className="text-xs text-primary mt-3 font-semibold">
-            Filtering by:
-            {filterAction   && <span className="ml-1">action="{filterAction}"</span>}
-            {filterActor    && <span className="ml-1">actor="{filterActor}"</span>}
-            {filterResource && <span className="ml-1">resource="{filterResource}"</span>}
-          </p>
+          <Button variant="ghost" size="sm" className="text-gray-500" onClick={clearFilters}>
+            <X className="w-4 h-4 mr-1" /> Clear
+          </Button>
         )}
       </div>
 
-      {/* ── Error ── */}
+      {/* Active filter chips */}
+      {hasFilters && (
+        <div className="flex flex-wrap gap-2">
+          {filterAction && (
+            <Chip label={`action: ${filterAction.replace(/_/g, ' ')}`} onClear={() => setFilterAction('')} />
+          )}
+          {filterActor && (
+            <Chip label={`actor: ${filterActor}`} onClear={() => { setFilterActor(''); setPendingActor(''); }} />
+          )}
+          {filterResource && (
+            <Chip label={`resource: ${filterResource}`} onClear={() => setFilterResource('')} />
+          )}
+        </div>
+      )}
+
+      {/* Error */}
       {error && (
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 flex gap-2">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex gap-2">
           <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold text-red-900">Error loading audit logs</p>
+            <p className="font-semibold text-red-900">Error loading audit logs</p>
             <p className="text-sm text-red-800">{error}</p>
           </div>
         </div>
       )}
 
-      {/* ── Table ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Table */}
+      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <span className="ml-2 text-gray-500">Loading audit logs…</span>
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            <span className="ml-2 text-gray-500 text-sm">Loading audit logs…</span>
           </div>
         ) : logs.length === 0 ? (
-          <div className="py-16 text-center text-gray-400">No audit logs found.</div>
+          <div className="py-20 text-center">
+            <Inbox className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No audit logs found.</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-muted border-b border-gray-100">
+                <tr className="border-b border-gray-200 bg-gray-50/70">
                   {['Timestamp', 'Actor', 'Action', 'Resource', 'ID', 'Reason / Note'].map(h => (
-                    <th key={h} className="px-5 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                    <th key={h} className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -219,30 +228,34 @@ export default function StaffAudit() {
               </thead>
               <tbody>
                 {logs.map((log, idx) => (
-                  <tr key={log._id || idx}
-                      className={`border-b border-gray-50 hover:bg-muted transition-colors ${
-                        idx % 2 ? 'bg-white' : 'bg-gray-50/30'
-                      }`}>
-                    <td className="px-5 py-3.5 text-xs text-gray-500 whitespace-nowrap">
-                      {format(new Date(log.createdAt), "MMM d, yyyy HH:mm:ss")}
+                  <tr key={log._id || idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors">
+                    <td className="px-5 py-3 text-xs font-mono text-gray-500 whitespace-nowrap">
+                      {format(new Date(log.createdAt), "MMM d, yyyy · HH:mm:ss")}
                     </td>
-                    <td className="px-5 py-3.5">
-                      <div className="text-sm font-semibold text-foreground">{log.actorEmail}</div>
-                      <div className="text-xs text-gray-400 capitalize">{log.actorRole}</div>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-[10px] font-bold ring-1 ring-gray-200 shrink-0">
+                          {initials(log.actorEmail)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate max-w-48">{log.actorEmail}</div>
+                          <div className="text-[11px] text-gray-400 capitalize">{log.actorRole}</div>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-5 py-3.5">
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-primary capitalize whitespace-nowrap">
+                    <td className="px-5 py-3">
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border capitalize whitespace-nowrap ${actionTone(log.action)}`}>
                         {log.action.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{log.resourceType}</span>
+                    <td className="px-5 py-3">
+                      <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">{log.resourceType}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-xs font-mono text-gray-400">
-                      {log.resourceId?.substring(0, 12) ?? '—'}
+                    <td className="px-5 py-3 text-xs font-mono text-gray-400">
+                      {log.resourceId ? log.resourceId.substring(0, 10) : '—'}
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-gray-600 max-w-xs truncate">
-                      {log.reason || '—'}
+                    <td className="px-5 py-3 text-sm text-gray-600 max-w-xs truncate">
+                      {log.reason || <span className="text-gray-300">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -250,27 +263,38 @@ export default function StaffAudit() {
             </table>
           </div>
         )}
-      </div>
 
-      {/* ── Pagination ── */}
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>
-          Showing {total === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total} logs
-        </span>
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <button disabled={page === 0} onClick={() => goPage(page - 1)}
-              className="h-9 px-4 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 text-sm font-semibold transition-colors">
-              Previous
-            </button>
-            <span className="px-3 font-semibold text-foreground">Page {page + 1} / {totalPages}</span>
-            <button disabled={page >= totalPages - 1} onClick={() => goPage(page + 1)}
-              className="h-9 px-4 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 text-sm font-semibold transition-colors">
-              Next
-            </button>
+        {/* Pagination footer inside the table card */}
+        {!isLoading && logs.length > 0 && (
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-gray-100 bg-gray-50/40 text-sm text-gray-500">
+            <span className="tabular-nums">
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+            </span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" disabled={page === 0} onClick={() => goPage(page - 1)}>
+                  Previous
+                </Button>
+                <span className="px-1 font-medium text-gray-900 tabular-nums">{page + 1} / {totalPages}</span>
+                <Button size="sm" variant="outline" disabled={page >= totalPages - 1} onClick={() => goPage(page + 1)}>
+                  Next
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function Chip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 pl-3 pr-2 h-7 rounded-full bg-gray-900 text-white text-xs font-medium">
+      {label}
+      <button onClick={onClear} className="hover:bg-white/20 rounded-full p-0.5 transition-colors" aria-label="Remove filter">
+        <X className="w-3 h-3" />
+      </button>
+    </span>
   );
 }
