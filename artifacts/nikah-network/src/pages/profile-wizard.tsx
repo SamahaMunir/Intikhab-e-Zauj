@@ -105,6 +105,9 @@ export default function ProfileWizard() {
   const [formData, setFormData] = useState<ProfileFormData>(
     EMPTY_FORM(userGender, user?.name || '')
   );
+  // The applicant's own registered number — used to reject duplicate family
+  // contacts (a parent/sibling can't be the same as the applicant's own number).
+  const [selfPhone, setSelfPhone] = useState('');
 
   // ── Load saved profile on mount ───────────────────────────────────────────
   // Priority: API (DB) > localStorage draft > empty defaults
@@ -206,6 +209,7 @@ export default function ProfileWizard() {
             photo: p.photo || '',
           };
           setFormData(merged);
+          setSelfPhone(p.phone || '');
           // Clear draft once DB data is loaded
           localStorage.removeItem(DRAFT_KEY);
         } else {
@@ -891,6 +895,25 @@ export default function ProfileWizard() {
       if (hasSiblings && !formData.siblingsMobile) {
         errs.siblingsMobile = 'Please provide a sibling contact number';
       }
+      // Family contacts must be different numbers — a parent/sibling can't be
+      // the applicant's own number, and parent ≠ sibling. Compare on digits only
+      // (handles 0300…, 92300…, +92300… as the same number).
+      const digits = (v?: string) => {
+        let d = (v || '').replace(/\D/g, '');
+        if (d.startsWith('92')) d = d.slice(2);
+        if (d.startsWith('0')) d = d.slice(1);
+        return d;
+      };
+      const self = digits(selfPhone);
+      const father = digits(formData.fatherMobile);
+      const mother = digits(formData.motherMobile);
+      const sibling = digits(formData.siblingsMobile);
+      if (self && father && father === self) errs.fatherMobile = "Can't be the same as your own number";
+      if (self && mother && mother === self) errs.motherMobile = "Can't be the same as your own number";
+      if (self && sibling && sibling === self) errs.siblingsMobile = "Can't be the same as your own number";
+      if (father && sibling && father === sibling) errs.siblingsMobile = "Sibling number can't be the same as a parent's";
+      if (mother && sibling && !errs.siblingsMobile && mother === sibling) errs.siblingsMobile = "Sibling number can't be the same as a parent's";
+      if (father && mother && father === mother) errs.motherMobile = "Parents' numbers can't be the same";
       // Married counts must not exceed total counts
       if (formData.numMarriedBrothers > formData.numBrothers)
         errs.numMarriedBrothers = `Cannot exceed total brothers (${formData.numBrothers})`;
