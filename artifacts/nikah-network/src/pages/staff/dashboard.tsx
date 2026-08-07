@@ -12,38 +12,50 @@ export default function StaffDashboard() {
   const [, setLocation] = useLocation();
   const [matchStats,   setMatchStats]   = useState({ total: 0, suggested: 0 });
   const [profileStats, setProfileStats] = useState({ total: 0, pending: 0, approved: 0 });
-  const [loading, setLoading] = useState(true);
+  // Two independent loads — profile counts must not wait on the slow match
+  // aggregation (which can lag/time out on the free tier).
+  const [profilesLoading, setProfilesLoading] = useState(true);
+  const [matchesLoading,  setMatchesLoading]  = useState(true);
 
   const token = getToken('staff');
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${API}/api/staff/matches/staff-view`, { headers }).then(r => r.json()).catch(() => ({})),
-      fetch(`${API}/api/staff/profiles`,           { headers }).then(r => r.json()).catch(() => ({})),
-    ]).then(([matchData, profileData]) => {
-      const matches: any[]  = matchData.matches || [];
-      const profiles: any[] = profileData.data  || [];
-      setMatchStats({
-        total:     matches.length,
-        suggested: matches.filter((m: any) => m.status === 'suggested').length,
-      });
-      setProfileStats({
-        total:    profiles.length,
-        pending:  profiles.filter((p: any) => p.profileStatus === 'pending').length,
-        approved: profiles.filter((p: any) => p.profileStatus === 'approved').length,
-      });
-    }).finally(() => setLoading(false));
+    fetch(`${API}/api/staff/profiles`, { headers })
+      .then(r => r.json())
+      .then(d => {
+        const profiles: any[] = d.data || [];
+        setProfileStats({
+          total:    profiles.length,
+          pending:  profiles.filter((p: any) => p.profileStatus === 'pending').length,
+          approved: profiles.filter((p: any) => p.profileStatus === 'approved').length,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setProfilesLoading(false));
+
+    fetch(`${API}/api/staff/matches/staff-view`, { headers })
+      .then(r => r.json())
+      .then(d => {
+        const matches: any[] = d.matches || [];
+        setMatchStats({
+          total:     matches.length,
+          suggested: matches.filter((m: any) => m.status === 'suggested').length,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setMatchesLoading(false));
   }, []);
 
-  const val = (n: number) => loading ? '—' : n;
+  const val  = (n: number) => profilesLoading ? '—' : n;   // profile-backed stats
+  const valM = (n: number) => matchesLoading  ? '—' : n;   // match-backed stats
 
   // Pastel stat cards (reference "My Task" style)
   const stats = [
     { label: 'Total Profiles',   value: val(profileStats.total),    icon: Users,        grad: 'from-primary/5', ring: 'bg-primary' },
     { label: 'Pending Approval', value: val(profileStats.pending),  icon: Clock,        grad: 'from-amber-50',   ring: 'bg-[#D97706]' },
     { label: 'Approved',         value: val(profileStats.approved), icon: CheckCircle2, grad: 'from-sky-50',     ring: 'bg-sky-500'   },
-    { label: 'Total Matches',    value: val(matchStats.total),      icon: Heart,        grad: 'from-violet-50',  ring: 'bg-violet-500'},
+    { label: 'Total Matches',    value: valM(matchStats.total),     icon: Heart,        grad: 'from-violet-50',  ring: 'bg-violet-500'},
   ];
 
   // Quick action tiles (reference "Recommended Categories" style)
@@ -118,7 +130,7 @@ export default function StaffDashboard() {
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl bg-primary/10">
               <span className="text-sm font-semibold text-foreground">Suggested matches</span>
-              <span className="text-lg font-bold text-primary">{val(matchStats.suggested)}</span>
+              <span className="text-lg font-bold text-primary">{valM(matchStats.suggested)}</span>
             </div>
           </div>
           <button onClick={() => setLocation('/staff/profile-approval')}
