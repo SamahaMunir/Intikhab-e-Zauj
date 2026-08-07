@@ -104,6 +104,12 @@ export default function StaffMatches() {
   // Match state (for the selected profile)
   const [matches,       setMatches]       = useState<MatchRecord[]>([]);
   const [matchesLoading, setMatchesLoading] = useState(false);
+  // Filters for the results (narrow a profile's matches by the candidate side)
+  const [resCity,      setResCity]      = useState('');
+  const [resSociety,   setResSociety]   = useState('');
+  const [resEducation, setResEducation] = useState('');
+  const [resAge,       setResAge]       = useState('');
+  const [resScore,     setResScore]     = useState(0);
   const [generating,    setGenerating]    = useState(false);
   const [error,         setError]         = useState<string | null>(null);
   const [expandedId,    setExpandedId]    = useState<string | null>(null);
@@ -270,6 +276,32 @@ export default function StaffMatches() {
 
   // ══ RESULTS VIEW — matches for one selected profile ══════════════════════
   if (selected) {
+    // Filter a profile's matches by the candidate side (the potential partner).
+    const resAgeOk = (a?: number) => {
+      if (!resAge) return true;
+      if (a == null) return false;
+      if (resAge === 'under25') return a < 25;
+      if (resAge === '25-30')  return a >= 25 && a <= 30;
+      if (resAge === '31-35')  return a >= 31 && a <= 35;
+      if (resAge === '36+')    return a >= 36;
+      return true;
+    };
+    const visibleMatches = matches.filter(m => {
+      const cand = m.candidate;
+      const score = m.scoreBreakdown?.total ?? m.score;
+      return (score >= resScore) &&
+        (!resCity      || cand?.city?.toLowerCase().includes(resCity.toLowerCase())) &&
+        (!resSociety   || cand?.society?.toLowerCase().includes(resSociety.toLowerCase())) &&
+        (!resEducation || cand?.education?.toLowerCase().includes(resEducation.toLowerCase())) &&
+        resAgeOk(cand?.age);
+    });
+    const rDistinct = (sel: (p?: ProfileSide) => string | undefined) =>
+      Array.from(new Set(matches.map(m => (sel(m.candidate) || '').trim()).filter(Boolean))).sort();
+    const rCityOptions      = rDistinct(c => c?.city);
+    const rSocietyOptions   = rDistinct(c => c?.society);
+    const rEducationOptions = rDistinct(c => c?.education);
+    const resFiltersActive = !!(resCity || resSociety || resEducation || resAge || resScore > 0);
+
     return (
       <div className="max-w-2xl mx-auto space-y-5">
         <button onClick={backToBrowse}
@@ -301,6 +333,55 @@ export default function StaffMatches() {
 
         {banner}
 
+        {/* Match filters — narrow this profile's matches by the candidate side */}
+        {matches.length > 0 && (
+          <div className="flex flex-wrap items-end gap-3 p-4 rounded-2xl border border-border bg-card">
+            <div className="flex flex-col gap-1 min-w-36">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">City / Region</span>
+              <input type="text" list="res-city" value={resCity} onChange={e => setResCity(e.target.value)}
+                placeholder="Any city"
+                className="h-9 px-3 rounded-lg bg-background border border-border text-sm focus:outline-none focus:border-primary" />
+              <datalist id="res-city">{rCityOptions.map(o => <option key={o} value={o} />)}</datalist>
+            </div>
+            <div className="flex flex-col gap-1 min-w-36">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Society / Area</span>
+              <input type="text" list="res-society" value={resSociety} onChange={e => setResSociety(e.target.value)}
+                placeholder="Any society"
+                className="h-9 px-3 rounded-lg bg-background border border-border text-sm focus:outline-none focus:border-primary" />
+              <datalist id="res-society">{rSocietyOptions.map(o => <option key={o} value={o} />)}</datalist>
+            </div>
+            <div className="flex flex-col gap-1 min-w-36">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Education</span>
+              <input type="text" list="res-education" value={resEducation} onChange={e => setResEducation(e.target.value)}
+                placeholder="Any degree"
+                className="h-9 px-3 rounded-lg bg-background border border-border text-sm focus:outline-none focus:border-primary" />
+              <datalist id="res-education">{rEducationOptions.map(o => <option key={o} value={o} />)}</datalist>
+            </div>
+            <div className="flex flex-col gap-1 min-w-28">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Age</span>
+              <select value={resAge} onChange={e => setResAge(e.target.value)}
+                className="h-9 px-3 rounded-lg bg-background border border-border text-sm cursor-pointer focus:outline-none focus:border-primary">
+                <option value="">Any age</option>
+                <option value="under25">Under 25</option>
+                <option value="25-30">25 – 30</option>
+                <option value="31-35">31 – 35</option>
+                <option value="36+">36 +</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1 min-w-40">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Min score: {resScore}</span>
+              <input type="range" min={0} max={100} step={5} value={resScore}
+                onChange={e => setResScore(+e.target.value)} className="accent-primary h-9" />
+            </div>
+            {resFiltersActive && (
+              <button onClick={() => { setResCity(''); setResSociety(''); setResEducation(''); setResAge(''); setResScore(0); }}
+                className="h-9 px-3 rounded-lg text-sm font-bold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
+                <X className="w-4 h-4" /> Clear
+              </button>
+            )}
+          </div>
+        )}
+
         {matchesLoading ? (
           <div className="flex justify-center items-center py-16">
             <div className="text-center">
@@ -317,10 +398,18 @@ export default function StaffMatches() {
         ) : (
           <>
             <p className="text-sm font-bold text-muted-foreground">
-              {matches.length} {matches.length === 1 ? 'match' : 'matches'}
+              {resFiltersActive
+                ? `${visibleMatches.length} of ${matches.length} matches`
+                : `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}`}
             </p>
+            {visibleMatches.length === 0 ? (
+              <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
+                <Heart className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground font-semibold">No matches fit these filters.</p>
+              </div>
+            ) : (
             <div className="space-y-4">
-              {matches.map(m => {
+              {visibleMatches.map(m => {
                 const score      = m.scoreBreakdown?.total ?? m.score;
                 const isExpanded = expandedId === m._id;
 
@@ -450,6 +539,7 @@ export default function StaffMatches() {
                 );
               })}
             </div>
+            )}
           </>
         )}
 
