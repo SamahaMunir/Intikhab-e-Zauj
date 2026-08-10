@@ -21,6 +21,12 @@ export default function MatchDetail() {
   const { id } = useParams<{ id: string }>();   // id = candidateId
   const [, setLocation] = useLocation();
 
+  // When opened from a proposal chat (?from=<proposalId>), the back nav returns
+  // to that chat instead of the matches list.
+  const fromProposal = new URLSearchParams(window.location.search).get('from');
+  const backTo = fromProposal ? `/app/proposals/${fromProposal}` : '/app/matches';
+  const backLabel = fromProposal ? 'Back to Chat' : 'Back to Matches';
+
   const [profile, setProfile]       = useState<ProfileData | null>(null);
   const [scoreBreakdown, setScore]  = useState<MatchScore | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -91,9 +97,9 @@ export default function MatchDetail() {
     return (
       <div className="max-w-xl mx-auto mt-12 p-6 bg-red-50 border border-red-200 rounded-xl">
         <p className="font-semibold text-red-800">{error}</p>
-        <button onClick={() => setLocation('/app/matches')}
+        <button onClick={() => setLocation(backTo)}
           className="mt-4 text-sm text-red-600 underline">
-          ← Back to matches
+          ← {backLabel}
         </button>
       </div>
     );
@@ -106,11 +112,11 @@ export default function MatchDetail() {
       {/* Back nav */}
       <div className="flex items-center gap-3 mb-5">
         <button
-          onClick={() => setLocation('/app/matches')}
+          onClick={() => setLocation(backTo)}
           className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Matches
+          {backLabel}
         </button>
       </div>
 
@@ -140,20 +146,29 @@ export default function MatchDetail() {
         maskCnic={true}
         /* No photoAction, no sectionAction → read-only */
         footer={
-          <div className="flex gap-4 mt-2">
+          fromProposal ? (
             <button
-              onClick={() => setLocation(`/app/send-proposal/${id}`)}
-              className="flex-1 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold text-sm"
+              onClick={() => setLocation(backTo)}
+              className="w-full py-3 border-2 border-green-600 text-green-700 rounded-xl hover:bg-green-50 font-semibold text-sm mt-2"
             >
-              Send Proposal
+              {backLabel}
             </button>
-            <button
-              onClick={() => setLocation('/app/matches')}
-              className="flex-1 py-3 border-2 border-green-600 text-green-700 rounded-xl hover:bg-green-50 font-semibold text-sm"
-            >
-              Back to Matches
-            </button>
-          </div>
+          ) : (
+            <div className="flex gap-4 mt-2">
+              <button
+                onClick={() => setLocation(`/app/send-proposal/${id}`)}
+                className="flex-1 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold text-sm"
+              >
+                Send Proposal
+              </button>
+              <button
+                onClick={() => setLocation(backTo)}
+                className="flex-1 py-3 border-2 border-green-600 text-green-700 rounded-xl hover:bg-green-50 font-semibold text-sm"
+              >
+                {backLabel}
+              </button>
+            </div>
+          )
         }
       />
     </div>
