@@ -7,6 +7,7 @@
  */
 
 import React, { useState } from 'react';
+import { Lock } from 'lucide-react';
 import ImageLightbox from './ImageLightbox';
 import { thumbUrl } from '../lib/img';
 
@@ -61,6 +62,7 @@ export interface ProfileData {
   referenceRelation?: string;
   photo?: string;
   photoCrop?: string;
+  photoBlurred?: boolean;
   profileStatus?: string;
   profileCompletion?: number;
   paymentStatus?: string;
@@ -202,6 +204,11 @@ export function ProfileView({
                 )}
               </div>
               <ImageLightbox src={profile.photo} alt={profile.name} open={lightbox} onClose={() => setLightbox(false)} />
+              {profile.photoBlurred && (
+                <p className="mt-1.5 flex items-center gap-1 text-[10px] font-semibold text-gray-500 leading-tight max-w-24">
+                  <Lock className="w-3 h-3 shrink-0" /> Photo private until she accepts
+                </p>
+              )}
               {photoAction}
             </div>
 

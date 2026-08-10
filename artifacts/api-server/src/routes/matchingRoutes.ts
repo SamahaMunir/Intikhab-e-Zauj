@@ -8,6 +8,7 @@ import { summarizeInsightsWithRAG } from '../lib/llmInsights';
 import { getCostStats } from '../lib/cost-tracker';
 import { getScoreWeights } from '../db/config';
 import { authMiddleware, staffOnlyMiddleware } from '../middleware/auth';
+import { applyPhotoPrivacy } from '../lib/photo-privacy';
 
 // Ownership guard: a non-staff user may only act on their own userId.
 function ownsOrStaff(req: Request, userId: string | null): boolean {
@@ -167,6 +168,10 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
           { _id: m.candidateId },
           { projection: { name: 1, age: 1, dob: 1, city: 1, society: 1, profession: 1, caste: 1, gender: 1, education: 1, photo: 1, photoCrop: 1, height: 1, houseStatus: 1, role: 1, matched: 1 } }
         );
+        // Female-photo privacy: at the browse stage there is no proposal yet, so
+        // the female has revealed to no one → blur for a male applicant. Staff
+        // (viewing on someone's behalf) still see clear.
+        applyPhotoPrivacy(candidate, { viewerRole: (req as any).user?.role, viewerId: (req as any).user?.id, revealed: false });
         return { ...m, candidate };
       })
     );

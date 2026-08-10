@@ -23,7 +23,7 @@ export default function ProfileCard({
 
   return (
     <ProfileImageCard
-      photo={c?.photo} photoCrop={c?.photoCrop} name={c?.name || 'Profile'} age={c?.age} lines={lines} score={score}
+      photo={c?.photo} photoCrop={c?.photoCrop} blurred={c?.photoBlurred} name={c?.name || 'Profile'} age={c?.age} lines={lines} score={score}
       heightClass="aspect-4/5"
       className={`motion-safe:transition-all motion-safe:duration-500 ${
         mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
