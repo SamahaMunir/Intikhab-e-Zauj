@@ -1,4 +1,4 @@
-import { User as UserIcon } from 'lucide-react';
+import { User as UserIcon, Lock } from 'lucide-react';
 import CompatibilityRing from '../CompatibilityRing';
 import { thumbUrl } from '../../lib/img';
 
@@ -9,10 +9,11 @@ import { thumbUrl } from '../../lib/img';
  */
 export default function ProfileImageCard({
   photo, photoCrop, name, age, lines, score, heightClass = 'h-[440px] sm:h-[520px]',
-  onClick, footer, className = '', topRight,
+  onClick, footer, className = '', topRight, blurred = false,
 }: {
   photo?: string;
   photoCrop?: string;
+  blurred?: boolean;
   name: string;
   age?: number;
   lines: string[];
@@ -50,6 +51,13 @@ export default function ProfileImageCard({
         {/* Bottom scrim for legibility — keeps face clear */}
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/75 via-black/25 to-transparent"
              aria-hidden="true" />
+
+        {/* Privacy: female photo hidden until she accepts */}
+        {blurred && (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur-sm px-3 py-1.5 text-white text-[11px] font-semibold shadow-md">
+            <Lock className="w-3.5 h-3.5" /> Photo private
+          </div>
+        )}
 
         {/* Top-right: compatibility ring or custom badge */}
         {score != null ? (

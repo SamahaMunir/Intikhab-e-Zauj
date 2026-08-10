@@ -21,6 +21,7 @@ import {
   notifyChatExpired,
 } from '../lib/notifications';
 import { applyHardFilters } from '../lib/matching';
+import { applyPhotoPrivacy } from '../lib/photo-privacy';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function getId(id: string | string[] | undefined): string | null {
@@ -126,12 +127,23 @@ async function lookupCompatibilityScore(db: Db, p: any): Promise<number | undefi
   return (m?.scoreBreakdown?.total ?? m?.score) as number | undefined;
 }
 
-async function enrichProposal(db: Db, p: any) {
+async function enrichProposal(db: Db, p: any, viewer?: { role?: string; id?: string }) {
   const [initiator, recipient, compatibilityScore] = await Promise.all([
     db.collection('profiles').findOne({ _id: p.initiatorId }, { projection: PROFILE_PROJECTION }),
     db.collection('profiles').findOne({ _id: p.recipientId }, { projection: PROFILE_PROJECTION }),
     lookupCompatibilityScore(db, p),
   ]);
+
+  // Female-photo privacy: blur a female participant's photo for the male
+  // participant until SHE has marked interested in THIS proposal. Staff (viewer
+  // omitted) and the female herself always see clear. Applied per side so the
+  // reveal maps to that side's own "interested" flag.
+  if (viewer) {
+    const mi = p.mutualInterest || {};
+    applyPhotoPrivacy(initiator, { viewerRole: viewer.role, viewerId: viewer.id, revealed: !!mi.initiatorInterested });
+    applyPhotoPrivacy(recipient, { viewerRole: viewer.role, viewerId: viewer.id, revealed: !!mi.recipientInterested });
+  }
+
   // A proposal is orphaned if either profile was deleted — stale history that
   // should not surface in the staff queues.
   const orphaned = !initiator || !recipient;
@@ -356,7 +368,7 @@ userProposalRouter.get('/', authMiddleware, async (req: AuthRequest, res: Respon
     }
 
     const raw = await db.collection('proposals').find(query).sort({ createdAt: -1 }).limit(200).toArray();
-    const proposals = await Promise.all(raw.map((p) => enrichProposal(db, p)));
+    const proposals = await Promise.all(raw.map((p) => enrichProposal(db, p, { role: req.user?.role, id: req.user?.id })));
 
     res.json({ success: true, total: proposals.length, proposals });
   } catch (error) {
@@ -384,7 +396,7 @@ userProposalRouter.get('/:id', authMiddleware, async (req: AuthRequest, res: Res
       return;
     }
     const settled = await settleExpiry(db, p);
-    res.json({ success: true, proposal: await enrichProposal(db, settled) });
+    res.json({ success: true, proposal: await enrichProposal(db, settled, { role: req.user?.role, id: req.user?.id }) });
   } catch (error) {
     console.error('❌ Get proposal error:', error);
     res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed' });

@@ -10,6 +10,7 @@ export interface MatchCandidate {
   profession: string;
   photo?: string;
   photoCrop?: string;
+  photoBlurred?: boolean;
   gender: string;
   caste?: string;
   height?: string;

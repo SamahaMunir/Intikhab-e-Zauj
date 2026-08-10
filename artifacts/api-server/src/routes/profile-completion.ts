@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
 import { authMiddleware, type AuthRequest } from '../middleware/auth';
+import { applyPhotoPrivacy } from '../lib/photo-privacy';
 
 const router = Router();
 
@@ -193,6 +194,29 @@ router.get(
         res.status(403).json({ error: 'This profile is not yet available for viewing.' });
         return;
       }
+
+      // Female-photo privacy: blur a female profile for a male viewer unless she
+      // has marked interested in a proposal between the two. Staff / the owner
+      // always see clear.
+      const viewerId = req.user.id;
+      let revealed = false;
+      if (profile.gender === 'female' && viewerId && profile._id.toString() !== viewerId && ObjectId.isValid(viewerId)) {
+        const viewerOid = new ObjectId(viewerId);
+        const targetOid = new ObjectId(id);
+        const prop = await db.collection('proposals').findOne({
+          $or: [
+            { initiatorId: targetOid, recipientId: viewerOid },
+            { initiatorId: viewerOid, recipientId: targetOid },
+          ],
+        });
+        if (prop) {
+          const targetIsInitiator = prop.initiatorId?.toString() === targetOid.toString();
+          revealed = targetIsInitiator
+            ? !!prop.mutualInterest?.initiatorInterested
+            : !!prop.mutualInterest?.recipientInterested;
+        }
+      }
+      applyPhotoPrivacy(profile, { viewerRole: req.user.role, viewerId, revealed });
 
       res.json({ success: true, profile: { ...profile, _id: profile._id.toString() } });
     } catch (error) {
