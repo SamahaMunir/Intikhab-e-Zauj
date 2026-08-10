@@ -8,6 +8,7 @@
 
 import React, { useState } from 'react';
 import ImageLightbox from './ImageLightbox';
+import { faceThumb } from '../lib/img';
 
 export interface ProfileData {
   _id?: string;
@@ -187,7 +188,7 @@ export function ProfileView({
               <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-gray-100 flex items-center justify-center">
                 {profile.photo ? (
                   <img
-                    src={profile.photo}
+                    src={faceThumb(profile.photo)}
                     alt={profile.name}
                     onClick={() => setLightbox(true)}
                     title="View full photo"

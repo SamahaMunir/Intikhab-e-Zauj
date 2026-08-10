@@ -4,6 +4,7 @@ import { getToken } from '@/lib/auth';
 import StatusBadge from "@/components/ui/StatusBadge";
 import AddNoteModal from "@/components/AddNoteModal";
 import ProfileImageCard from "@/components/matches/ProfileImageCard";
+import { faceThumb } from "@/lib/img";
 import {
   Dialog,
   DialogContent,
@@ -402,7 +403,7 @@ export default function StaffProfiles() {
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl overflow-hidden bg-muted shrink-0 flex items-center justify-center">
                           {profile.photo ? (
-                            <img src={profile.photo} alt={profile.name} className="w-full h-full object-cover"
+                            <img src={faceThumb(profile.photo, 120)} alt={profile.name} className="w-full h-full object-cover"
                               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           ) : (
                             <UserIcon className="w-4 h-4 text-muted-foreground" />
