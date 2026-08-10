@@ -21,7 +21,6 @@ import TestUpload from '@/pages/test-upload';
 import VerifyEmail from "@/pages/verify-email";
 import QuickRegister from "./pages/quick-register";
 import VerifyAuto from './pages/verify-auto';
-import TestVerification from './pages/test-verification';
 import UserLogin from "@/pages/user-login";
 
 // App Portal
@@ -95,7 +94,6 @@ function MarketingRouter() {
         <Route path="/user-login" component={UserLogin} />
         <Route path="/login" component={UserLogin} />
         <Route path="/verify-auto" component={VerifyAuto} />
-        <Route path="/test-verification" component={TestVerification} />
         
         {/* 404 */}
         <Route component={NotFound} />
