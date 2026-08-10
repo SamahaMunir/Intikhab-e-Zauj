@@ -213,8 +213,11 @@ router.post('/verify-auto', async (req: Request, res: Response) => {
  */
 router.get('/test-verification-link', async (req: Request, res: Response) => {
   try {
-    // Dev/test helper only — must never be reachable in production.
-    if (process.env.NODE_ENV === 'production') {
+    // Dev/test helper only. Default-CLOSED: reachable only when explicitly
+    // enabled via ENABLE_TEST_ENDPOINTS=true. Do NOT rely on NODE_ENV here — if
+    // that var is ever unset in prod this endpoint would leak email-verification
+    // links for any account (verification bypass).
+    if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
       return res.status(404).json({ error: 'Not found' });
     }
 

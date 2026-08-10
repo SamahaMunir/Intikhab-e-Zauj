@@ -177,6 +177,11 @@ router.post('/verify-auto', async (req: Request, res: Response) => {
  */
 router.get('/test-verification-link', async (req: Request, res: Response) => {
   try {
+    // Dev/test helper only — default-closed (see auth-simple.ts).
+    if (process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
     const { email } = req.query;
 
     if (!email || typeof email !== 'string') {
