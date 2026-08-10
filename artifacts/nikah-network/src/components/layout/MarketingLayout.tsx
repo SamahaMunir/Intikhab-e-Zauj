@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import { Heart, Home, Users, MessageSquare, User, Settings, Info } from "lucide-react";
+import { Heart, Home, Users, MessageSquare, User, Settings, Info, Mail, Phone, MapPin } from "lucide-react";
 
 export function MarketingLayout({ children }: { children: React.ReactNode }) {
   const { currentUser } = useStore();
@@ -62,6 +62,17 @@ export function MarketingLayout({ children }: { children: React.ReactNode }) {
             <p className="text-muted-foreground text-sm max-w-sm">
               A secure, staff-controlled matrimonial platform by Falah Khandan Center (Women Commission, Lahore). Where families find barakah in a safe, dignified environment.
             </p>
+            <div className="mt-5 space-y-2 text-sm text-muted-foreground">
+              <a href="mailto:info.fkcenter@gmail.com" className="flex items-center gap-2 hover:text-primary transition-colors">
+                <Mail className="h-4 w-4" aria-hidden="true" /> info.fkcenter@gmail.com
+              </a>
+              <a href="tel:+923366964964" className="flex items-center gap-2 hover:text-primary transition-colors">
+                <Phone className="h-4 w-4" aria-hidden="true" /> 0336-6964964
+              </a>
+              <p className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" /> Falah Khandan Center, Lahore, Pakistan
+              </p>
+            </div>
           </div>
           <div>
             <h3 className="font-semibold mb-4">Quick Links</h3>
