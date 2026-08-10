@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Send, Loader2, Heart, Check, X } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Heart, Check, X, Eye } from "lucide-react";
+import { thumbUrl } from "@/lib/img";
 import { useProposal } from "@/hooks/useProposal";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useProposalTimer } from "@/hooks/useProposalTimer";
@@ -64,6 +65,11 @@ export default function ProposalDetail() {
   const STAFF_SOURCES = ["staff_entry", "paper", "whatsapp", "walkin", "referral", "phone"];
   const otherStaffManaged =
     other?.registeredBy === "staff" || STAFF_SOURCES.includes(other?.source || "");
+
+  // Female-photo reveal: once the female counterpart marks interested, her photo
+  // is unblurred for this male participant and he can open her full profile.
+  const otherId = (other as any)?._id;
+  const photoUnlocked = other?.gender === "female" && !!otherSideInterested && !!otherId;
 
   const handleSend = async () => {
     const ok = await send(text);
@@ -169,6 +175,34 @@ export default function ProposalDetail() {
         </div>
 
         <div className="md:col-span-1 space-y-6">
+          {photoUnlocked && (
+            <Card className="border-emerald-200 bg-emerald-50/60">
+              <CardContent className="p-4 flex items-center gap-4">
+                <Link href={`/app/match-detail/${otherId}`} className="shrink-0">
+                  <img
+                    src={thumbUrl(other?.photo, (other as any)?.photoCrop, 160)}
+                    alt={other?.name || "Profile"}
+                    crossOrigin={other?.photo?.includes("cloudinary.com") ? "anonymous" : undefined}
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-sm"
+                  />
+                </Link>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-emerald-800 leading-snug">
+                    You can now view {other?.name || "her"}’s profile photo
+                  </p>
+                  <p className="text-xs text-emerald-700/80 mt-0.5">
+                    She has expressed interest, so her photo is now visible to you.
+                  </p>
+                  <Link href={`/app/match-detail/${otherId}`}>
+                    <Button size="sm" className="mt-2 bg-emerald-600 hover:bg-emerald-700">
+                      <Eye className="w-4 h-4 mr-1.5" /> View Profile
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {(isRecipientPending || canWithdraw || chatOpen) && (
             <Card>
               <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
