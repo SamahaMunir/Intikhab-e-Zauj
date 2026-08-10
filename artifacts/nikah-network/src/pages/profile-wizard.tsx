@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
 import SearchableSelect from '@/components/SearchableSelect';
 import PhoneInput from '@/components/PhoneInput';
+import PhotoCropModal from '@/components/PhotoCropModal';
 import {
   LANGUAGES, RELIGIONS, SECTS, CASTES, CITIES, PROFESSIONS,
   OCCUPATIONS, EDUCATION_LEVELS, PAKISTANI_UNIVERSITIES,
@@ -108,6 +109,7 @@ export default function ProfileWizard() {
   // The applicant's own registered number — used to reject duplicate family
   // contacts (a parent/sibling can't be the same as the applicant's own number).
   const [selfPhone, setSelfPhone] = useState('');
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   // ── Load saved profile on mount ───────────────────────────────────────────
   // Priority: API (DB) > localStorage draft > empty defaults
@@ -280,11 +282,14 @@ export default function ProfileWizard() {
     });
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
     if (!file) return;
-    // Reset input so same file can be re-tried after error
-    e.target.value = '';
+    setCropFile(file); // crop before upload
+  };
+
+  const processPhoto = async (file: File) => {
     setError(null);
     // Allow fresh model-load attempt on each file pick (handles transient CDN failures)
     resetFaceDetection();
@@ -997,6 +1002,9 @@ export default function ProfileWizard() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
+      <PhotoCropModal file={cropFile} open={!!cropFile}
+        onCancel={() => setCropFile(null)}
+        onCropped={f => { setCropFile(null); processPhoto(f); }} />
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Complete Your Profile</h1>
