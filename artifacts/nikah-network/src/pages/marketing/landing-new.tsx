@@ -1111,17 +1111,17 @@ function Footer() {
             </p>
 
             <div className="mt-6 space-y-2">
-              <a href="mailto:info@intikhab-e-zauj.pk"
+              <a href="mailto:info.fkcenter@gmail.com"
                  className="flex items-center gap-2 text-white/40 hover:text-[#10B981]
                             text-sm transition-colors">
                 <Mail className="w-4 h-4" aria-hidden="true"/>
-                info@intikhab-e-zauj.pk
+                info.fkcenter@gmail.com
               </a>
-              <a href="tel:+924200000000"
+              <a href="tel:+923366964964"
                  className="flex items-center gap-2 text-white/40 hover:text-[#10B981]
                             text-sm transition-colors">
                 <Phone className="w-4 h-4" aria-hidden="true"/>
-                +92 42 000 0000
+                0336-6964964
               </a>
               <p className="flex items-start gap-2 text-white/40 text-sm">
                 <MapPin className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true"/>

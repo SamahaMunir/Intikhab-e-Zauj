@@ -19,10 +19,10 @@ function getApiBaseUrl(): string {
   }
 
   if (typeof window !== 'undefined' && window.location.hostname.includes('vercel')) {
-    return 'https://api.intikhab-e-zauj.pk';
+    return 'https://api.intikhab-e-zauj.org';
   }
 
-  return 'https://api.intikhab-e-zauj.pk';
+  return 'https://api.intikhab-e-zauj.org';
 }
 
 /**
