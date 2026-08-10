@@ -1,4 +1,4 @@
-import { User as UserIcon, Lock } from 'lucide-react';
+import { User as UserIcon } from 'lucide-react';
 import CompatibilityRing from '../CompatibilityRing';
 import { thumbUrl } from '../../lib/img';
 
@@ -9,11 +9,10 @@ import { thumbUrl } from '../../lib/img';
  */
 export default function ProfileImageCard({
   photo, photoCrop, name, age, lines, score, heightClass = 'h-[440px] sm:h-[520px]',
-  onClick, footer, className = '', topRight, blurred = false,
+  onClick, footer, className = '', topRight,
 }: {
   photo?: string;
   photoCrop?: string;
-  blurred?: boolean;
   name: string;
   age?: number;
   lines: string[];
@@ -51,18 +50,6 @@ export default function ProfileImageCard({
         {/* Bottom scrim for legibility — keeps face clear */}
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/75 via-black/25 to-transparent"
              aria-hidden="true" />
-
-        {/* Privacy: female photo revealed only after she expresses interest */}
-        {blurred && (
-          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 px-6 text-center pointer-events-none">
-            <span className="flex items-center justify-center w-11 h-11 rounded-full bg-white/15 backdrop-blur-sm ring-1 ring-white/30">
-              <Lock className="w-5 h-5 text-white" />
-            </span>
-            <p className="text-[13px] font-semibold text-white leading-snug drop-shadow-md max-w-[15rem]">
-              Photo becomes visible once she expresses interest
-            </p>
-          </div>
-        )}
 
         {/* Top-right: compatibility ring or custom badge */}
         {score != null ? (
