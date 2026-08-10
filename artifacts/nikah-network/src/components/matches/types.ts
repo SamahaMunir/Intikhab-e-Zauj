@@ -9,6 +9,7 @@ export interface MatchCandidate {
   society?: string;
   profession: string;
   photo?: string;
+  photoCrop?: string;
   gender: string;
   caste?: string;
   height?: string;

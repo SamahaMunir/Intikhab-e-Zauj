@@ -22,7 +22,7 @@ export default function ProfileGridView({
 
         return (
           <ProfileImageCard key={m._id || m.candidateId}
-            photo={c?.photo} name={c?.name || 'Profile'} age={c?.age} lines={lines} score={score}
+            photo={c?.photo} photoCrop={c?.photoCrop} name={c?.name || 'Profile'} age={c?.age} lines={lines} score={score}
             heightClass="aspect-3/4" onClick={() => onOpen(m.candidateId)}
             footer={
               <div className="flex gap-2">

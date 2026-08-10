@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
 import SearchableSelect from '@/components/SearchableSelect';
 import PhoneInput from '@/components/PhoneInput';
+import PhotoCropModal from '@/components/PhotoCropModal';
 import {
   LANGUAGES, RELIGIONS, SECTS, CASTES, CITIES, PROFESSIONS,
   OCCUPATIONS, EDUCATION_LEVELS, PAKISTANI_UNIVERSITIES,
@@ -61,6 +62,7 @@ interface ProfileFormData {
   acceptMarriedPerson?: string;
   gender: 'male' | 'female';
   photo: string;
+  photoCrop?: string;
 }
 
 const EMPTY_FORM = (gender: 'male' | 'female', name: string): ProfileFormData => ({
@@ -74,7 +76,7 @@ const EMPTY_FORM = (gender: 'male' | 'female', name: string): ProfileFormData =>
   numMarriedSisters: 0, employedSiblingsDetails: '', siblingDisability: 'No',
   homeOwnership: 'owned', homeSize: 'kanal', areaValue: 0, matchCriteria: '',
   desiredMatchDetails: '', reference: '', referenceRelation: '',
-  acceptMarriedPerson: gender === 'female' ? 'No' : undefined, gender, photo: '',
+  acceptMarriedPerson: gender === 'female' ? 'No' : undefined, gender, photo: '', photoCrop: '',
 });
 
 export default function ProfileWizard() {
@@ -108,6 +110,7 @@ export default function ProfileWizard() {
   // The applicant's own registered number — used to reject duplicate family
   // contacts (a parent/sibling can't be the same as the applicant's own number).
   const [selfPhone, setSelfPhone] = useState('');
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   // ── Load saved profile on mount ───────────────────────────────────────────
   // Priority: API (DB) > localStorage draft > empty defaults
@@ -207,6 +210,7 @@ export default function ProfileWizard() {
             acceptMarriedPerson: p.acceptMarriedPerson || (p.gender === 'female' ? 'No' : undefined),
             gender: (p.gender === 'male' || p.gender === 'female') ? p.gender : userGender,
             photo: p.photo || '',
+            photoCrop: p.photoCrop || '',
           };
           setFormData(merged);
           setSelfPhone(p.phone || '');
@@ -284,10 +288,10 @@ export default function ProfileWizard() {
     const file = e.target.files?.[0];
     e.target.value = ''; // allow re-selecting the same file
     if (!file) return;
-    processPhoto(file);
+    setCropFile(file); // choose the profile crop first
   };
 
-  const processPhoto = async (file: File) => {
+  const processPhoto = async (file: File, crop: string) => {
     setError(null);
     // Allow fresh model-load attempt on each file pick (handles transient CDN failures)
     resetFaceDetection();
@@ -295,7 +299,7 @@ export default function ProfileWizard() {
     const result = await uploadProfilePhoto(file);
     if (result?.url) {
       setFormData((prev) => {
-        const next = { ...prev, photo: result.url };
+        const next = { ...prev, photo: result.url, photoCrop: crop };
         saveDraft(next);
         return next;
       });
@@ -1000,6 +1004,9 @@ export default function ProfileWizard() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
+      <PhotoCropModal file={cropFile} open={!!cropFile}
+        onCancel={() => setCropFile(null)}
+        onConfirm={rect => { const f = cropFile; setCropFile(null); if (f) processPhoto(f, rect); }} />
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Complete Your Profile</h1>

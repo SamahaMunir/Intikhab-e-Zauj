@@ -76,6 +76,7 @@ router.get(
           houseStatus: p.houseStatus,
           bio: p.bio,
           photo: p.photo,
+          photoCrop: p.photoCrop,
           profileStatus: p.profileStatus,
           profileCompletion: p.profileCompletion,
           paymentStatus: p.paymentStatus,
@@ -357,6 +358,7 @@ router.put(
         'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation',
         'fatherMobile', 'motherMobile', 'matchCriteria', 'desiredMatchDetails',
         'notes', 'regNo', 'institution', 'jobType', 'address', 'motherTongue',
+        'photoCrop',
       ];
       const NUMERIC_FIELDS = [
         'numBrothers', 'numSisters', 'numMarriedBrothers', 'numMarriedSisters', 'areaValue',

@@ -267,7 +267,7 @@ router.patch(
         'numBrothers', 'numMarriedBrothers', 'numSisters', 'numMarriedSisters',
         'employedSiblingsDetails', 'siblingDisability',
         'matchCriteria', 'desiredMatchDetails', 'acceptMarriedPerson',
-        'reference', 'referenceRelation', 'photo', 'notificationPrefs',
+        'reference', 'referenceRelation', 'photo', 'photoCrop', 'notificationPrefs',
       ] as const;
 
       const updates: Record<string, unknown> = {};
