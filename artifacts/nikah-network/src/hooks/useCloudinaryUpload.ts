@@ -163,25 +163,39 @@ async function detectHumanFace(file: File): Promise<DetectionResult> {
     const fa = getFaceApi();
     if (!fa) throw new Error('face-api.js not available');
 
-    // Draw to canvas — avoids any cross-origin issues
     const bitmap = await createImageBitmap(file);
-    const scale  = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width  = Math.round(bitmap.width  * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    // Multi-pass detection. Full-body / distant photos have small faces that a
+    // single low-res pass misses, so try progressively larger canvases + input
+    // sizes and a lower score threshold before giving up. First pass that finds
+    // a face wins.
+    // [maxDim, inputSize, scoreThreshold]
+    const passes: Array<[number, number, number]> = [
+      [640,  320, 0.4],   // fast path — most portrait photos
+      [1024, 512, 0.3],   // larger frame, smaller faces
+      [1600, 608, 0.25],  // full-body / distant faces
+    ];
+
+    let count = 0;
+    let confidence = 0;
+
+    for (const [maxDim, inputSize, scoreThreshold] of passes) {
+      const scale  = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(bitmap.width  * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      const options = new fa.TinyFaceDetectorOptions({ inputSize, scoreThreshold });
+      console.log(`[FaceDetect] Pass ${maxDim}px/${inputSize}@${scoreThreshold}…`);
+      const detections = await fa.detectAllFaces(canvas, options);
+      count = detections.length;
+      confidence = count > 0 ? Math.max(...detections.map((d: any) => d.score)) : 0;
+      if (count > 0) break;
+    }
+
     bitmap.close();
-
-    const options = new fa.TinyFaceDetectorOptions({
-      inputSize:       320,
-      scoreThreshold:  0.4,
-    });
-
-    console.log('[FaceDetect] Running detection on canvas…');
-    const detections = await fa.detectAllFaces(canvas, options);
-    const count      = detections.length;
-    const confidence = count > 0 ? Math.max(...detections.map((d: any) => d.score)) : 0;
 
     console.log(`[FaceDetect] ✓ Detection complete: ${count} face(s), confidence ${(confidence * 100).toFixed(1)}%`);
 
