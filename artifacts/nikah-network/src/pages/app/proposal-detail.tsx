@@ -178,7 +178,7 @@ export default function ProposalDetail() {
           {photoUnlocked && (
             <Card className="border-emerald-200 bg-emerald-50/60">
               <CardContent className="p-4 flex items-center gap-4">
-                <Link href={`/app/match-detail/${otherId}`} className="shrink-0">
+                <Link href={`/app/match-detail/${otherId}?from=${id}`} className="shrink-0">
                   <img
                     src={thumbUrl(other?.photo, (other as any)?.photoCrop, 160)}
                     alt={other?.name || "Profile"}
@@ -193,7 +193,7 @@ export default function ProposalDetail() {
                   <p className="text-xs text-emerald-700/80 mt-0.5">
                     She has expressed interest, so her photo is now visible to you.
                   </p>
-                  <Link href={`/app/match-detail/${otherId}`}>
+                  <Link href={`/app/match-detail/${otherId}?from=${id}`}>
                     <Button size="sm" className="mt-2 bg-emerald-600 hover:bg-emerald-700">
                       <Eye className="w-4 h-4 mr-1.5" /> View Profile
                     </Button>
