@@ -52,10 +52,15 @@ export default function ProfileImageCard({
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/75 via-black/25 to-transparent"
              aria-hidden="true" />
 
-        {/* Privacy: female photo hidden until she accepts */}
+        {/* Privacy: female photo revealed only after she expresses interest */}
         {blurred && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur-sm px-3 py-1.5 text-white text-[11px] font-semibold shadow-md">
-            <Lock className="w-3.5 h-3.5" /> Photo private
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 px-6 text-center pointer-events-none">
+            <span className="flex items-center justify-center w-11 h-11 rounded-full bg-white/15 backdrop-blur-sm ring-1 ring-white/30">
+              <Lock className="w-5 h-5 text-white" />
+            </span>
+            <p className="text-[13px] font-semibold text-white leading-snug drop-shadow-md max-w-[15rem]">
+              Photo becomes visible once she expresses interest
+            </p>
           </div>
         )}
 

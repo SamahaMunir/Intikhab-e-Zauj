@@ -205,8 +205,8 @@ export function ProfileView({
               </div>
               <ImageLightbox src={profile.photo} alt={profile.name} open={lightbox} onClose={() => setLightbox(false)} />
               {profile.photoBlurred && (
-                <p className="mt-1.5 flex items-center gap-1 text-[10px] font-semibold text-gray-500 leading-tight max-w-24">
-                  <Lock className="w-3 h-3 shrink-0" /> Photo private until she accepts
+                <p className="mt-2 flex items-start gap-1.5 text-[11px] font-medium text-gray-500 leading-snug max-w-[6.5rem]">
+                  <Lock className="w-3 h-3 shrink-0 mt-0.5" /> Photo becomes visible once she expresses interest
                 </p>
               )}
               {photoAction}
