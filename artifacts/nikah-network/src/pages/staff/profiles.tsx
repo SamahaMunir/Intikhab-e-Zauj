@@ -44,26 +44,35 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+// Search/filter state is persisted here so opening a profile and pressing Back
+// returns the staff to exactly where they left off (filters + scroll), instead
+// of resetting to "All profiles".
+const PERSIST_KEY = 'staffProfilesState';
+const SCROLL_KEY  = 'staffProfilesScroll';
+const savedState: Record<string, any> = (() => {
+  try { return JSON.parse(sessionStorage.getItem(PERSIST_KEY) || '{}'); } catch { return {}; }
+})();
+
 export default function StaffProfiles() {
   const [, setLocation] = useLocation();
   const [profiles, setProfiles]       = useState<Profile[]>([]);
   const [loading, setLoading]         = useState(true);
-  const [filter, setFilter]           = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filter, setFilter]           = useState<'all' | 'pending' | 'approved' | 'rejected'>(savedState.filter ?? 'all');
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [action, setAction]           = useState<'approve' | 'reject' | null>(null);
   const [reason, setReason]           = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [viewMode,      setViewMode]      = useState<'card' | 'table'>('card');
+  const [viewMode,      setViewMode]      = useState<'card' | 'table'>(savedState.viewMode ?? 'card');
 
   // Live filter state (applied as you type/select)
-  const [search,         setSearch]         = useState('');
-  const [genderFilter,   setGenderFilter]   = useState('');
-  const [ageFilter,      setAgeFilter]      = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
-  const [societyFilter,  setSocietyFilter]  = useState('');
-  const [educationFilter, setEducationFilter] = useState('');
-  const [yearFilter,     setYearFilter]     = useState('');
-  const [monthFilter,    setMonthFilter]    = useState('');
+  const [search,         setSearch]         = useState(savedState.search ?? '');
+  const [genderFilter,   setGenderFilter]   = useState(savedState.genderFilter ?? '');
+  const [ageFilter,      setAgeFilter]      = useState(savedState.ageFilter ?? '');
+  const [locationFilter, setLocationFilter] = useState(savedState.locationFilter ?? '');
+  const [societyFilter,  setSocietyFilter]  = useState(savedState.societyFilter ?? '');
+  const [educationFilter, setEducationFilter] = useState(savedState.educationFilter ?? '');
+  const [yearFilter,     setYearFilter]     = useState(savedState.yearFilter ?? '');
+  const [monthFilter,    setMonthFilter]    = useState(savedState.monthFilter ?? '');
   const advCount = [genderFilter, ageFilter, locationFilter, societyFilter, educationFilter, yearFilter, monthFilter].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -88,6 +97,26 @@ export default function StaffProfiles() {
   const educationOptions = distinct(p => p.education);
 
   useEffect(() => { fetchProfiles(); }, []);
+
+  // Persist search/filter state so Back from a profile restores it.
+  useEffect(() => {
+    sessionStorage.setItem(PERSIST_KEY, JSON.stringify({
+      filter, search, genderFilter, ageFilter, locationFilter,
+      societyFilter, educationFilter, yearFilter, monthFilter, viewMode,
+    }));
+  }, [filter, search, genderFilter, ageFilter, locationFilter, societyFilter, educationFilter, yearFilter, monthFilter, viewMode]);
+
+  // Track scroll position; restore it once the list has loaded.
+  useEffect(() => {
+    const onScroll = () => sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => {
+    if (loading) return;
+    const y = Number(sessionStorage.getItem(SCROLL_KEY) || 0);
+    if (y) requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [loading]);
 
   const fetchProfiles = async () => {
     try {
@@ -151,7 +180,8 @@ export default function StaffProfiles() {
     if (filter !== 'all' && p.profileStatus !== filter) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (!p.name?.toLowerCase().includes(q) && !p.city?.toLowerCase().includes(q) && !p.society?.toLowerCase().includes(q)) return false;
+      const hay = [p.name, p.city, p.society, p.email].map(v => v?.toLowerCase() || '');
+      if (!hay.some(h => h.includes(q))) return false;
     }
     if (genderFilter && p.gender?.toLowerCase() !== genderFilter) return false;
     if (locationFilter && !p.city?.toLowerCase().includes(locationFilter.toLowerCase())) return false;
@@ -245,7 +275,7 @@ export default function StaffProfiles() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name or location…"
+              placeholder="Search by name, location or email…"
               className="w-full h-11 pl-11 pr-4 rounded-xl bg-card border border-border text-sm
                          text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary
                          focus:ring-1 focus:ring-primary/30 transition-colors"
