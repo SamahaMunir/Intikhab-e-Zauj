@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle2, XCircle, ArrowLeft, Pencil, Save, Upload, Heart, RotateCcw } from 'lucide-react';
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
+import PhotoCropModal from '@/components/PhotoCropModal';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -48,6 +49,7 @@ export default function StaffProfileDetail() {
   const [saving, setSaving]           = useState(false);
   const [form, setForm]               = useState<Record<string, string>>({});
   const [photoUrl, setPhotoUrl]       = useState('');
+  const [cropFile, setCropFile]       = useState<File | null>(null);
   const { uploadProfilePhoto, uploading, checking, error: uploadError } = useCloudinaryUpload();
 
   useEffect(() => {
@@ -117,10 +119,13 @@ export default function StaffProfileDetail() {
     setError(null);
   };
 
-  const onPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // allow re-selecting the same file
     if (!file) return;
+    setCropFile(file); // open cropper first
+  };
+  const processPhoto = async (file: File) => {
     const res = await uploadProfilePhoto(file);
     if (res?.url) setPhotoUrl(res.url);
   };
@@ -213,6 +218,9 @@ export default function StaffProfileDetail() {
 
   return (
     <div className="space-y-4 pb-10">
+      <PhotoCropModal file={cropFile} open={!!cropFile}
+        onCancel={() => setCropFile(null)}
+        onCropped={f => { setCropFile(null); processPhoto(f); }} />
       {/* Back navigation */}
       <div className="flex items-center gap-3">
         <button

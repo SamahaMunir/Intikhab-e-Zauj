@@ -6,7 +6,8 @@
  * Accepts any partial profile shape so it works for both seed and wizard profiles.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
+import ImageLightbox from './ImageLightbox';
 
 export interface ProfileData {
   _id?: string;
@@ -154,6 +155,7 @@ export function ProfileView({
   maskCnic = true,
   showContact = false,
 }: ProfileViewProps) {
+  const [lightbox, setLightbox] = useState(false);
   const completion    = profile.profileCompletion ?? 0;
   const completionBar = completion >= 100 ? 'bg-green-500' : completion >= 60 ? 'bg-yellow-400' : 'bg-red-400';
   const status        = statusBadge(profile.profileStatus);
@@ -187,7 +189,9 @@ export function ProfileView({
                   <img
                     src={profile.photo}
                     alt={profile.name}
-                    className="w-full h-full object-cover"
+                    onClick={() => setLightbox(true)}
+                    title="View full photo"
+                    className="w-full h-full object-cover cursor-zoom-in"
                     crossOrigin={profile.photo?.includes('cloudinary.com') ? 'anonymous' : undefined}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
@@ -195,6 +199,7 @@ export function ProfileView({
                   <span className="text-4xl text-gray-300">👤</span>
                 )}
               </div>
+              <ImageLightbox src={profile.photo} alt={profile.name} open={lightbox} onClose={() => setLightbox(false)} />
               {photoAction}
             </div>
 

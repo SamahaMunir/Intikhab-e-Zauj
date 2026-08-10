@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { Loader2, Pencil, Search, Check } from 'lucide-react';
 import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
+import PhotoCropModal from '@/components/PhotoCropModal';
+import ImageLightbox from '@/components/ImageLightbox';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -295,6 +297,8 @@ export default function AppProfile() {
   const [editSection, setEditSection] = useState<SectionKey | null>(null);
   const [photoError,  setPhotoError]  = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [lightbox, setLightbox] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { uploadProfilePhoto, checking, error: uploadErr } = useCloudinaryUpload();
@@ -381,10 +385,14 @@ export default function AppProfile() {
   };
 
   // ── Photo upload ────────────────────────────────────────────────────────────
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
     if (fileRef.current) fileRef.current.value = ''; // allow re-select same file
+    if (!file) return;
+    setCropFile(file); // crop before upload
+  };
+
+  const processPhoto = async (file: File) => {
     setPhotoError(null);
     setPhotoLoading(true);
     resetFaceDetection(); // Allow fresh model-load attempt on each file pick
@@ -428,6 +436,10 @@ export default function AppProfile() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-12">
+      <PhotoCropModal file={cropFile} open={!!cropFile}
+        onCancel={() => setCropFile(null)}
+        onCropped={f => { setCropFile(null); processPhoto(f); }} />
+      <ImageLightbox src={profile.photo} alt={profile.name} open={lightbox} onClose={() => setLightbox(false)} />
       {error && <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">{error}</div>}
 
       {/* ── HEADER CARD ─────────────────────────────────────────────────── */}
@@ -442,7 +454,8 @@ export default function AppProfile() {
               <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-gray-100 flex items-center justify-center">
                 {profile.photo ? (
                   <img src={profile.photo} alt={profile.name} crossOrigin="anonymous"
-                    className="w-full h-full object-cover"
+                    onClick={() => setLightbox(true)} title="View full photo"
+                    className="w-full h-full object-cover cursor-zoom-in"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
                   <span className="text-4xl text-gray-300">👤</span>
