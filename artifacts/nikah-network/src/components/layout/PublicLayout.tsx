@@ -133,11 +133,11 @@ export function PublicNavbar({ alwaysSolid = false }: { alwaysSolid?: boolean })
             }`}>
               <LogoMark size={34} light />
             </div>
-            <div>
-              <span className={`font-amiri text-xl font-bold leading-none transition-colors ${
+            <div className="flex flex-col justify-center gap-0.5">
+              <span className={`font-amiri text-xl font-bold leading-tight transition-colors ${
                 scrolled ? 'text-[#10B981]' : 'text-white'
               }`}>Intikhab-e-Zauj</span>
-              <p className={`text-xs font-semibold uppercase tracking-wider leading-none mt-1 ${
+              <p className={`text-[11px] font-semibold uppercase tracking-wider leading-tight ${
                 scrolled ? 'text-stone-400' : 'text-white/50'
               }`}>Staff-Mediated Matrimonial</p>
             </div>
