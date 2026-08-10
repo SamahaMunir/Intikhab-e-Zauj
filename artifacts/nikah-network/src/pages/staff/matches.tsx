@@ -4,6 +4,7 @@ import {
   Heart, RefreshCw, Sparkles, ChevronDown, ChevronRight,
   Send, Loader2, Users, Search, ArrowLeft, X,
 } from 'lucide-react';
+import { faceThumb } from '../../lib/img';
 import ScoreBreakdownPanel from '../../components/ScoreBreakdownUI';
 import MatchScoreBadge from '../../components/matches/MatchScoreBadge';
 import ProfileImageCard from '../../components/matches/ProfileImageCard';
@@ -314,7 +315,7 @@ export default function StaffMatches() {
         <div className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card shadow-sm">
           <div className="w-14 h-14 rounded-full overflow-hidden bg-muted shrink-0">
             {selected.photo
-              ? <img src={selected.photo} alt={selected.name} className="w-full h-full object-cover object-[50%_30%]" />
+              ? <img src={faceThumb(selected.photo)} alt={selected.name} className="w-full h-full object-cover object-[50%_30%]" />
               : <div className="w-full h-full flex items-center justify-center"><Users className="w-6 h-6 text-muted-foreground/40" /></div>}
           </div>
           <div className="min-w-0 flex-1">
@@ -443,7 +444,7 @@ export default function StaffMatches() {
                                           bg-muted ${clickable ? 'cursor-pointer' : ''}`}
                               aria-label={`${side.p?.name || 'Unknown'}${side.p?.age ? `, ${side.p.age}` : ''}`}>
                               {side.p?.photo ? (
-                                <img src={side.p.photo} alt={`Profile photo of ${side.p?.name || 'Unknown'}`}
+                                <img src={faceThumb(side.p.photo, 700)} alt={`Profile photo of ${side.p?.name || 'Unknown'}`}
                                   crossOrigin={side.p.photo.includes('cloudinary.com') ? 'anonymous' : undefined}
                                   className="absolute inset-0 w-full h-full object-cover object-[50%_30%]
                                              motion-safe:transition-transform motion-safe:duration-700 group-hover:scale-105" />
