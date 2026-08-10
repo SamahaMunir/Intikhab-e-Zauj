@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle2, XCircle, ArrowLeft, Pencil, Save, Upload, Heart, RotateCcw } from 'lucide-react';
 import { useCloudinaryUpload } from '@/hooks/useCloudinaryUpload';
+import PhotoCropModal from '@/components/PhotoCropModal';
+import { thumbUrl } from '@/lib/img';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -48,6 +50,8 @@ export default function StaffProfileDetail() {
   const [saving, setSaving]           = useState(false);
   const [form, setForm]               = useState<Record<string, string>>({});
   const [photoUrl, setPhotoUrl]       = useState('');
+  const [photoCrop, setPhotoCrop]     = useState('');
+  const [cropFile, setCropFile]       = useState<File | null>(null);
   const { uploadProfilePhoto, uploading, checking, error: uploadError } = useCloudinaryUpload();
 
   useEffect(() => {
@@ -112,17 +116,21 @@ export default function StaffProfileDetail() {
     }
     setForm(next);
     setPhotoUrl(p.photo || '');
+    setPhotoCrop(p.photoCrop || '');
     setEditing(true);
     setActionDone(null);
     setError(null);
   };
 
-  const onPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // allow re-selecting the same file
     if (!file) return;
+    setCropFile(file); // choose the profile crop first
+  };
+  const processPhoto = async (file: File, crop: string) => {
     const res = await uploadProfilePhoto(file);
-    if (res?.url) setPhotoUrl(res.url);
+    if (res?.url) { setPhotoUrl(res.url); setPhotoCrop(crop); }
   };
 
   const saveEdit = async () => {
@@ -134,7 +142,7 @@ export default function StaffProfileDetail() {
       const res = await fetch(`${API}/api/staff/profiles/${profileId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...form, photo: photoUrl }),
+        body: JSON.stringify({ ...form, photo: photoUrl, photoCrop }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -213,6 +221,9 @@ export default function StaffProfileDetail() {
 
   return (
     <div className="space-y-4 pb-10">
+      <PhotoCropModal file={cropFile} open={!!cropFile}
+        onCancel={() => setCropFile(null)}
+        onConfirm={rect => { const f = cropFile; setCropFile(null); if (f) processPhoto(f, rect); }} />
       {/* Back navigation */}
       <div className="flex items-center gap-3">
         <button
@@ -269,7 +280,7 @@ export default function StaffProfileDetail() {
             <div className="flex items-center gap-4">
               <div className="w-20 h-24 rounded-lg border bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
                 {photoUrl
-                  ? <img src={photoUrl} alt="profile" className="w-full h-full object-cover" />
+                  ? <img src={thumbUrl(photoUrl, photoCrop, 200)} alt="profile" className="w-full h-full object-cover" />
                   : <span className="text-[10px] text-gray-400 text-center px-1">No photo</span>}
               </div>
               <div className="space-y-1">

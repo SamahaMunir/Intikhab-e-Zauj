@@ -165,7 +165,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response): Promise<voi
       matches.map(async (m) => {
         const candidate = await db.collection('profiles').findOne(
           { _id: m.candidateId },
-          { projection: { name: 1, age: 1, dob: 1, city: 1, society: 1, profession: 1, caste: 1, gender: 1, education: 1, photo: 1, height: 1, houseStatus: 1, role: 1, matched: 1 } }
+          { projection: { name: 1, age: 1, dob: 1, city: 1, society: 1, profession: 1, caste: 1, gender: 1, education: 1, photo: 1, photoCrop: 1, height: 1, houseStatus: 1, role: 1, matched: 1 } }
         );
         return { ...m, candidate };
       })
@@ -507,11 +507,11 @@ router.get('/staff-view', authMiddleware, staffOnlyMiddleware, async (_req: Requ
         const [userDoc, candidateDoc] = await Promise.all([
           db.collection('profiles').findOne(
             { _id: m.userId },
-            { projection: { name: 1, age: 1, city: 1, society: 1, gender: 1, caste: 1, photo: 1, source: 1, registeredBy: 1, role: 1, matched: 1 } }
+            { projection: { name: 1, age: 1, city: 1, society: 1, gender: 1, caste: 1, photo: 1, photoCrop: 1, source: 1, registeredBy: 1, role: 1, matched: 1 } }
           ),
           db.collection('profiles').findOne(
             { _id: m.candidateId },
-            { projection: { name: 1, age: 1, city: 1, society: 1, profession: 1, caste: 1, gender: 1, education: 1, height: 1, photo: 1, source: 1, registeredBy: 1, role: 1, matched: 1 } }
+            { projection: { name: 1, age: 1, city: 1, society: 1, profession: 1, caste: 1, gender: 1, education: 1, height: 1, photo: 1, photoCrop: 1, source: 1, registeredBy: 1, role: 1, matched: 1 } }
           ),
         ]);
 
@@ -616,7 +616,7 @@ router.get('/all', authMiddleware, staffOnlyMiddleware, async (_req: Request, re
         );
         const candidate = await db.collection('profiles').findOne(
           { _id: m.candidateId },
-          { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1 } }
+          { projection: { name: 1, age: 1, city: 1, profession: 1, caste: 1, gender: 1, photo: 1, photoCrop: 1 } }
         );
         return { ...m, user, candidate };
       })

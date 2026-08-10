@@ -3,7 +3,8 @@ import { useLocation } from 'wouter';
 import { Loader2, Pencil, Search, Check } from 'lucide-react';
 import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUpload';
 import ImageLightbox from '@/components/ImageLightbox';
-import { faceThumb } from '@/lib/img';
+import PhotoCropModal from '@/components/PhotoCropModal';
+import { thumbUrl } from '@/lib/img';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -25,6 +26,7 @@ interface Profile {
   sect: string;
   prayerRegularity: string;
   cnic: string;
+  photoCrop?: string;
   education: string;
   institution: string;
   profession: string;
@@ -298,6 +300,7 @@ export default function AppProfile() {
   const [photoError,  setPhotoError]  = useState<string | null>(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [lightbox, setLightbox] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const { uploadProfilePhoto, checking, error: uploadErr } = useCloudinaryUpload();
@@ -388,10 +391,10 @@ export default function AppProfile() {
     const file = e.target.files?.[0];
     if (fileRef.current) fileRef.current.value = ''; // allow re-select same file
     if (!file) return;
-    processPhoto(file);
+    setCropFile(file); // choose the profile crop first
   };
 
-  const processPhoto = async (file: File) => {
+  const processPhoto = async (file: File, crop: string) => {
     setPhotoError(null);
     setPhotoLoading(true);
     resetFaceDetection(); // Allow fresh model-load attempt on each file pick
@@ -401,7 +404,7 @@ export default function AppProfile() {
 
     if (result?.url) {
       try {
-        await handleSaveSection({ photo: result.url });
+        await handleSaveSection({ photo: result.url, photoCrop: crop });
         setPhotoError(null);
       } catch (err) {
         setPhotoError(err instanceof Error ? err.message : 'Failed to save photo. Please try again.');
@@ -436,6 +439,10 @@ export default function AppProfile() {
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-12">
       <ImageLightbox src={profile.photo} alt={profile.name} open={lightbox} onClose={() => setLightbox(false)} />
+      <PhotoCropModal file={cropFile} open={!!cropFile}
+        onCancel={() => setCropFile(null)}
+        onConfirm={rect => { const f = cropFile; setCropFile(null); if (f) processPhoto(f, rect); }} />
+      {/* header thumbnail uses the chosen crop */}
       {error && <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">{error}</div>}
 
       {/* ── HEADER CARD ─────────────────────────────────────────────────── */}
@@ -449,7 +456,7 @@ export default function AppProfile() {
             <div className="relative shrink-0">
               <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-gray-100 flex items-center justify-center">
                 {profile.photo ? (
-                  <img src={faceThumb(profile.photo)} alt={profile.name} crossOrigin="anonymous"
+                  <img src={thumbUrl(profile.photo, profile.photoCrop)} alt={profile.name} crossOrigin="anonymous"
                     onClick={() => setLightbox(true)} title="View full photo"
                     className="w-full h-full object-cover cursor-zoom-in"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />

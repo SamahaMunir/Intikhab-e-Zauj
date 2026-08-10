@@ -20,6 +20,7 @@ import { useCloudinaryUpload, resetFaceDetection } from '@/hooks/useCloudinaryUp
 import { getToken, getStoredUser } from '@/lib/auth';
 import SearchableSelect from '@/components/SearchableSelect';
 import PhoneInput from '@/components/PhoneInput';
+import PhotoCropModal from '@/components/PhotoCropModal';
 import {
   LANGUAGES, RELIGIONS, SECTS, CASTES, CITIES, PROFESSIONS,
   OCCUPATIONS, EDUCATION_LEVELS, PAKISTANI_UNIVERSITIES,
@@ -50,6 +51,7 @@ export default function StaffDataEntry() {
   const [meta, setMeta]               = useState<StaffMeta>(EMPTY_META);
   const [phone, setPhone]             = useState('');           // applicant's own phone (required by backend)
   const [formData, setFormData]       = useState<ProfileFormData>(EMPTY_PROFILE_FORM('male'));
+  const [cropFile, setCropFile]       = useState<File | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading]         = useState(false);
   const [success, setSuccess]         = useState(false);
@@ -99,14 +101,14 @@ export default function StaffDataEntry() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    processPhoto(file);
+    setCropFile(file); // choose the profile crop first
   };
 
-  const processPhoto = async (file: File) => {
+  const processPhoto = async (file: File, crop: string) => {
     resetFaceDetection();
     const result = await uploadProfilePhoto(file);
     if (result?.url) {
-      setFormData(prev => ({ ...prev, photo: result.url }));
+      setFormData(prev => ({ ...prev, photo: result.url, photoCrop: crop }));
       setFieldErrors(p => { const n = { ...p }; delete n.photo; return n; });
       // Immediately check if this Cloudinary URL is already in use
       const dup = await checkDuplicate({ photo: result.url });
@@ -309,6 +311,9 @@ export default function StaffDataEntry() {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-3xl mx-auto">
+      <PhotoCropModal file={cropFile} open={!!cropFile}
+        onCancel={() => setCropFile(null)}
+        onConfirm={rect => { const f = cropFile; setCropFile(null); if (f) processPhoto(f, rect); }} />
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground">Offline Profile Entry</h1>
         <p className="text-base text-gray-500 mt-1">Register applicants from WhatsApp, paper forms, or walk-ins</p>

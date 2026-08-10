@@ -1,6 +1,6 @@
 import { User as UserIcon } from 'lucide-react';
 import CompatibilityRing from '../CompatibilityRing';
-import { faceThumb } from '../../lib/img';
+import { thumbUrl } from '../../lib/img';
 
 /**
  * Shared profile card used across the whole app (user matches + staff profiles).
@@ -8,10 +8,11 @@ import { faceThumb } from '../../lib/img';
  * the bottom (gradient scrim only — never a box over the face), optional footer.
  */
 export default function ProfileImageCard({
-  photo, name, age, lines, score, heightClass = 'h-[440px] sm:h-[520px]',
+  photo, photoCrop, name, age, lines, score, heightClass = 'h-[440px] sm:h-[520px]',
   onClick, footer, className = '', topRight,
 }: {
   photo?: string;
+  photoCrop?: string;
   name: string;
   age?: number;
   lines: string[];
@@ -36,7 +37,7 @@ export default function ProfileImageCard({
       >
         {/* Photo */}
         {photo ? (
-          <img src={faceThumb(photo, 700)} alt={`Profile photo of ${name}`}
+          <img src={thumbUrl(photo, photoCrop, 700)} alt={`Profile photo of ${name}`}
             crossOrigin={photo.includes('cloudinary.com') ? 'anonymous' : undefined}
             className="absolute inset-0 w-full h-full object-cover object-[50%_30%]
                        motion-safe:transition-transform motion-safe:duration-700 group-hover:scale-105" />

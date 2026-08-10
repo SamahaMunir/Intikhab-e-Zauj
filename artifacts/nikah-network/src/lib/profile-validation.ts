@@ -106,6 +106,7 @@ export interface ProfileFormData {
   acceptMarriedPerson?: string;
   gender: 'male' | 'female';
   photo: string;
+  photoCrop?: string;
 }
 
 export const EMPTY_PROFILE_FORM = (gender: 'male' | 'female', name = ''): ProfileFormData => ({
@@ -119,5 +120,5 @@ export const EMPTY_PROFILE_FORM = (gender: 'male' | 'female', name = ''): Profil
   numMarriedSisters: 0, employedSiblingsDetails: '', siblingDisability: 'No',
   homeOwnership: 'owned', homeSize: 'kanal', areaValue: 0, matchCriteria: '',
   desiredMatchDetails: '', reference: '', referenceRelation: '',
-  acceptMarriedPerson: gender === 'female' ? 'No' : undefined, gender, photo: '',
+  acceptMarriedPerson: gender === 'female' ? 'No' : undefined, gender, photo: '', photoCrop: '',
 });
