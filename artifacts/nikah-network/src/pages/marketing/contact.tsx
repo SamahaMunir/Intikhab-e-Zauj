@@ -1,7 +1,9 @@
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import PublicLayout from '@/components/layout/PublicLayout';
 
 export default function Contact() {
   return (
+    <PublicLayout navAlwaysSolid>
     <div className="container mx-auto px-4 py-16 max-w-4xl">
       <h1 className="text-4xl font-serif font-bold mb-3">Contact Us</h1>
       <p className="text-lg text-muted-foreground mb-10">
@@ -47,5 +49,6 @@ export default function Contact() {
         </div>
       </div>
     </div>
+    </PublicLayout>
   );
 }

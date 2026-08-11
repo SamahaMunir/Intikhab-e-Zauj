@@ -1081,8 +1081,17 @@ function DualCTA() {
 function Footer() {
   const cols = {
     Platform: ['About', 'How It Works', 'Success Stories', 'Pricing'],
-    Support:  ['Counselling', 'Contact Us', 'Staff Assistance', 'FAQ'],
-    Legal:    ['Privacy Policy', 'Terms of Service', 'Community Guidelines'],
+    Support:  ['Counselling', 'Contact Us', 'Staff Assistance'],
+    Legal:    ['Privacy Policy', 'Terms and Conditions', 'Refund Policy', 'Ownership Statement'],
+  };
+
+  // Map footer labels → routes (matches PublicFooter; unknown labels fall back to home).
+  const hrefFor: Record<string, string> = {
+    'About': '/about', 'How It Works': '/how-it-works', 'Success Stories': '/success-stories',
+    'Pricing': '/pricing', 'Counselling': '/counselling', 'Contact Us': '/contact',
+    'Staff Assistance': '/staff-login', 'FAQ': '/faq',
+    'Privacy Policy': '/privacy', 'Terms and Conditions': '/terms',
+    'Refund Policy': '/refund', 'Ownership Statement': '/ownership',
   };
 
   return (
@@ -1139,10 +1148,10 @@ function Footer() {
               <ul className="space-y-3">
                 {links.map(l => (
                   <li key={l}>
-                    <a href="#"
+                    <Link href={hrefFor[l] ?? '/'}
                        className="text-white/40 hover:text-[#10B981] text-sm transition-colors">
                       {l}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
