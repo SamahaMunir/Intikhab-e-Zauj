@@ -231,7 +231,7 @@ export function PublicNavbar({ alwaysSolid = false }: { alwaysSolid?: boolean })
 export function PublicFooter() {
   const cols = {
     Platform: ['About', 'How It Works', 'Success Stories', 'Pricing'],
-    Support:  ['Counselling', 'Contact Us', 'Staff Assistance', 'FAQ'],
+    Support:  ['Counselling', 'Contact Us', 'Staff Assistance'],
     Legal:    ['Privacy Policy', 'Terms and Conditions', 'Refund Policy', 'Ownership Statement'],
   };
 
