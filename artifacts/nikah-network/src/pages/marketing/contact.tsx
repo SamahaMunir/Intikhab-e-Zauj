@@ -21,12 +21,12 @@ export default function Contact() {
           </span>
         </a>
 
-        <a href="tel:+923366964964"
+        <a href="tel:+923367356379"
            className="flex items-start gap-3 rounded-xl border p-5 hover:border-primary transition-colors">
           <Phone className="h-5 w-5 text-primary mt-0.5 shrink-0" aria-hidden="true" />
           <span>
             <span className="block font-semibold">Phone</span>
-            <span className="text-sm text-muted-foreground">0336-6964964 (Cell) · 042-32488223 (Office)</span>
+            <span className="text-sm text-muted-foreground">0336-7356379 (Cell) · 042-32488223 (Office)</span>
           </span>
         </a>
 

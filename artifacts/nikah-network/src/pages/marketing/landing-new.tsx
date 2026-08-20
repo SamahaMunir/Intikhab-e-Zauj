@@ -347,8 +347,8 @@ function Hero() {
 function TrustBar() {
   const items = [
     { icon: Shield,      label: '100% Staff-Reviewed'        },
-    { icon: Users,       label: '2,400+ Profiles Approved'   },
-    { icon: Star,        label: '600+ Success Stories'       },
+    { icon: Users,       label: '900+ Profiles Approved'     },
+    { icon: Star,        label: '300+ Success Stories'       },
     { icon: CheckCircle2,label: 'PKR 4,000 / Year — No Hidden Fees' },
   ];
   return (
@@ -883,9 +883,9 @@ function Pricing() {
 // ═════════════════════════════════════════════════════════════════════════════
 function Stats() {
   const items = [
-    { icon: Heart,       value: '600+',   label: 'Success Stories'   },
-    { icon: Users,       value: '2,400+', label: 'Profiles Reviewed' },
-    { icon: Award,       value: '15+',    label: 'Years of Service'  },
+    { icon: Heart,       value: '300+',   label: 'Success Stories'   },
+    { icon: Users,       value: '900+',   label: 'Profiles Reviewed' },
+    { icon: Award,       value: '10+',    label: 'Years of Service'  },
     { icon: Shield,      value: '100%',   label: 'Staff-Mediated'    },
   ];
 
@@ -1126,11 +1126,11 @@ function Footer() {
                 <Mail className="w-4 h-4" aria-hidden="true"/>
                 info.fkcenter@gmail.com
               </a>
-              <a href="tel:+923366964964"
+              <a href="tel:+923367356379"
                  className="flex items-center gap-2 text-white/40 hover:text-[#10B981]
                             text-sm transition-colors">
                 <Phone className="w-4 h-4" aria-hidden="true"/>
-                0336-6964964
+                0336-7356379
               </a>
               <p className="flex items-start gap-2 text-white/40 text-sm">
                 <MapPin className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true"/>
