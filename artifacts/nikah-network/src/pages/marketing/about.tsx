@@ -293,7 +293,7 @@ export default function About() {
                 { value: '100-pt', label: 'Compatibility Score' },
                 { value: '100%',   label: 'Staff-Mediated'      },
                 { value: 'PKR 4K', label: 'Per Year'            },
-                { value: '600+',   label: 'Success Stories'     },
+                { value: '300+',   label: 'Success Stories'     },
               ].map(s => (
                 <div key={s.label}
                      className="bg-white/8 backdrop-blur-sm rounded-2xl border border-white/15

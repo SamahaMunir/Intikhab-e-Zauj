@@ -82,7 +82,7 @@ export function PrivacyPolicy() {
       <p>
         Intikhab-e-Zauj<br />
         30-G/1, Johar Town, Lahore, Pakistan<br />
-        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-6964964 (Cell)
+        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
       </p>
     </LegalShell>
   );
@@ -142,7 +142,7 @@ export function TermsAndConditions() {
 
       <h2>Contact</h2>
       <p>
-        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-6964964 (Cell)
+        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
       </p>
     </LegalShell>
   );
@@ -188,7 +188,7 @@ export function RefundPolicy() {
       <h2>Contact</h2>
       <p>
         Intikhab-e-Zauj · Email:{' '}
-        <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-6964964 (Cell)
+        <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
       </p>
     </LegalShell>
   );
@@ -226,7 +226,7 @@ export function OwnershipStatement() {
 
       <h2>Contact</h2>
       <p>
-        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-6964964 (Cell)
+        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
       </p>
     </LegalShell>
   );
