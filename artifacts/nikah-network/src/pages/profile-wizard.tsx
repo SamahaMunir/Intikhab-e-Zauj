@@ -1016,7 +1016,7 @@ export default function ProfileWizard() {
           <div className="h-full bg-green-600 transition-all" style={{ width: `${(step / totalSteps) * 100}%` }} />
         </div>
         {error && <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">{error}</div>}
-        <div ref={formRef} className="bg-white p-8 rounded-lg shadow-md">{step === 1 && renderStep1()}{step === 2 && renderStep2()}{step === 3 && renderStep3()}{step === 4 && renderStep4()}</div>
+        <div ref={formRef} className={`bg-white p-8 rounded-lg shadow-md border-2 ${formData.gender === 'female' ? 'border-pink-200' : 'border-blue-200'}`}>{step === 1 && renderStep1()}{step === 2 && renderStep2()}{step === 3 && renderStep3()}{step === 4 && renderStep4()}</div>
         <div className="mt-8 flex justify-between gap-4">
           <button onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1} className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50">Previous</button>
           {step < totalSteps ? (
