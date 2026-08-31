@@ -83,7 +83,7 @@ export async function inviteStaff(
   // Mark provenance so staff docs are clearly distinguishable in the shared collection.
   const result = await usersCol.insertOne({ ...staff, source: 'staff_entry', registeredBy: 'staff' });
 
-  const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/staff/setup?token=${inviteToken}`;
+  const inviteLink = `${process.env.FRONTEND_URL || 'https://intikhab-e-zauj.org'}/staff/setup?token=${inviteToken}`;
 
   return {
     staff: { ...staff, _id: result.insertedId },
@@ -213,6 +213,6 @@ export async function resendInvite(email: string): Promise<string> {
     throw new Error('Staff not found');
   }
 
-  const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/staff/setup?token=${inviteToken}`;
+  const inviteLink = `${process.env.FRONTEND_URL || 'https://intikhab-e-zauj.org'}/staff/setup?token=${inviteToken}`;
   return inviteLink;
 }
