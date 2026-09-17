@@ -35,7 +35,7 @@ export interface LLMResponse {
 
 const DEFAULT_MODELS: Record<LLMProvider, string> = {
   claude: 'claude-haiku-4-5',
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-3.6-flash',
   openai: 'gpt-4o-mini',
   deepseek: 'deepseek-chat',
 };
