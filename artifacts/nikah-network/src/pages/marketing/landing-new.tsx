@@ -291,7 +291,7 @@ function Hero() {
                         bg-white/12 border border-white/20 backdrop-blur-sm">
           <span className="w-2 h-2 rounded-full bg-[#D97706] animate-pulse"/>
           <span className="text-white/80 text-sm font-semibold">
-            Official Platform of Falah Khandan Center, Lahore
+            Trusted Matchmaking Platform, Lahore
           </span>
         </div>
 
@@ -899,7 +899,7 @@ function Stats() {
         <RevealWrapper className="text-center mb-14">
           <div className="inline-block px-5 py-2 rounded-full bg-white/12 border border-white/20
                           text-white font-semibold text-sm mb-5 backdrop-blur-sm">
-            Trusted by Falah Khandan Center — Women Commission, Lahore
+            Serving Families Across Lahore
           </div>
           <h2 id="stats-heading" className="text-4xl font-bold text-white mb-4">
             A Community We're Proud to Serve
@@ -1114,27 +1114,25 @@ function Footer() {
               transparency, and halal connections.
             </p>
             <p className="text-white/30 text-xs">
-              Affiliated with<br/>
-              <span className="text-white/50 font-semibold">Falah Khandan Center</span><br/>
-              Women Commission, Lahore
+              Based in Lahore, Pakistan
             </p>
 
             <div className="mt-6 space-y-2">
-              <a href="mailto:info.fkcenter@gmail.com"
+              <a href="mailto:support@intikhab-e-zauj.org"
                  className="flex items-center gap-2 text-white/40 hover:text-[#10B981]
                             text-sm transition-colors">
                 <Mail className="w-4 h-4" aria-hidden="true"/>
-                info.fkcenter@gmail.com
+                support@intikhab-e-zauj.org
               </a>
-              <a href="tel:+923367356379"
+              <a href="tel:+923000000000"
                  className="flex items-center gap-2 text-white/40 hover:text-[#10B981]
                             text-sm transition-colors">
                 <Phone className="w-4 h-4" aria-hidden="true"/>
-                0336-7356379
+                0300-0000000
               </a>
               <p className="flex items-start gap-2 text-white/40 text-sm">
                 <MapPin className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true"/>
-                Falah Khandan Center, Lahore, Pakistan
+                Lahore, Pakistan
               </p>
             </div>
           </div>

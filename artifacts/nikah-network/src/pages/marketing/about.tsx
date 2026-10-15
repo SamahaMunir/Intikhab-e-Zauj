@@ -142,13 +142,13 @@ export default function About() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-7
                           bg-white/10 border border-white/15 text-white/75 text-sm font-semibold">
             <span className="w-2 h-2 rounded-full bg-[#D97706]"/>
-            Falah Khandan Center — Women Commission, Lahore
+            Lahore, Pakistan
           </div>
           <h1 className="font-amiri text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
-            About <span className="text-[#D97706]">Falah Khandan Center</span>
+            About <span className="text-[#D97706]">Intikhab-e-Zauj</span>
           </h1>
           <p className="text-xl text-white/65 max-w-3xl mx-auto leading-relaxed mb-10">
-            Intikhab-e-Zauj is a matrimonial facilitation project of Falah Khandan Center,
+            Intikhab-e-Zauj is a matrimonial facilitation platform
             dedicated to strengthening families through Islamic values and responsible matchmaking.
           </p>
           <Link href="/quick-register">
@@ -168,20 +168,20 @@ export default function About() {
           <RevealWrapper>
             <p className="font-amiri text-[#D97706] text-lg mb-2 tracking-wide">Who We Are</p>
             <h2 id="intro-heading" className="text-4xl font-bold text-[#1C1917] mb-6">
-              Falah Khandan Center
+              Intikhab-e-Zauj
             </h2>
             <p className="text-lg text-stone-600 leading-relaxed mb-5">
-              <strong className="text-[#1C1917]">Falah Khandan Center (FKC)</strong> believes
+              <strong className="text-[#1C1917]">Intikhab-e-Zauj</strong> believes
               that the family unit is the foundation of a healthy and successful society.
             </p>
             <p className="text-base text-stone-500 leading-relaxed mb-5">
               Islam aims to develop a society grounded in timeless values — ones that begin
-              at home and radiate outward to the entire community. FKC exists to cultivate
+              at home and radiate outward to the entire community. We exist to cultivate
               those values in Pakistani families through education, support, and guided intervention.
             </p>
             <p className="text-base text-stone-500 leading-relaxed mb-8">
               The family institution plays a central role in cultivating these values and
-              preserving future generations — and FKC stands at that centre.
+              preserving future generations — and we stand at that centre.
             </p>
             <Link href="/quick-register">
               <span className="cursor-pointer inline-flex items-center gap-2 px-6 py-3 rounded-xl
@@ -230,7 +230,7 @@ export default function About() {
             <SectionHead
               eyebrow="What We Stand For"
               title="Our Objectives"
-              body="Nine guiding principles that shape every program, service, and initiative at Falah Khandan Center."
+              body="Nine guiding principles that shape every program, service, and initiative at Intikhab-e-Zauj."
             />
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -260,7 +260,7 @@ export default function About() {
               Intikhab-e-Zauj
             </h2>
             <p className="text-xl text-white/70 mb-6 leading-relaxed">
-              A matrimonial facilitation platform developed under Falah Khandan Center —
+              A matrimonial facilitation platform
               combining Islamic values with modern, staff-mediated matchmaking.
             </p>
             <ul className="space-y-3 mb-8">
@@ -442,8 +442,8 @@ export default function About() {
               Ready to Find a Guided Match?
             </h2>
             <p className="text-xl text-white/65 max-w-2xl mx-auto mb-10">
-              Register on Intikhab-e-Zauj — the matrimonial project of Falah Khandan Center.
-              Staff-reviewed, transparent, and rooted in Islamic values.
+              Register on Intikhab-e-Zauj — staff-reviewed, transparent,
+              and rooted in Islamic values.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/quick-register">

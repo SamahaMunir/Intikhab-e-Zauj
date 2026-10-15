@@ -15,7 +15,7 @@ export default function Home() {
               Where families find <span className="text-primary italic">barakah</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto md:mx-0">
-              A secure, staff-moderated matrimonial platform by Falah Khandan Center. We prioritize respect, privacy, and family involvement.
+              A secure, staff-moderated matrimonial platform. We prioritize respect, privacy, and family involvement.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
               <Link href="/register">
@@ -143,7 +143,7 @@ export default function Home() {
         <div className="container mx-auto px-4 text-center max-w-3xl">
           <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6">Pre & Post Marriage Counselling</h2>
           <p className="text-lg mb-8 opacity-90">
-            Marriage is a journey. Falah Khandan Center provides professional counselling services to help you build a strong foundation and navigate challenges together.
+            Marriage is a journey. We provide professional counselling services to help you build a strong foundation and navigate challenges together.
           </p>
           <Link href="/counselling">
             <Button variant="secondary" size="lg" className="text-primary font-medium">Learn About Counselling</Button>

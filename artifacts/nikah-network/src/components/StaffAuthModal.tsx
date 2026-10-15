@@ -87,7 +87,7 @@ export default function StaffAuthModal() {
       <NeuSocialRow />
 
       <p className="mt-5 text-center text-xs text-gray-400">
-        Staff access only · Authorised personnel of Falah Khandan Center
+        Staff access only · Authorised personnel of Intikhab-e-Zauj
       </p>
     </AuthModalShell>
   );

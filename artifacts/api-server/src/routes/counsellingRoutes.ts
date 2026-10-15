@@ -5,7 +5,7 @@ import { logAudit } from '../db/auditLogs';
 import { type AuthRequest } from '../middleware/auth';
 
 /**
- * Pre/Post-marriage counselling requests (a service Falah-e-Khandan provides).
+ * Pre/Post-marriage counselling requests.
  *
  * Flow: an applicant submits a request (type + topic) → it lands in the staff
  * queue as `pending` → staff assign a counsellor, schedule it, and mark it
