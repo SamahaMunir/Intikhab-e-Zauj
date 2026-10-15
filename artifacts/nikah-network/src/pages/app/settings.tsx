@@ -120,7 +120,7 @@ export default function AppSettings() {
         <CardContent>
           <div className="p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
             <p className="font-medium text-gray-900 mb-1">Data Retention Notice</p>
-            As part of Falah-e-Khandan Center guidelines, your data is kept secure and never shared with third parties.
+            As part of our platform guidelines, your data is kept secure and never shared with third parties.
           </div>
         </CardContent>
       </Card>

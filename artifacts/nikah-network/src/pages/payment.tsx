@@ -9,11 +9,11 @@ const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 // Company UBL details. For true "scan → amount prefilled", drop the UBL Raast
 // merchant QR image at public/payment-qr.png — it replaces the generated one.
 const BANK = {
-  bankName:      'United Bank Limited (UBL)',
-  branch:        'Gulberg Branch, Lahore',
-  accountTitle:  'Falah-e-Khandan Trust',
-  accountNumber: '0110 0020 1015 5404',
-  iban:          'PK81 UNIL 0110 0020 1015 5404',
+  bankName:      'Your Bank Name',
+  branch:        'Branch, City',
+  accountTitle:  'Intikhab-e-Zauj',
+  accountNumber: '0000 0000 0000 0000',
+  iban:          'PK00 XXXX 0000 0000 0000 0000',
 };
 // Drop the UBL Raast merchant QR at public/payment-qr.png — it then shows
 // automatically. Until it exists, the QR is hidden and only account details show.

@@ -75,14 +75,14 @@ export function PrivacyPolicy() {
       <p>
         You may request access to, correction of, or deletion of your personal
         data, and you may deactivate your profile at any time, by contacting us at{' '}
-        <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a>.
+        <a href="mailto:support@intikhab-e-zauj.org">support@intikhab-e-zauj.org</a>.
       </p>
 
       <h2>Contact</h2>
       <p>
         Intikhab-e-Zauj<br />
-        30-G/1, Johar Town, Lahore, Pakistan<br />
-        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
+        Lahore, Pakistan<br />
+        Email: <a href="mailto:support@intikhab-e-zauj.org">support@intikhab-e-zauj.org</a> · Phone: 042-0000000 (Tel) · 0300-0000000 (Cell)
       </p>
     </LegalShell>
   );
@@ -142,7 +142,7 @@ export function TermsAndConditions() {
 
       <h2>Contact</h2>
       <p>
-        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
+        Email: <a href="mailto:support@intikhab-e-zauj.org">support@intikhab-e-zauj.org</a> · Phone: 042-0000000 (Tel) · 0300-0000000 (Cell)
       </p>
     </LegalShell>
   );
@@ -178,7 +178,7 @@ export function RefundPolicy() {
 
       <h2>How to request a refund</h2>
       <p>
-        Email <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> from your
+        Email <a href="mailto:support@intikhab-e-zauj.org">support@intikhab-e-zauj.org</a> from your
         registered email with your name and payment reference. Approved refunds are
         returned to your original payment method within{' '}
         <strong>[7–10] business days</strong>. Processing times may vary depending
@@ -188,7 +188,7 @@ export function RefundPolicy() {
       <h2>Contact</h2>
       <p>
         Intikhab-e-Zauj · Email:{' '}
-        <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
+        <a href="mailto:support@intikhab-e-zauj.org">support@intikhab-e-zauj.org</a> · Phone: 042-0000000 (Tel) · 0300-0000000 (Cell)
       </p>
     </LegalShell>
   );
@@ -202,8 +202,7 @@ export function OwnershipStatement() {
         This website and the {SERVICE} service are owned and operated by:
       </p>
       <p>
-        <strong>Falah-e-Khandan Trust</strong>, operating as <strong>Intikhab-e-Zauj</strong><br />
-        30-G/1, Johar Town<br />
+        <strong>Intikhab-e-Zauj</strong><br />
         Lahore, Pakistan<br />
         Registration Type: Sole Proprietorship<br />
         Business Registration / NTN: In process
@@ -226,7 +225,7 @@ export function OwnershipStatement() {
 
       <h2>Contact</h2>
       <p>
-        Email: <a href="mailto:info.fkcenter@gmail.com">info.fkcenter@gmail.com</a> · Phone: 042-32488223 (Tel) · 0336-7356379 (Cell)
+        Email: <a href="mailto:support@intikhab-e-zauj.org">support@intikhab-e-zauj.org</a> · Phone: 042-0000000 (Tel) · 0300-0000000 (Cell)
       </p>
     </LegalShell>
   );

@@ -101,7 +101,7 @@ export default function AppCounselling() {
         <div>
           <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900">Counselling</h1>
           <p className="text-gray-500 text-sm mt-1">
-            Falah-e-Khandan offers confidential pre- and post-marriage counselling. Request a session and our team will assign a counsellor.
+            We offer confidential pre- and post-marriage counselling. Request a session and our team will assign a counsellor.
           </p>
         </div>
       </div>

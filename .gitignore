@@ -17,6 +17,7 @@ node_modules
 .env.production
 .env.development
 .env.local
+!.env.example
 .gitignore
 
 # IDEs and editors
