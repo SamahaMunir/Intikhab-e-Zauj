@@ -15,21 +15,29 @@ tags: []
   `utils/email.ts` reference `JAZZCASH_*`, `SMS_*`, `EMAIL_USER/PASSWORD` env vars
   that are **not set** in `.env.local`. Payment, SMS, and email will fail or
   no-op in production until configured. → set + test before launch.
-- **Stale architecture docs.** `replit.md` says "PostgreSQL + Drizzle"; real DB is
-  **MongoDB Atlas** (`db/connection.ts`). `lib/db` (Drizzle/pg) is unused
-  scaffold. → fix `replit.md` or delete the dead `lib/db` to stop confusion.
+- ~~Stale architecture docs~~ — **fixed.** `lib/db` (unused Drizzle/pg scaffold)
+  deleted along with its references in `tsconfig.json` and
+  `api-server/package.json`'s typecheck script and dependencies. `replit.md`
+  already correctly described MongoDB as the live DB.
 
 ## P1 — high
 
 - **Multiple auth/register route variants:** `auth.ts`, `auth-simple.ts`,
   `user-auth.ts`, `register.ts`. Risk of inconsistent token/ID handling across
   them. → confirm which is canonical; delete the rest.
-- **RAG may be silently off.** Vector search needs `VECTOR_SEARCH_ENABLED`,
-  `VECTOR_INDEX_NAME`, `VECTOR_COLLECTION`, and an embeddings key
-  (`EMBEDDINGS_*`) — none set in `.env.local`. AI insights then run without
-  precedent retrieval. → confirm intended behavior.
-- **No env validation at boot.** Missing keys surface as runtime failures, not
-  startup errors. → add a Zod env check on boot (you already use Zod).
+- ~~RAG may be silently off~~ — **confirmed intentional**, not a bug.
+  `vectorSearch.ts` documents vector search as an "OFF by default... Phase 2"
+  seam: `vectorSearchEnabled()` requires `VECTOR_SEARCH_ENABLED=true` + a
+  configured embeddings provider, and `findSimilarByVector` returns `null`
+  (never throws) when unavailable, so the caller falls back to categorical
+  retrieval. AI insights run fine without it; vector search is a future
+  upgrade, not a missing requirement.
+- ~~No env validation at boot~~ — **already done.** `loadEnv.ts` (imported
+  first in `index.ts`) fails fast with a clear message if `DATABASE_URL` or
+  `JWT_SECRET` is missing, and warns at boot which optional integrations
+  (email, Safepay, Cloudinary, SMS, LLM) are inactive. Plain checks rather
+  than a Zod schema, but solves the actual problem — missing keys are now a
+  startup-time warning, not a deep runtime crash.
 
 ## P2 — medium
 
@@ -39,9 +47,9 @@ tags: []
 - **Counselling backend** unconfirmed — frontend pages exist on all 3 surfaces.
 - **Loose typing in LLM layer** (`any` on fetch responses in `llm-provider.ts`).
   Acceptable for external JSON, but validate critical fields.
-- **Root clutter:** several status markdowns (`IMPLEMENTATION_REPORT.md`,
-  `VERIFICATION_COMPLETE.md`, etc.) + `structure.txt` (1MB) + loose scripts
-  (`add-user-profile.js`, `body.json`) at repo root. → move to `docs/` or delete.
+- ~~Root clutter~~ — **fixed.** Status markdowns already live in `docs/`; the
+  stray `structure.txt`, `add-user-profile.js`, and `body.json` no longer exist
+  at root.
 
 ## Things that are GOOD (don't "fix")
 
