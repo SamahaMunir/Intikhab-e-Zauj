@@ -1,7 +1,7 @@
 import { useStore } from "@/lib/store";
 import {
   LayoutDashboard, Users, Heart, FileText, MessageSquare,
-  HeartHandshake, ClipboardList, Settings, UserCog, Wallet,
+  ClipboardList, Settings, UserCog, Wallet,
 } from "lucide-react";
 import DashboardShell, { type DashNav } from "@/components/layout/DashboardShell";
 import { clearSession, getStoredUser } from "@/lib/auth";
@@ -13,7 +13,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/staff/proposals':        'Proposals',
   '/staff/payments':         'Payment Verification',
   '/staff/messages':         'Ongoing Chats',
-  '/staff/counselling':      'Counselling',
   '/staff/audit':            'Audit Logs',
   '/staff/config':           'Settings',
   '/staff/admin-panel':      'Staff Management',
@@ -35,7 +34,6 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     { href: "/staff/proposals",   label: "Proposals",      icon: FileText        },
     { href: "/staff/payments",    label: "Payments",       icon: Wallet          },
     { href: "/staff/messages",    label: "Ongoing Chats",  icon: MessageSquare   },
-    { href: "/staff/counselling", label: "Counselling",    icon: HeartHandshake  },
     { href: "/staff/audit",       label: "Audit Logs",     icon: ClipboardList   },
     { href: "/staff/config",      label: "Settings",       icon: Settings        },
   ];

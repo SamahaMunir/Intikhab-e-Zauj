@@ -11,7 +11,6 @@ import Home from "@/pages/marketing/home";
 import LandingNew from "@/pages/marketing/landing-new";
 import About from "@/pages/marketing/about";
 import HowItWorks from "@/pages/marketing/how-it-works";
-import Counselling from "@/pages/marketing/counselling";
 import Pricing from "@/pages/marketing/pricing";
 import StaffLogin from "@/pages/marketing/staff-login";
 import StaffRegister from "@/pages/marketing/staff-register";
@@ -36,7 +35,6 @@ import AppMatchDetail from "@/pages/app/match-detail";
 import AppProposals from "@/pages/app/proposals";
 import AppProposalDetail from "@/pages/app/proposal-detail";
 import AppProfile from "@/pages/app/profile";
-import AppCounselling from "@/pages/app/counselling";
 import AppSettings from "@/pages/app/settings";
 
 // Staff Portal
@@ -48,7 +46,6 @@ import StaffPayments from "@/pages/staff/payments";
 import StaffMatches from "@/pages/staff/matches";
 import StaffProposals from "@/pages/staff/proposals";
 import StaffMessages from "@/pages/staff/messages";
-import StaffCounselling from "@/pages/staff/counselling";
 import StaffAudit from "@/pages/staff/audit";
 import StaffConfig from "@/pages/staff/config";
 import AdminPanel from '@/pages/staff/admin-panel';
@@ -71,7 +68,6 @@ function MarketingRouter() {
         <Route path="/home-old" component={Home} />
         <Route path="/about" component={About} />
         <Route path="/how-it-works" component={HowItWorks} />
-        <Route path="/counselling" component={Counselling} />
         <Route path="/pricing" component={Pricing} />
         <Route path="/success-stories" component={SuccessStories} />
         <Route path="/contact" component={Contact} />
@@ -123,7 +119,6 @@ function AppPortalRouter() {
         <Route path="/app/proposals" component={AppProposals} />
         <Route path="/app/proposals/:id" component={AppProposalDetail} />
         <Route path="/app/profile" component={AppProfile} />
-        <Route path="/app/counselling" component={AppCounselling} />
         <Route path="/app/settings" component={AppSettings} />
         
         {/* 404 */}
@@ -164,7 +159,6 @@ function StaffPortalRouter() {
         <Route path="/staff/proposals" component={StaffProposals} />
         <Route path="/staff/payments" component={StaffPayments} />
         <Route path="/staff/messages" component={StaffMessages} />
-        <Route path="/staff/counselling" component={StaffCounselling} />
         <Route path="/staff/audit" component={StaffAudit} />
         <Route path="/staff/config" component={StaffConfig} />
         <Route path="/staff/admin-panel" component={AdminPanel} />
