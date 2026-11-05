@@ -85,7 +85,6 @@ const NAV_LINKS: NavLink[] = [
   { label: 'How It Works',    href: '#how'                },
   { label: 'Q&A System',      href: '#qa'                 },
   { label: 'Success Stories', href: '#stats'              },
-  { label: 'Counselling',     href: '#counsel'            },
   { label: 'Contact',         href: '#contact'            },
 ];
 
@@ -231,14 +230,14 @@ export function PublicNavbar({ alwaysSolid = false }: { alwaysSolid?: boolean })
 export function PublicFooter() {
   const cols = {
     Platform: ['About', 'How It Works', 'Success Stories', 'Pricing'],
-    Support:  ['Counselling', 'Contact Us', 'Staff Assistance'],
+    Support:  ['Contact Us', 'Staff Assistance'],
     Legal:    ['Privacy Policy', 'Terms and Conditions', 'Refund Policy', 'Ownership Statement'],
   };
 
   // Map footer labels → routes (unknown labels fall back to home).
   const hrefFor: Record<string, string> = {
     'About': '/about', 'How It Works': '/how-it-works', 'Success Stories': '/success-stories',
-    'Pricing': '/pricing', 'Counselling': '/counselling', 'Contact Us': '/contact',
+    'Pricing': '/pricing', 'Contact Us': '/contact',
     'Staff Assistance': '/staff-login', 'FAQ': '/faq',
     'Privacy Policy': '/privacy', 'Terms and Conditions': '/terms',
     'Refund Policy': '/refund', 'Ownership Statement': '/ownership',

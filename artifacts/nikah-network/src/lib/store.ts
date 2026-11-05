@@ -117,22 +117,12 @@ export interface AuditLog {
   timestamp: string;
 }
 
-export interface CounsellingRequest {
-  id: string;
-  userId: string;
-  type: "pre_marriage" | "post_marriage";
-  status: "pending" | "assigned" | "completed";
-  topic: string;
-  createdAt: string;
-}
-
 interface AppState {
   currentUser: User | null;
   users: User[];
   matches: Match[];
   proposals: Proposal[];
   messages: Message[];
-  counselling: CounsellingRequest[];
   auditLogs: AuditLog[];
   config: Config;
 
@@ -157,9 +147,6 @@ interface AppState {
   rejectProfile: (id: string, staffId: string, reason: string) => void;
   register: (user: User) => void;
   flagMessage: (id: string, staffId: string, reason: string) => void;
-  requestCounselling: (userId: string, type: "pre_marriage" | "post_marriage", topic: string) => void;
-  assignCounselling: (id: string, staffId: string) => void;
-  completeCounselling: (id: string, staffId: string) => void;
   updateConfig: (config: Partial<Config>) => void;
 }
 
@@ -234,9 +221,6 @@ export const useStore = create<AppState>()(
       ],
       messages: [
         { id: "msg1", proposalId: "p1", senderId: "u2", text: "What are your expectations regarding living arrangements after marriage?", type: "question", status: "approved", createdAt: subDays(new Date(), 1).toISOString() }
-      ],
-      counselling: [
-        { id: "c1", userId: "u1", type: "pre_marriage", status: "pending", topic: "Financial Planning", createdAt: new Date().toISOString() }
       ],
       auditLogs: [],
      config: {
@@ -381,33 +365,6 @@ export const useStore = create<AppState>()(
         const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "flag_message", resourceType: "message", resourceId: id, reason, timestamp: new Date().toISOString() };
         return {
           messages: state.messages.map(m => m.id === id ? { ...m, status: "rejected" } : m),
-          auditLogs: [...state.auditLogs, log]
-        };
-      }),
-
-      requestCounselling: (userId, type, topic) => set(state => ({
-        counselling: [...state.counselling, {
-          id: `c${Date.now()}`,
-          userId,
-          type,
-          topic,
-          status: "pending",
-          createdAt: new Date().toISOString()
-        }]
-      })),
-
-      assignCounselling: (id, staffId) => set(state => {
-        const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "assign_counselling", resourceType: "counselling", resourceId: id, reason: "Assigned to staff", timestamp: new Date().toISOString() };
-        return {
-          counselling: state.counselling.map(c => c.id === id ? { ...c, status: "assigned" } : c),
-          auditLogs: [...state.auditLogs, log]
-        };
-      }),
-
-      completeCounselling: (id, staffId) => set(state => {
-        const log: AuditLog = { id: `al${Date.now()}`, staffId, action: "complete_counselling", resourceType: "counselling", resourceId: id, reason: "Session completed", timestamp: new Date().toISOString() };
-        return {
-          counselling: state.counselling.map(c => c.id === id ? { ...c, status: "completed" } : c),
           auditLogs: [...state.auditLogs, log]
         };
       }),

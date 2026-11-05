@@ -138,7 +138,6 @@ function Navbar() {
     { label: 'How It Works',    href: '#how'                  },
     { label: 'Q&A System',      href: '#qa'                   },
     { label: 'Success Stories', href: '#stats'                },
-    { label: 'Counselling',     href: '#counsel'              },
     { label: 'Contact',         href: '#contact'              },
   ];
 
@@ -800,7 +799,6 @@ function Pricing() {
     'Unlimited suggested matches',
     'Staff-curated Q&A access',
     'Proposal send and receive',
-    'One counselling consultation',
     'Email support & staff assistance',
     'No hidden fees, ever',
   ];
@@ -939,71 +937,6 @@ function Stats() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// COUNSELLING
-// ═════════════════════════════════════════════════════════════════════════════
-function Counselling() {
-  const features = [
-    { icon: Users,       text: 'Family compatibility assessment sessions'        },
-    { icon: CheckCircle2,text: 'Expectation and lifestyle alignment discussions' },
-    { icon: Heart,       text: 'Islamic guidance on marriage criteria'           },
-    { icon: MapPin,      text: 'Family introduction support and facilitation'    },
-  ];
-
-  return (
-    <section id="counsel" aria-labelledby="counsel-heading" className="py-24 bg-[#FDF8F3]">
-      <div className="max-w-5xl mx-auto px-6">
-        <RevealWrapper>
-          <div className="bg-white rounded-3xl border border-[#E8DED3] p-10 md:p-14 shadow-warm
-                          flex flex-col md:flex-row gap-10 items-center">
-            <div className="flex-1">
-              <p className="font-amiri text-[#D97706] text-lg mb-2 tracking-wide">Beyond Matching</p>
-              <h2 id="counsel-heading" className="text-3xl font-bold text-[#1C1917] mb-4">
-                Pre-Nikah & Post-Nikah Counselling
-              </h2>
-              <p className="text-lg text-stone-500 leading-relaxed mb-6">
-                Our trained counsellors walk families through every stage — from first inquiry
-                to final acceptance. Conducted in-person, online, or by phone.
-                Strictly halal. Family-inclusive.
-              </p>
-              <ul className="space-y-3 mb-8" aria-label="Counselling services">
-                {features.map(({ icon: Icon, text }) => (
-                  <li key={text} className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-[#10B981]/20
-                                    flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4 text-[#10B981]" aria-hidden="true"/>
-                    </div>
-                    <span className="text-base text-stone-600 mt-1">{text}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href="/counselling">
-                <span className="cursor-pointer inline-block px-7 py-4 rounded-xl font-bold text-base
-                                 bg-[#10B981] hover:bg-[#059669] text-white transition-all
-                                 hover:scale-[1.02] hover:shadow-[0_4px_16px_rgba(16,185,129,0.3)]">
-                  Book a Counselling Session
-                </span>
-              </Link>
-            </div>
-
-            {/* Decorative panel */}
-            <div className="hidden md:flex w-60 h-60 shrink-0 rounded-2xl relative overflow-hidden
-                            bg-linear-to-br from-[#065F46] to-[#10B981] items-center justify-center">
-              <GeoPattern id="counsel-geo" opacity={0.12}/>
-              <div className="relative z-10 text-center px-4">
-                <p className="font-amiri text-white text-5xl mb-3" lang="ar">الزَّوَاج</p>
-                <p className="text-white/55 text-sm font-semibold uppercase tracking-widest">
-                  Blessed Union
-                </p>
-              </div>
-            </div>
-          </div>
-        </RevealWrapper>
-      </div>
-    </section>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
 // DUAL CTA
 // ═════════════════════════════════════════════════════════════════════════════
 function DualCTA() {
@@ -1081,14 +1014,14 @@ function DualCTA() {
 function Footer() {
   const cols = {
     Platform: ['About', 'How It Works', 'Success Stories', 'Pricing'],
-    Support:  ['Counselling', 'Contact Us', 'Staff Assistance'],
+    Support:  ['Contact Us', 'Staff Assistance'],
     Legal:    ['Privacy Policy', 'Terms and Conditions', 'Refund Policy', 'Ownership Statement'],
   };
 
   // Map footer labels → routes (matches PublicFooter; unknown labels fall back to home).
   const hrefFor: Record<string, string> = {
     'About': '/about', 'How It Works': '/how-it-works', 'Success Stories': '/success-stories',
-    'Pricing': '/pricing', 'Counselling': '/counselling', 'Contact Us': '/contact',
+    'Pricing': '/pricing', 'Contact Us': '/contact',
     'Staff Assistance': '/staff-login', 'FAQ': '/faq',
     'Privacy Policy': '/privacy', 'Terms and Conditions': '/terms',
     'Refund Policy': '/refund', 'Ownership Statement': '/ownership',
@@ -1202,7 +1135,6 @@ export default function LandingNew() {
       <StaffVetting />
       <Pricing />
       <Stats />
-      <Counselling />
       <DualCTA />
       <Footer />
     </main>

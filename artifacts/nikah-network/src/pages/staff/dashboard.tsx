@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { getToken } from '@/lib/auth';
 import {
   Users, Clock, CheckCircle2, Heart, ArrowRight, UserPlus, ClipboardCheck,
-  Sparkles, FileText, ShieldCheck, HeartHandshake,
+  Sparkles, FileText, ShieldCheck,
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -59,7 +59,6 @@ export default function StaffDashboard() {
     { label: 'Profiles',         icon: Users,          to: '/staff/profiles',         color: 'text-sky-500' },
     { label: 'Proposals',        icon: FileText,       to: '/staff/proposals',        color: 'text-rose-500' },
     { label: 'Chats',            icon: ShieldCheck,    to: '/staff/messages',         color: 'text-primary' },
-    { label: 'Counselling',      icon: HeartHandshake, to: '/staff/counselling',      color: 'text-[#D97706]' },
     { label: 'Audit Logs',       icon: ClipboardCheck, to: '/staff/audit',            color: 'text-muted-foreground' },
   ];
 

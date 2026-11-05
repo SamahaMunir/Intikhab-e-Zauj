@@ -1,8 +1,8 @@
 import { Link } from 'wouter';
 import {
   Shield, Heart, Users, BookOpen, FileText, BarChart3, MessageCircle,
-  Home, Star, GraduationCap, Book, Mic, Activity, Package, Brain,
-  Search, Phone, Scale, Check, ChevronRight,
+  Home, Star, GraduationCap, Book, Mic, Activity, Package,
+  Search, Scale, Check, ChevronRight,
 } from 'lucide-react';
 import {
   PublicNavbar, PublicFooter, GeoPattern, RevealWrapper, LogoMark,
@@ -84,7 +84,6 @@ export default function About() {
     { icon: BookOpen,      title: 'Monthly Lectures',     body: 'Regular scholarly lectures on family, marriage, and Islamic values open to the public.' },
     { icon: MessageCircle, title: 'Discussion Forums',    body: 'Structured community forums where families share experiences and seek guidance.' },
     { icon: Mic,           title: 'Seminars',             body: 'Expert-led seminars on marriage, parenting, and family law in Pakistan.' },
-    { icon: Heart,         title: 'Counselling Sessions', body: 'One-on-one and group counselling for pre-marital, marital, and post-marital matters.' },
     { icon: GraduationCap, title: 'Training Workshops',   body: 'Empowerment workshops specifically designed for girls and women.' },
   ];
 
@@ -92,15 +91,6 @@ export default function About() {
     { icon: Activity, title: 'Medical Assistance',   body: 'Financial and logistical medical support for deserving individuals who cannot access healthcare independently.' },
     { icon: Heart,    title: 'Nikah Support',        body: 'Material and financial support to deserving families for dignified, simple Nikah ceremonies.' },
     { icon: Package,  title: 'Essential Provisions', body: 'Provision of essential household and daily-life items to families and individuals in genuine need.' },
-  ];
-
-  const consultation = [
-    { icon: Heart,         title: 'Pre-Marital Counselling',  body: 'Preparing individuals and families for marriage with realistic expectations and Islamic guidance.' },
-    { icon: MessageCircle, title: 'Post-Marital Counselling', body: 'Ongoing support for couples navigating the realities of married and family life.' },
-    { icon: Brain,         title: 'Psychological Guidance',   body: 'Professional support for mental and emotional challenges within the family context.' },
-    { icon: Scale,         title: 'Conflict Resolution',      body: 'Structured, neutral mediation for marital conflicts — focused on reconciliation and stability.' },
-    { icon: Phone,         title: 'Legal Guidance',           body: 'Access to legal information on marriage, divorce, custody, and inheritance rights.' },
-    { icon: Users,         title: 'Family Mediation',         body: 'Multi-party facilitation for extended family disputes, dowry issues, and inheritance conflicts.' },
   ];
 
   const publications = [
@@ -334,33 +324,13 @@ export default function About() {
             <SectionHead
               eyebrow="Community Care"
               title="Welfare Services"
-              body="Beyond education and counselling, FKC provides direct material support to those who need it most."
+              body="Beyond education, FKC provides direct material support to those who need it most."
             />
           </div>
           <div className="grid sm:grid-cols-3 gap-6">
             {welfare.map((w, i) => (
               <RevealWrapper key={w.title} delay={i * 80}>
                 <IconCard icon={w.icon} title={w.title} body={w.body} accent/>
-              </RevealWrapper>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Consultation ── */}
-      <section aria-labelledby="consult-heading" className="py-24 bg-[#FDF8F3]">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="mb-14">
-            <SectionHead
-              eyebrow="Expert Guidance"
-              title="Consultation & Counselling"
-              body="Professional, compassionate guidance across every stage of family life — from pre-marital preparation to conflict resolution."
-            />
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {consultation.map((c, i) => (
-              <RevealWrapper key={c.title} delay={i * 70}>
-                <IconCard icon={c.icon} title={c.title} body={c.body}/>
               </RevealWrapper>
             ))}
           </div>
@@ -452,13 +422,6 @@ export default function About() {
                                  shadow-[0_4px_24px_rgba(217,119,6,0.4)]
                                  hover:shadow-[0_6px_32px_rgba(217,119,6,0.5)] hover:-translate-y-0.5">
                   Register Free
-                </span>
-              </Link>
-              <Link href="/counselling">
-                <span className="cursor-pointer inline-block px-9 py-4 rounded-2xl font-bold text-lg
-                                 border-2 border-white/30 text-white
-                                 hover:bg-white/10 hover:border-white/50 transition-all">
-                  Book Counselling
                 </span>
               </Link>
             </div>

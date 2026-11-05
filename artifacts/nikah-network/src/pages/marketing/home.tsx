@@ -138,18 +138,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Counselling Teaser */}
-      <section className="py-20 bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4 text-center max-w-3xl">
-          <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6">Pre & Post Marriage Counselling</h2>
-          <p className="text-lg mb-8 opacity-90">
-            Marriage is a journey. We provide professional counselling services to help you build a strong foundation and navigate challenges together.
-          </p>
-          <Link href="/counselling">
-            <Button variant="secondary" size="lg" className="text-primary font-medium">Learn About Counselling</Button>
-          </Link>
-        </div>
-      </section>
     </div>
   );
 }
