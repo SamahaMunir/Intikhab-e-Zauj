@@ -3,11 +3,11 @@
  * Endpoint map (verified against frontend usage):
  *   POST /auth/register             — LIVE — Caller: components/UserAuthModal.tsx
  *   POST /auth/verify-email         — LIVE — Caller: pages/verify-email.tsx
- *   POST /auth/resend-verification  — uncalled by FE. The FE link
- *                                     `/resend-verification` (verify-email.tsx)
- *                                     points to a page route that does NOT exist
- *                                     in App.tsx → broken link. Fix the link or
- *                                     remove this endpoint.
+ *   POST /auth/resend-verification  — LIVE — Caller: pages/verify-email.tsx
+ *                                     ("Resend link" button's onClick handler
+ *                                     fetches this directly; not a page route,
+ *                                     so a route-based check wrongly read it as
+ *                                     dead before).
  * Sibling verify flow: auth-simple.ts /auth/verify-auto (auto/dev variant).
  */
 import { Router, Request, Response } from 'express';

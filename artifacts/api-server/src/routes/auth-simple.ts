@@ -1,7 +1,6 @@
 /**
  * AUTH-SIMPLE ROUTES — mounted at /auth (see src/index.ts). Quick/dev auth.
  * Endpoint map (verified against frontend usage):
- *   POST /auth/register-simple        — DEAD — no source caller. Safe to remove.
  *   POST /auth/verify-auto            — LIVE — Caller: pages/verify-auto.tsx
  *                                       (auto-verify → profile wizard).
  *   GET  /auth/test-verification-link — LIVE but DEV/TEST ONLY. Caller:
@@ -12,114 +11,10 @@
  * Real (non-dev) flows live in register.ts (register/verify-email).
  */
 import { Router, Request, Response } from 'express';
-import { ObjectId } from 'mongodb';
 import { getDatabase } from '../db/connection';
 import { generateToken, JWTPayload } from '../utils/jwt';
-import { hashPassword, generateVerificationToken, getTokenExpiryTime } from '../utils/password';
-import { sendSimpleVerificationEmail } from '../utils/email';
-import { logAudit } from '../db/auditLogs';
 
 const router = Router();
-
-/**
- * POST /auth/register-simple
- * Quick registration - Email & Password only
- */
-router.post('/register-simple', async (req: Request, res: Response) => {
-  try {
-    const { email, password, passwordConfirm } = req.body;
-
-    // ✅ VALIDATE
-    if (!email || !password || !passwordConfirm) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Email and password required',
-      });
-    }
-
-    if (password !== passwordConfirm) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Passwords do not match',
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'Password must be at least 6 characters',
-      });
-    }
-
-    const db = await getDatabase();
-    const usersCollection = db.collection('users');
-
-    // ✅ CHECK DUPLICATE EMAIL
-    const existingUser = await usersCollection.findOne({ email });
-
-    if (existingUser) {
-      return res.status(409).json({
-        error: 'Email already registered',
-        message: 'Please use a different email or login',
-      });
-    }
-
-    // ✅ CREATE USER
-    const verificationToken = generateVerificationToken();
-    const tokenExpiry = getTokenExpiryTime();
-
-    const newUser = {
-      _id: new ObjectId(),
-      email,
-      password: hashPassword(password),
-      role: 'applicant',
-      
-      // ✅ Email verification
-      emailVerified: false,
-      verificationToken,
-      verificationTokenExpiry: tokenExpiry,
-      
-      // ✅ Profile tracking (NEW - no approval needed)
-      profileCompletion: 0, // 0%, 25%, 50%, 75%, 100%
-      profileCompletedAt: null,
-      
-      // ✅ Payment tracking (NEW)
-      paymentStatus: 'pending', // pending, completed
-      paymentAmount: 4000, // PKR
-      paymentDate: null,
-      paymentTransactionId: null,
-      
-      // ✅ Timestamps
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      active: true,
-    };
-
-    await usersCollection.insertOne(newUser);
-    console.log(`✅ User registered: ${email}`);
-
-    // ✅ SEND VERIFICATION EMAIL
-    const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5175'}/verify-auto?token=${verificationToken}&email=${email}`;
-    const emailSent = await sendSimpleVerificationEmail(email, verificationLink);
-
-    return res.status(201).json({
-      success: true,
-      message: 'Registration successful! Check your email to verify.',
-      user: {
-        _id: newUser._id.toString(),
-        email: newUser.email,
-        role: 'applicant',
-      },
-      emailSent,
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    return res.status(500).json({
-      error: 'Registration failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
 
 /**
  * POST /auth/verify-auto
