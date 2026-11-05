@@ -65,3 +65,6 @@ add-user-profile.js
 
 # Raw client planning docs (names real org, stale vs actual build)
 attached_assets/
+
+# Personal/local scratch work — never belongs in a public repo
+scratchpad/
