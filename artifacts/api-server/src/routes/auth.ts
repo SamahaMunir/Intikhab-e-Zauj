@@ -5,8 +5,6 @@
  *                        components/StaffAuthModal.tsx
  *   POST /auth/logout  — unused by FE (it just clears localStorage); kept as a
  *                        harmless convention.
- *   GET  /auth/me      — DEAD — no caller. FE uses /auth/whoami (user-auth.ts)
- *                        and /api/profile/me instead. Safe to remove.
  * Related auth files: user-auth.ts (applicant login/whoami), register.ts
  * (register/verify), auth-simple.ts (auto-verify/dev). NOTE: /auth/login and
  * user-auth's /auth/login-user now delegate to ONE shared lib/authenticate.ts —
@@ -50,23 +48,6 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
  */
 router.post('/logout', (_req: Request, res: Response): void => {
   res.json({ success: true, message: 'Logged out successfully' });
-});
-
-/**
- * GET /auth/me — lightweight token-presence check.
- */
-router.get('/me', (req: Request, res: Response): void => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    res.status(401).json({ error: 'Unauthorized', message: 'No token provided' });
-    return;
-  }
-  const token = authHeader.split(' ')[1];
-  if (!token) {
-    res.status(401).json({ error: 'Unauthorized', message: 'Invalid token format' });
-    return;
-  }
-  res.json({ success: true, message: 'Token is valid' });
 });
 
 export default router;
