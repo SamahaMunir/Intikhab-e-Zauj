@@ -1,0 +1,325 @@
+<title>Intikhab-e-Zauj Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F4EC;
+    --surface:#FFFFFF;
+    --surface-2:#F1EDE1;
+    --ink:#16241C;
+    --ink-soft:#42544A;
+    --muted:#7A8479;
+    --line:#E2DBCB;
+    --line-strong:#D2C9B4;
+    --green:#1F5C43;
+    --green-deep:#123B2C;
+    --green-soft:#E4EDE7;
+    --gold:#BE9333;
+    --gold-soft:#F3E9CF;
+    --radius:16px;
+    --maxw:820px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#111814;
+      --surface:#18211C;
+      --surface-2:#1E2823;
+      --ink:#ECF1EC;
+      --ink-soft:#B4C1B8;
+      --muted:#8A968C;
+      --line:#2A352E;
+      --line-strong:#39463E;
+      --green:#5FB68F;
+      --green-deep:#8FD4B0;
+      --green-soft:#1B2C24;
+      --gold:#E0B458;
+      --gold-soft:#2A2416;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#111814;
+    --surface:#18211C;
+    --surface-2:#1E2823;
+    --ink:#ECF1EC;
+    --ink-soft:#B4C1B8;
+    --muted:#8A968C;
+    --line:#2A352E;
+    --line-strong:#39463E;
+    --green:#5FB68F;
+    --green-deep:#8FD4B0;
+    --green-soft:#1B2C24;
+    --gold:#E0B458;
+    --gold-soft:#2A2416;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Nunito",system-ui,-apple-system,sans-serif;
+    font-size:18px;line-height:1.65;font-weight:450;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px;}
+  h1,h2,h3{font-family:"Amiri",Georgia,serif;font-weight:700;line-height:1.15;margin:0;text-wrap:balance;}
+  p{margin:0 0 14px;}
+  strong{font-weight:700;color:var(--ink);}
+  .ru{color:var(--muted);font-style:italic;font-size:.92em;}
+
+  /* Header */
+  header{
+    background:
+      radial-gradient(130% 90% at 90% -20%, rgba(190,147,51,.18), transparent 55%),
+      linear-gradient(165deg,var(--green-deep),#0d2c20);
+    color:#F3EFE2;padding:52px 0 46px;border-bottom:4px solid var(--gold);
+  }
+  .badge{
+    display:inline-block;font-family:"Nunito",sans-serif;font-weight:700;
+    font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:#EBD9A6;border:1px solid rgba(235,217,166,.4);
+    padding:6px 13px;border-radius:999px;margin-bottom:20px;
+  }
+  header h1{font-size:clamp(2.6rem,8vw,4rem);color:#FBF8EF;}
+  header .arabic{font-size:clamp(1.5rem,5vw,2rem);color:var(--gold);margin-bottom:6px;font-weight:400;}
+  header .tag{font-family:"Nunito",sans-serif;font-weight:500;font-size:clamp(1.05rem,2.6vw,1.3rem);color:#E4DDCB;max-width:44ch;margin-top:14px;line-height:1.4;}
+  .header-meta{margin-top:26px;display:flex;flex-wrap:wrap;gap:10px;}
+  .chip{background:rgba(243,239,226,.1);border:1px solid rgba(243,239,226,.16);border-radius:10px;padding:9px 15px;font-size:14px;font-weight:600;color:#F0EAD8;}
+  .chip b{color:var(--gold);}
+
+  /* Sections */
+  section{padding:44px 0;border-bottom:1px solid var(--line);}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:9px;
+    font-family:"Nunito",sans-serif;font-weight:700;font-size:12.5px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:12px;
+  }
+  .eyebrow .n{color:var(--muted);}
+  h2{font-size:clamp(1.7rem,4.2vw,2.3rem);color:var(--ink);margin-bottom:8px;}
+  .lede{font-size:1.12rem;color:var(--ink-soft);max-width:62ch;margin-bottom:8px;}
+
+  /* Feature cards */
+  .grid{display:grid;gap:15px;margin-top:24px;}
+  .g2{grid-template-columns:1fr 1fr;}
+  @media(max-width:640px){.g2{grid-template-columns:1fr;}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 21px;}
+  .card .ic{width:42px;height:42px;border-radius:11px;background:var(--green-soft);color:var(--green);display:grid;place-items:center;margin-bottom:13px;}
+  .card .ic svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.8;}
+  .card h3{font-size:1.28rem;margin-bottom:5px;}
+  .card p{font-size:15px;color:var(--ink-soft);margin:0;}
+
+  /* Difference list */
+  .diff{margin-top:22px;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+  .diff-row{display:flex;gap:16px;align-items:flex-start;padding:17px 20px;background:var(--surface);}
+  .diff-row:nth-child(even){background:var(--surface-2);}
+  .diff-row .k{flex:0 0 42%;font-family:"Amiri",serif;font-weight:700;font-size:1.12rem;color:var(--green);}
+  .diff-row .v{flex:1;font-size:15px;color:var(--ink-soft);}
+  @media(max-width:640px){.diff-row{flex-direction:column;gap:4px;}.diff-row .k{flex:none;}}
+
+  /* Flow / how it works */
+  .flow{margin-top:22px;display:grid;gap:16px;}
+  .flow-col{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px 22px 8px;}
+  .flow-col .head{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
+  .flow-col .head .dot{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-weight:800;color:#fff;font-size:15px;}
+  .flow-col.fam .dot{background:var(--green);}
+  .flow-col.stf .dot{background:var(--gold);color:#3a2c08;}
+  .flow-col .head h3{font-size:1.3rem;}
+  ol.steps{counter-reset:s;list-style:none;margin:0;padding:0;}
+  ol.steps li{position:relative;padding:0 0 15px 40px;font-size:16px;color:var(--ink-soft);}
+  ol.steps li:last-child{padding-bottom:6px;}
+  ol.steps li::before{
+    counter-increment:s;content:counter(s);position:absolute;left:0;top:-1px;
+    width:27px;height:27px;border-radius:50%;background:var(--green-soft);color:var(--green);
+    font-family:"Nunito",sans-serif;font-weight:800;font-size:14px;display:grid;place-items:center;
+  }
+  .flow-col.stf ol.steps li::before{background:var(--gold-soft);color:var(--gold);}
+  ol.steps b{color:var(--ink);}
+
+  /* Training big steps */
+  .train{margin-top:22px;display:flex;flex-direction:column;gap:13px;}
+  .task{display:flex;gap:18px;align-items:flex-start;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);padding:19px 21px;}
+  .task .num{flex:0 0 auto;width:44px;height:44px;border-radius:12px;background:var(--green);color:#fff;font-family:"Amiri",serif;font-weight:700;font-size:1.4rem;display:grid;place-items:center;}
+  .task .body h3{font-size:1.3rem;margin-bottom:3px;}
+  .task .body p{font-size:15.5px;color:var(--ink-soft);margin:0;}
+
+  /* Callout */
+  .callout{margin-top:24px;background:var(--gold-soft);border:1px solid var(--line-strong);border-left:5px solid var(--gold);border-radius:0 var(--radius) var(--radius) 0;padding:20px 23px;}
+  .callout h3{font-size:1.25rem;margin-bottom:7px;color:var(--ink);}
+  .callout p{font-size:15.5px;color:var(--ink-soft);margin:0;}
+
+  /* Rules list */
+  ul.rules{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:12px;}
+  ul.rules li{position:relative;padding-left:34px;font-size:16.5px;color:var(--ink-soft);}
+  ul.rules li::before{content:"✓";position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;font-weight:800;display:grid;place-items:center;}
+  ul.rules b{color:var(--ink);}
+
+  footer{background:var(--green-deep);color:#E4DDCB;padding:38px 0;}
+  :root:not([data-theme="light"]) footer,:root[data-theme="dark"] footer{background:#0d1712;}
+  footer .msg{font-family:"Amiri",serif;font-size:1.35rem;color:#FBF8EF;max-width:40ch;line-height:1.35;}
+  footer .msg .g{color:var(--gold);}
+  footer .fine{font-size:14px;color:#AEB8AC;margin-top:16px;}
+  footer .fine b{color:#E4DDCB;}
+</style>
+
+<header>
+  <div class="wrap">
+    <span class="badge">Launch &amp; Staff Guide</span>
+    <div class="arabic">انتخابِ زوج</div>
+    <h1>Intikhab-e-Zauj</h1>
+    <p class="tag">A guided, staff-mediated matrimonial platform built for Falah Khandan Center — bringing our matchmaking online, with trust and modesty at its heart.</p>
+    <div class="header-meta">
+      <span class="chip">For <b>Falah Khandan Center</b></span>
+      <span class="chip">Website: <b>intikhab-e-zauj.org</b></span>
+      <span class="chip">Guide for <b>staff &amp; team</b></span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- INTRO -->
+<section>
+  <div class="wrap">
+    <span class="eyebrow">What this is</span>
+    <h2>The same trusted matchmaking — now online.</h2>
+    <p class="lede">For years the Center has helped families find suitable rishtas by hand — on paper, through trusted staff. Intikhab-e-Zauj takes that exact process and puts it on a website, so we can help more families, keep records safely, and never lose the human trust that makes our work special.</p>
+    <p class="lede">Nothing about our values changes. Staff still review every profile, still guide every proposal. The website simply makes the work faster, safer, and easier to manage.</p>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section>
+  <div class="wrap">
+    <span class="eyebrow">What it does</span>
+    <h2>Everything the Center does, in one place.</h2>
+    <div class="grid g2">
+      <div class="card">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div>
+        <h3>Verified profiles</h3>
+        <p>Every applicant's profile is reviewed and approved by staff before anyone can see it. No fake or unchecked profiles.</p>
+      </div>
+      <div class="card">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg></div>
+        <h3>Smart matching</h3>
+        <p>The system suggests compatible profiles using a clear 100-point score — caste, family, education, and preferences. Staff always review before forwarding.</p>
+      </div>
+      <div class="card">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Privacy for women</h3>
+        <p>A woman's photo stays hidden (blurred) until <em>she</em> shows interest. Only then is it shown, and only to that one family.</p>
+      </div>
+      <div class="card">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></div>
+        <h3>Guided proposals</h3>
+        <p>When both sides are interested, staff forward the proposal and connect the families — a supervised, respectful conversation.</p>
+      </div>
+      <div class="card">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5L12 21l-5-2.9 1-5.5-4-3.9 5.5-.8z"/></svg></div>
+        <h3>Counselling</h3>
+        <p>Families can request pre- and post-marriage counselling directly, and staff assign a counsellor.</p>
+      </div>
+      <div class="card">
+        <div class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></div>
+        <h3>Secure payments</h3>
+        <p>The yearly fee is paid safely online or by bank transfer, then verified by staff — all recorded in one place.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW DIFFERENT -->
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Why it is different</span>
+    <h2>Not like the other apps.</h2>
+    <p class="lede">Most matchmaking apps just put two strangers in a chat and walk away. Ours is built the way our families actually want it.</p>
+    <div class="diff">
+      <div class="diff-row"><div class="k">Staff stay in the loop</div><div class="v">A trained person reviews every profile and guides every proposal — just like a traditional rishta, but organised and able to help many more families.</div></div>
+      <div class="diff-row"><div class="k">Modesty &amp; Islamic values</div><div class="v">Built around our values from the start — privacy, family involvement, and respectful, supervised communication.</div></div>
+      <div class="diff-row"><div class="k">Women's privacy protected</div><div class="v">Photos are never shown openly. They stay hidden until the woman herself agrees — a protection almost no other platform offers.</div></div>
+      <div class="diff-row"><div class="k">Clear, honest matching</div><div class="v">The compatibility score can be explained to any family — no hidden "algorithm," nothing forced. Families always decide.</div></div>
+      <div class="diff-row"><div class="k">Made for us</div><div class="v">In our language, our pricing, our context — not a foreign app that doesn't understand desi families.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section>
+  <div class="wrap">
+    <span class="eyebrow">How the website works</span>
+    <h2>Two sides working together.</h2>
+    <p class="lede">Families use one side of the website; our staff manage everything from the other. Here is the full journey, start to finish.</p>
+    <div class="flow">
+      <div class="flow-col fam">
+        <div class="head"><span class="dot">A</span><h3>The family's side</h3></div>
+        <ol class="steps">
+          <li><b>Register &amp; pay</b> the yearly fee to join.</li>
+          <li><b>Complete the profile</b> — details, preferences, and a photo.</li>
+          <li><b>Wait for approval</b> — staff check the profile first.</li>
+          <li><b>See suggested matches</b> once approved.</li>
+          <li><b>Show interest</b> in a profile they like.</li>
+          <li><b>Talk, once connected</b> — a supervised conversation after both sides agree.</li>
+        </ol>
+      </div>
+      <div class="flow-col stf">
+        <div class="head"><span class="dot">B</span><h3>Our staff's side</h3></div>
+        <ol class="steps">
+          <li><b>Review new profiles</b> and approve or reject them.</li>
+          <li><b>Check the suggested matches</b> the system creates.</li>
+          <li><b>Forward good proposals</b> to the other family.</li>
+          <li><b>Watch over the conversation</b> to keep it respectful.</li>
+          <li><b>Connect the families</b> when both are interested.</li>
+          <li><b>Handle counselling &amp; payments</b> as requests come in.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STAFF TRAINING -->
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Staff training <span class="n">— the daily tasks</span></span>
+    <h2>The few things you will do every day.</h2>
+    <p class="lede">You don't need to understand the whole system. Learn these tasks well and you can run everything. Take your time — practise each one until it feels easy.</p>
+    <div class="train">
+      <div class="task"><div class="num">1</div><div class="body"><h3>Log in</h3><p>Open the website and sign in with your own staff account. <span class="ru">Apna account use karein — kisi aur ko password na batayein.</span></p></div></div>
+      <div class="task"><div class="num">2</div><div class="body"><h3>Review a new profile</h3><p>Open a pending profile, read the details, then <strong>Approve</strong> or <strong>Reject</strong>. Check the details look real and complete first.</p></div></div>
+      <div class="task"><div class="num">3</div><div class="body"><h3>View profiles &amp; matches</h3><p>Open any profile to see its details and the compatible matches the system suggests.</p></div></div>
+      <div class="task"><div class="num">4</div><div class="body"><h3>Forward a proposal</h3><p>When a match looks good, send (forward) the proposal to the other family through the system.</p></div></div>
+      <div class="task"><div class="num">5</div><div class="body"><h3>Watch the messages</h3><p>Keep an eye on the conversation between families and make sure it stays respectful.</p></div></div>
+      <div class="task"><div class="num">6</div><div class="body"><h3>Connect the families</h3><p>When both sides are interested, contact both families to take things forward. <span class="ru">Dono ghar raazi hon to aage baat karwayein.</span></p></div></div>
+      <div class="task"><div class="num">7</div><div class="body"><h3>Counselling &amp; payments</h3><p>Assign a counsellor when someone requests it, and confirm a payment once you have verified it.</p></div></div>
+    </div>
+    <div class="callout">
+      <h3>If you get stuck</h3>
+      <p>It's completely normal at first. Don't worry about breaking anything — nothing is deleted by accident. If you're unsure about any step, call for help before continuing. <span class="ru">Ghabrayein nahi — pehle poochein, phir karein.</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- POINTS FOR ALL -->
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Points for everyone</span>
+    <h2>Keeping families' trust safe.</h2>
+    <p class="lede">Families trust us with private information. These simple rules protect them — and us.</p>
+    <ul class="rules">
+      <li><b>Keep your login private.</b> Never share your password or let someone else use your account.</li>
+      <li><b>Check before you approve.</b> A careful look at each profile keeps the platform honest.</li>
+      <li><b>Never share photos or contacts</b> outside the system. Especially women's photos — this is the whole promise we make.</li>
+      <li><b>Be respectful and confidential.</b> Everything you see is private family information. It stays between the family and the Center.</li>
+      <li><b>When in doubt, ask.</b> A quick question is always better than a wrong action.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="msg">Helping families find <span class="g">barakah</span> — with trust, modesty, and care.</p>
+    <p class="fine"><b>Intikhab-e-Zauj</b> · Falah Khandan Center · Launch guide for staff and team.</p>
+  </div>
+</footer>

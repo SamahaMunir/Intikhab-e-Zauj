@@ -62,3 +62,6 @@ structure.txt
 body.json
 *.scratch.*
 add-user-profile.js
+
+# Raw client planning docs (names real org, stale vs actual build)
+attached_assets/
