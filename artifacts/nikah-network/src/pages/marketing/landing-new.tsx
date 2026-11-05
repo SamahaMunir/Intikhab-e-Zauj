@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import {
   Shield, CheckCircle2, BarChart3, Star, Heart, Leaf, Users, MapPin,
   FileText, Eye, Sparkles, Send, MessageCircle, Lock, Clock,
-  TrendingUp, Calculator, AlertCircle, Check, Award, Menu, X,
+  TrendingUp, Calculator, AlertCircle, Check, Menu, X,
   Phone, Mail, ChevronDown,
 } from 'lucide-react';
 
@@ -325,6 +325,11 @@ function Hero() {
           </button>
         </div>
 
+        {/* Free-until-milestone note */}
+        <p className="mt-6 text-white/55 text-sm font-medium">
+          Free to join — until our first 100 members
+        </p>
+
         {/* Scroll indicator */}
         <div className="mt-20 flex justify-center">
           <button
@@ -346,9 +351,9 @@ function Hero() {
 function TrustBar() {
   const items = [
     { icon: Shield,      label: '100% Staff-Reviewed'        },
-    { icon: Users,       label: '900+ Profiles Approved'     },
-    { icon: Star,        label: '300+ Success Stories'       },
-    { icon: CheckCircle2,label: 'PKR 4,000 / Year — No Hidden Fees' },
+    { icon: Users,       label: 'Transparent Weighted Matching' },
+    { icon: Star,        label: 'Privacy-First by Design'    },
+    { icon: CheckCircle2,label: 'Free — No Hidden Fees'       },
   ];
   return (
     <section id="trust" aria-label="Trust indicators"
@@ -394,7 +399,7 @@ function ValueProps() {
       icon: Users,
       label: '04',
       title: 'Accessible & Affordable',
-      desc: 'PKR 4,000/year. Walk-in staff assistance for those who need it. Our team can fill your profile for you — no tech experience required.',
+      desc: 'Free during our founding phase. Simple, guided registration — no tech experience required.',
     },
   ];
 
@@ -807,13 +812,13 @@ function Pricing() {
     <section aria-labelledby="pricing-heading" className="py-24 bg-white">
       <div className="max-w-5xl mx-auto px-6">
         <RevealWrapper className="text-center mb-12">
-          <p className="font-amiri text-[#D97706] text-lg mb-2 tracking-wide">Simple & Transparent</p>
+          <p className="font-amiri text-[#D97706] text-lg mb-2 tracking-wide">Founding Members</p>
           <h2 id="pricing-heading" className="text-4xl font-bold text-[#1C1917] mb-4">
-            One Plan. No Surprises.
+            Free to Join. No Surprises.
           </h2>
           <p className="text-lg text-stone-500 max-w-xl mx-auto">
-            While competitors charge PKR 10,000–50,000, we believe matrimonial services
-            should be accessible to every family.
+            While competitors charge PKR 10,000–50,000, we're free for our first 100 members —
+            matrimonial services should be accessible to every family.
           </p>
         </RevealWrapper>
 
@@ -825,13 +830,11 @@ function Pricing() {
               <GeoPattern id="pricing-geo" opacity={0.08}/>
               <div className="relative z-10">
                 <span className="inline-block px-4 py-1.5 rounded-full bg-white/20 text-white text-sm
-                                 font-semibold mb-4">Annual Subscription</span>
+                                 font-semibold mb-4">Founding Member Access</span>
                 <div className="flex items-end justify-center gap-2">
-                  <span className="text-white/60 text-xl font-semibold">PKR</span>
-                  <span className="font-amiri text-6xl font-bold text-white leading-none">4,000</span>
-                  <span className="text-white/60 text-xl font-semibold mb-1">/year</span>
+                  <span className="font-amiri text-6xl font-bold text-white leading-none">Free</span>
                 </div>
-                <p className="text-white/60 text-sm mt-2">≈ PKR 333/month · Billed annually</p>
+                <p className="text-white/60 text-sm mt-2">Until our first 100 members</p>
               </div>
             </div>
 
@@ -857,7 +860,7 @@ function Pricing() {
                 </span>
               </Link>
               <p className="text-center text-sm text-stone-400 mt-3">
-                Explore for 7 days · Pay when you are ready
+                No payment required during our founding phase
               </p>
             </div>
           </div>
@@ -867,8 +870,8 @@ function Pricing() {
         <RevealWrapper delay={100} className="mt-8 text-center">
           <p className="text-sm text-stone-400">
             Competitors charge <span className="line-through text-stone-300">PKR 10,000–50,000</span>.
-            We charge <strong className="text-[#10B981]">PKR 4,000</strong> because matrimonial services
-            should be accessible to every family — not just the wealthy.
+            We're <strong className="text-[#10B981]">free</strong> for our first 100 members
+            because matrimonial services should be accessible to every family — not just the wealthy.
           </p>
         </RevealWrapper>
       </div>
@@ -881,10 +884,10 @@ function Pricing() {
 // ═════════════════════════════════════════════════════════════════════════════
 function Stats() {
   const items = [
-    { icon: Heart,       value: '300+',   label: 'Success Stories'   },
-    { icon: Users,       value: '900+',   label: 'Profiles Reviewed' },
-    { icon: Award,       value: '10+',    label: 'Years of Service'  },
-    { icon: Shield,      value: '100%',   label: 'Staff-Mediated'    },
+    { icon: Sparkles,    value: 'Founding', label: 'Member Access'   },
+    { icon: Shield,      value: '100%',     label: 'Staff-Mediated'  },
+    { icon: Lock,        value: 'Privacy',  label: 'By Design'       },
+    { icon: Heart,       value: 'Free',     label: 'To Join Now'     },
   ];
 
   return (
@@ -897,13 +900,13 @@ function Stats() {
         <RevealWrapper className="text-center mb-14">
           <div className="inline-block px-5 py-2 rounded-full bg-white/12 border border-white/20
                           text-white font-semibold text-sm mb-5 backdrop-blur-sm">
-            Serving Families Across Lahore
+            Building Something New in Lahore
           </div>
           <h2 id="stats-heading" className="text-4xl font-bold text-white mb-4">
-            A Community We're Proud to Serve
+            Be Part of Our First Community
           </h2>
           <p className="text-xl text-white/65 max-w-2xl mx-auto">
-            Staff-reviewed. Community-driven. Rooted in Islamic values.
+            Staff-reviewed. Privacy-first. Rooted in Islamic values.
           </p>
         </RevealWrapper>
 
