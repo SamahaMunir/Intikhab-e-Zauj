@@ -68,3 +68,18 @@ attached_assets/
 
 # Personal/local scratch work — never belongs in a public repo
 scratchpad/
+
+# Claude conversation/notebook-generated notes (noteId frontmatter) — not
+# hand-authored docs, stay local only. docs/PAYMENTS_SAFEPAY.md has no
+# noteId and is excluded on purpose.
+docs/ARCHITECTURE.md
+docs/FACE_DETECTION_FIX_SUMMARY.md
+docs/FEATURE_CHECKLIST.md
+docs/IMPLEMENTATION_REPORT.md
+docs/KNOWN_ISSUES.md
+docs/SMS_SETUP.md
+docs/TESTING_GUIDE.md
+docs/TRACE_send_proposal.md
+docs/USER_JOURNEYS.md
+docs/VERIFICATION.md
+docs/VERIFICATION_COMPLETE.md
