@@ -69,6 +69,11 @@ attached_assets/
 # Personal/local scratch work — never belongs in a public repo
 scratchpad/
 
+# Bundled portable Node runtime (112MB, GitHub flags node.exe as oversized).
+# dev.mjs already falls back to process.execPath when this is missing, so it
+# was always optional, not a real dependency.
+.tools/
+
 # Claude conversation/notebook-generated notes (noteId frontmatter) — not
 # hand-authored docs, stay local only. docs/PAYMENTS_SAFEPAY.md has no
 # noteId and is excluded on purpose.
