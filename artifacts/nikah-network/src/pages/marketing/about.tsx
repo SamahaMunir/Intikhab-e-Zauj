@@ -1,7 +1,6 @@
 import { Link } from 'wouter';
 import {
-  Shield, Heart, Users, BookOpen, MessageCircle,
-  Home, Star, GraduationCap, Scale, Check, ChevronRight,
+  Shield, Heart, Users, Scale, Check, ChevronRight,
 } from 'lucide-react';
 import {
   PublicNavbar, PublicFooter, GeoPattern, RevealWrapper, LogoMark,
@@ -45,15 +44,10 @@ function NumberCard({ n, icon: Icon, title, body }: {
 // ═════════════════════════════════════════════════════════════════════════════
 export default function About() {
   const objectives = [
-    { icon: Home,          title: 'Family as Foundation',      body: 'Highlight the importance of family in Pakistani society and its role in building a stable community.' },
-    { icon: Users,         title: 'Address Family Challenges', body: 'Identify and respond to the real challenges families face in modern Pakistani society.' },
-    { icon: Scale,         title: 'Discourage Dowry',          body: 'Actively discourage dowry and un-Islamic wedding practices that burden families financially and socially.' },
-    { icon: Heart,         title: 'Facilitate Nikah',          body: 'Support and facilitate Nikah according to Islamic values — simple, dignified, free from extravagance.' },
-    { icon: Shield,        title: 'Joint Family Support',      body: 'Help families navigate challenges within joint family systems with compassion and Islamic guidance.' },
-    { icon: GraduationCap, title: "Children's Development",    body: 'Support the education and holistic development of children as future pillars of society.' },
-    { icon: MessageCircle, title: 'Domestic Violence',         body: 'Promote awareness of domestic violence, oppression, and harmful behaviors, and support families in addressing them responsibly.' },
-    { icon: Star,          title: 'Respect for Elders',        body: 'Promote respect, care, and dignified treatment for elderly family members as an Islamic duty.' },
-    { icon: BookOpen,      title: 'Moral Development',         body: 'Encourage stronger family relationships, ethical conduct, and moral growth rooted in Islamic principles.' },
+    { icon: Heart,  title: 'Facilitate Nikah',       body: 'Support and facilitate Nikah according to Islamic values — simple, dignified, free from extravagance.' },
+    { icon: Scale,  title: 'Discourage Dowry',       body: 'Actively discourage dowry and un-Islamic wedding practices that burden families financially and socially.' },
+    { icon: Users,  title: 'Family Involvement',     body: 'Keep families part of the process at every stage, from first proposal to the final family meeting.' },
+    { icon: Shield, title: 'Privacy & Dignity',      body: 'Staff-reviewed profiles, moderated Q&A instead of open chat — no exposure, no shortcuts.' },
   ];
 
   const islamicValues = ['Tawheed', 'Knowledge', 'Justice', 'Equity', 'Kindness', 'Honesty', 'Patience', 'Accountability'];
@@ -169,7 +163,7 @@ export default function About() {
             <SectionHead
               eyebrow="What We Stand For"
               title="Our Objectives"
-              body="Nine guiding principles that shape every program, service, and initiative at Intikhab-e-Zauj."
+              body="Four principles that shape how Intikhab-e-Zauj works."
             />
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
